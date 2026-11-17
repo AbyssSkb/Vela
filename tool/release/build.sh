@@ -51,7 +51,10 @@ case "$PLATFORM" in
     fi
     ;;
   windows)
-    flutter build windows --release "${defines[@]}"
+    if ! flutter build windows --release "${defines[@]}"; then
+      cmake --install build/windows/x64 --config Release --verbose || true
+      exit 1
+    fi
     for dll in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do
       test -s "build/windows/x64/runner/Release/$dll"
     done

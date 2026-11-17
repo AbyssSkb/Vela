@@ -6,7 +6,8 @@ target_compile_features(vela_updater_helper PRIVATE cxx_std_17)
 set_property(TARGET vela_updater_helper PROPERTY MSVC_RUNTIME_LIBRARY
   "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 target_link_libraries(vela_updater_helper PRIVATE bcrypt shell32 ole32)
-install(TARGETS vela_updater_helper RUNTIME DESTINATION "." COMPONENT Runtime)
+install(TARGETS vela_updater_helper
+  RUNTIME DESTINATION "$<TARGET_FILE_DIR:${BINARY_NAME}>" COMPONENT Runtime)
 
 add_executable(vela_updater_test EXCLUDE_FROM_ALL
   "updater_test.cpp" "updater_files.cpp")

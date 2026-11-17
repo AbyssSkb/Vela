@@ -115,7 +115,10 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: python tool/release/android_signing.py
+        run: |
+          python tool/release/android_signing.py
+          keytool -list -keystore android/release.keystore -storetype PKCS12 \
+            -alias "$ANDROID_KEY_ALIAS" -storepass:env ANDROID_KEYSTORE_PASSWORD > /dev/null
       - name: Build and package
         env:
           VERSION: ${{ steps.version.outputs.version }}
