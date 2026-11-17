@@ -6,9 +6,8 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
 
-from feeds import SPARKLE, generate, public_key, required_artifacts
+from feeds import generate, public_key, required_artifacts
 from android_signing import configure
 from version import read_version
 
@@ -106,7 +105,7 @@ class ReleaseTests(unittest.TestCase):
                          "Vela-1.2.3-macos-arm64.dmg", "Vela-1.2.3-macos-x64.dmg"]:
                 (artifacts / name).write_bytes(b"fixture-" + name.encode())
             generate(artifacts, feeds, key, "owner/Vela", version)
-            for target in ("android-arm64", "linux-x64", "windows-x64"):
+            for target in required_artifacts('1.2.3'):
                 envelope = json.loads((feeds / f"{target}.json").read_text())
                 payload = base64.b64decode(envelope["payload"])
                 document = json.loads(payload)
@@ -114,11 +113,9 @@ class ReleaseTests(unittest.TestCase):
                 self.assertTrue(document["url"].startswith("https://github.com/owner/Vela/releases/download/v1.2.3/"))
                 self.verify_signature(root, pub, payload, envelope["signature"])
                 self.verify_signature(root, pub, payload + b"tampered", envelope["signature"], valid=False)
-            for arch in ("arm64", "x64"):
-                item = ET.parse(feeds / f"macos-{arch}.xml").getroot().find("channel/item")
-                self.assertEqual(item.find(f"{{{SPARKLE}}}version").text, "42")
-                signature = item.find("enclosure").get(f"{{{SPARKLE}}}edSignature")
-                self.verify_signature(root, pub, (artifacts / f"Vela-1.2.3-macos-{arch}.zip").read_bytes(), signature)
+                if target.startswith('macos-'):
+                    source = artifacts / required_artifacts('1.2.3')[target]
+                    self.verify_signature(root, pub, source.read_bytes(), document['edSignature'])
             self.assertEqual(len((artifacts / "SHA256SUMS").read_text().splitlines()), 7)
 
     def verify_signature(self, root, public, payload, signature, valid=True):

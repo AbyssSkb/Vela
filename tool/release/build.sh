@@ -24,8 +24,7 @@ case "$PLATFORM" in
       -derivedDataPath "$PWD/build/macos" -destination "platform=macOS,arch=$xcode_arch" \
       "ARCHS=$xcode_arch" "EXCLUDED_ARCHS=$excluded_arch" ONLY_ACTIVE_ARCH=YES \
       COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
-      "VELA_UPDATE_PUBLIC_KEY=${VELA_UPDATE_PUBLIC_KEY:-}" \
-      "VELA_UPDATE_FEED_URL=https://github.com/$VELA_UPDATE_REPOSITORY/releases/download/updates/macos-$ARCH.xml")
+      "VELA_UPDATE_PUBLIC_KEY=${VELA_UPDATE_PUBLIC_KEY:-}")
     "${xcode[@]}" build
     bash packaging/macos/package.sh
     if [[ "$ARCH" == arm64 ]]; then
@@ -60,6 +59,9 @@ case "$PLATFORM" in
     cp build/app/outputs/flutter-apk/app-release.apk "dist/Vela-$VERSION-android-$ARCH$suffix.apk"
     signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
     "$signer" verify "dist/Vela-$VERSION-android-$ARCH$suffix.apk"
+    if [[ "$ARCH" == arm64 ]]; then
+      (cd android && ./gradlew testReleaseUnitTest)
+    fi
     ;;
   *) printf 'Unsupported package platform: %s\n' "$PLATFORM" >&2; exit 2 ;;
 esac

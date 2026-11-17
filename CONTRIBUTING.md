@@ -25,7 +25,7 @@ Use `flutter run -d windows` or `flutter run -d linux` on the corresponding desk
 
 ## Verify
 
-Full compilation and test runs belong on GitHub when local disk is limited. [CI](https://github.com/AbyssSkb/Vela/actions/workflows/ci.yml) runs Dart checks/tests and Rust tests across Linux, macOS, and Windows. The separate [package workflow](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml) builds actual installers on their target OS. A successful unit test is not evidence that an installer or cross-device transfer works.
+Full compilation and test runs belong on GitHub when local disk is limited. [CI](https://github.com/AbyssSkb/Vela/actions/workflows/ci.yml) runs Dart checks/tests on macOS and Rust tests across Linux, macOS, and Windows. The separate [package workflow](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml) builds actual installers on their target OS. A successful unit test is not evidence that an installer or cross-device transfer works.
 
 Lightweight local checks:
 

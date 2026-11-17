@@ -8,13 +8,8 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
-import xml.etree.ElementTree as ET
 
 from version import read_version
-
-SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
-ET.register_namespace("sparkle", SPARKLE)
-
 
 def public_key(key: Path) -> str:
     der = subprocess.check_output(
@@ -73,32 +68,17 @@ def generate(artifacts: Path, output: Path, key: Path, repository: str, version:
         platform, arch = target.split("-")
         path = artifacts / name
         url = f"{base_url}/{name}"
+        with path.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        payload = {
+            "version": version["version"], "build": version["build"],
+            "platform": platform, "arch": arch, "url": url,
+            "sha256": digest, "size": path.stat().st_size,
+        }
         if platform == "macos":
-            rss = ET.Element("rss", version="2.0")
-            channel = ET.SubElement(rss, "channel")
-            ET.SubElement(channel, "title").text = f"Vela {target}"
-            item = ET.SubElement(channel, "item")
-            ET.SubElement(item, "title").text = f"Vela {version['version']}"
-            ET.SubElement(item, f"{{{SPARKLE}}}version").text = str(version["build"])
-            ET.SubElement(item, f"{{{SPARKLE}}}shortVersionString").text = version["version"]
-            ET.SubElement(item, f"{{{SPARKLE}}}minimumSystemVersion").text = "12.0.0"
-            ET.SubElement(item, "enclosure", {
-                "url": url,
-                "length": str(path.stat().st_size),
-                "type": "application/octet-stream",
-                f"{{{SPARKLE}}}edSignature": sign_file(key, path),
-            })
-            ET.indent(rss)
-            ET.ElementTree(rss).write(output / f"{target}.xml", encoding="utf-8", xml_declaration=True)
-        else:
-            with path.open("rb") as stream:
-                digest = hashlib.file_digest(stream, "sha256").hexdigest()
-            envelope = signed_json(key, {
-                "version": version["version"], "build": version["build"],
-                "platform": platform, "arch": arch, "url": url,
-                "sha256": digest, "size": path.stat().st_size,
-            })
-            (output / f"{target}.json").write_text(json.dumps(envelope, separators=(",", ":")) + "\n")
+            payload["edSignature"] = sign_file(key, path)
+        envelope = signed_json(key, payload)
+        (output / f"{target}.json").write_text(json.dumps(envelope, separators=(",", ":")) + "\n")
     with (artifacts / "SHA256SUMS").open("w") as checksums:
         for path in sorted(artifacts.iterdir()):
             if path.is_file() and path.name != "SHA256SUMS":

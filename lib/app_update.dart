@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
@@ -29,6 +30,7 @@ class AppUpdateManifest {
     this.url,
     this.sha256,
     this.size,
+    this.edSignature,
   );
 
   final Version version;
@@ -36,6 +38,7 @@ class AppUpdateManifest {
   final Uri url;
   final String sha256;
   final int size;
+  final String? edSignature;
 
   static Future<AppUpdateManifest> verify(
     List<int> envelope, {
@@ -91,6 +94,7 @@ class AppUpdateManifest {
       'android' => '.apk',
       'linux' => '.AppImage',
       'windows' => '.exe',
+      'macos' => '.zip',
       _ => throw const FormatException('Unsupported update platform'),
     };
     if (build <= 0 ||
@@ -109,7 +113,15 @@ class AppUpdateManifest {
         !url.path.endsWith(suffix)) {
       throw const FormatException('Invalid update metadata');
     }
-    return AppUpdateManifest._(version, build, url, digest, size);
+    String? edSignature;
+    if (platform == 'macos') {
+      final value = data['edSignature'];
+      if (value is! String || base64Decode(value).length != 64) {
+        throw const FormatException('Missing archive signature');
+      }
+      edSignature = base64Encode(base64Decode(value));
+    }
+    return AppUpdateManifest._(version, build, url, digest, size, edSignature);
   }
 
   bool newerThan(String installedVersion, int installedBuild) =>
@@ -147,6 +159,7 @@ class AppUpdateController extends ChangeNotifier {
   Timer? _timer;
   AppUpdateManifest? _manifest;
   File? _downloaded;
+  HttpServer? _localServer;
 
   bool get busy => _busy;
   bool get installing => state == AppUpdateState.installing;
@@ -175,16 +188,6 @@ class AppUpdateController extends ChangeNotifier {
       }
       Version.parse(version);
       _channel.setMethodCallHandler(_nativeCall);
-      if (platform == 'macos') {
-        final configured = await _channel.invokeMethod<bool>('configure', {
-          'feedUrl': _feed('xml').toString(),
-          'publicKey': publicKey,
-          'automaticChecks': false,
-          'automaticDownloads': false,
-        });
-        if (_disposed) return;
-        if (configured == false) return;
-      }
       await _channel.invokeMethod<void>('setBusy', {'busy': _busy});
       if (_disposed) return;
       _setState(AppUpdateState.idle);
@@ -235,6 +238,9 @@ class AppUpdateController extends ChangeNotifier {
         if (event['version'] is String) {
           availableVersion = event['version'] as String;
         }
+        if (next == AppUpdateState.error || next == AppUpdateState.ready) {
+          await _closeLocalFeed();
+        }
         if (next == AppUpdateState.error) errorCode = 'update_failed';
         _setState(next);
       }
@@ -247,10 +253,6 @@ class AppUpdateController extends ChangeNotifier {
     errorCode = null;
     _setState(AppUpdateState.checking);
     try {
-      if (platform == 'macos') {
-        await _channel.invokeMethod<void>('check');
-        return;
-      }
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in _readUrl(
         _feed('json'),
@@ -302,7 +304,7 @@ class AppUpdateController extends ChangeNotifier {
         await _clearStage(entry);
         continue;
       }
-      final ownedFile = RegExp(r'^[a-f0-9]{64}\.(apk|AppImage|exe)$')
+      final ownedFile = RegExp(r'^[a-f0-9]{64}\.(apk|AppImage|exe|zip)$')
           .hasMatch(name);
       final oldHelper =
           platform == 'windows' &&
@@ -340,6 +342,7 @@ class AppUpdateController extends ChangeNotifier {
     final suffix = switch (platform) {
       'android' => 'apk',
       'windows' => 'exe',
+      'macos' => 'zip',
       _ => 'AppImage',
     };
     final target = File('${dir.path}/${manifest.sha256}.$suffix');
@@ -407,33 +410,94 @@ class AppUpdateController extends ChangeNotifier {
     errorCode = null;
     _setState(AppUpdateState.installing);
     try {
-      if (platform == 'macos') {
-        await _channel.invokeMethod<void>('install');
-      } else {
-        final manifest = _manifest;
-        final file = _downloaded;
-        if (manifest == null ||
-            file == null ||
-            !await _matches(file, manifest)) {
-          throw const FormatException('Update changed after download');
-        }
-        if (_busy || _disposed) throw StateError('Application is busy');
-        await _channel.invokeMethod<void>('installDownloaded', {
-          'path': file.path,
-          'sha256': manifest.sha256,
-        });
-        if (platform == 'android') _setState(AppUpdateState.ready);
+      final manifest = _manifest;
+      final file = _downloaded;
+      if (manifest == null || file == null || !await _matches(file, manifest)) {
+        throw const FormatException('Update changed after download');
       }
+      if (_busy || _disposed) throw StateError('Application is busy');
+      final arguments = platform == 'macos'
+          ? {
+              'feedUrl': (await _startLocalFeed(manifest, file)).toString(),
+              'publicKey': publicKey,
+            }
+          : {'path': file.path, 'sha256': manifest.sha256};
+      await _channel.invokeMethod<void>('installDownloaded', arguments);
+      if (platform == 'android') _setState(AppUpdateState.ready);
     } on FormatException {
+      await _closeLocalFeed();
       _downloaded = null;
       _fail('verification_failed');
     } on PlatformException catch (error) {
+      await _closeLocalFeed();
       errorCode = error.code == 'cancelled' ? null : error.code;
       _setState(AppUpdateState.ready);
     } catch (_) {
+      await _closeLocalFeed();
       errorCode = 'update_failed';
       _setState(AppUpdateState.ready);
     }
+  }
+
+  Future<Uri> _startLocalFeed(AppUpdateManifest manifest, File archive) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    if (_disposed) {
+      await server.close(force: true);
+      throw StateError('Updater disposed');
+    }
+    _localServer = server;
+    final random = Random.secure();
+    final nonce = List<int>.generate(
+      32,
+      (_) => random.nextInt(256),
+    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    final base = 'http://127.0.0.1:${server.port}/$nonce';
+    final xml = '''<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><title>Vela</title><item><title>Vela ${manifest.version}</title><enclosure url="$base/payload.zip" sparkle:version="${manifest.build}" sparkle:shortVersionString="${manifest.version}" sparkle:edSignature="${manifest.edSignature}" length="${manifest.size}" type="application/octet-stream" /></item></channel></rss>''';
+    server.listen((request) async {
+      try {
+        request.response.headers.set(
+          HttpHeaders.cacheControlHeader,
+          'no-store',
+        );
+        if (request.method != 'GET' && request.method != 'HEAD') {
+          request.response.statusCode = HttpStatus.methodNotAllowed;
+        } else if (request.uri.path == '/$nonce/appcast.xml') {
+          final bytes = utf8.encode(xml);
+          request.response.headers.contentType = ContentType(
+            'application',
+            'xml',
+            charset: 'utf-8',
+          );
+          request.response.contentLength = bytes.length;
+          if (request.method == 'GET') request.response.add(bytes);
+        } else if (request.uri.path == '/$nonce/payload.zip') {
+          request.response.headers.contentType = ContentType(
+            'application',
+            'zip',
+          );
+          request.response.contentLength = manifest.size;
+          if (request.method == 'GET') {
+            await request.response.addStream(archive.openRead());
+          }
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+        }
+        await request.response.close();
+      } catch (_) {
+        request.response
+            .detachSocket()
+            .then((socket) => socket.destroy())
+            .catchError((_) {});
+      }
+    });
+    return Uri.parse('$base/appcast.xml');
+  }
+
+  Future<void> _closeLocalFeed() async {
+    final server = _localServer;
+    _localServer = null;
+    await server?.close(force: true);
   }
 
   void _fail(String code) {
@@ -456,6 +520,7 @@ class AppUpdateController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    unawaited(_closeLocalFeed());
     if (_started) _channel.setMethodCallHandler(null);
     super.dispose();
   }

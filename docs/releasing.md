@@ -55,7 +55,7 @@ Existing macOS/Android application IDs are intentionally retained to preserve cu
 
 Already published versions are immutable to the publisher script: use a new version/tag to replace a broken build. Android x86_64 test APKs are removed from public release assets. Versioned releases include installation packages, update payloads/feeds, and `SHA256SUMS`.
 
-macOS consumes signed Sparkle appcasts. Windows/Linux/Android consume signed JSON manifests with exact package size and SHA-256. Their download code checks the pinned key and validates the repository/target before installation. The Linux helper replaces a complete verified AppImage; it does not require an additional AppImageUpdate engine. Windows uses the verified installer plus a shutdown/install helper.
+All platforms consume signed JSON manifests with exact package size and SHA-256. The common download code checks the pinned key and validates the repository/target before installation. macOS JSON also carries the ZIP's Sparkle `edSignature`; only after explicit installation consent does the native code expose the cached ZIP via a temporary loopback appcast to Sparkle. The five rolling feeds are JSON, with no remote XML feed to let Sparkle stage an installation early. The Linux helper replaces a complete verified AppImage without an additional AppImageUpdate engine. Windows uses the verified installer plus a shutdown/install helper.
 
 ## Build configuration
 

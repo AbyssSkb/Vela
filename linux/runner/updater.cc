@@ -244,9 +244,12 @@ static void handle(FlMethodChannel*, FlMethodCall* call, gpointer user_data) {
         strspn(checksum, "0123456789abcdef") != 64 || !target ||
         !g_str_has_suffix(source, ".AppImage") ||
         !same_parent(source, update_directory()) ||
-        lstat(target, &original) != 0 || !S_ISREG(original.st_mode) ||
-        original.st_uid != getuid()) {
+        lstat(target, &original) != 0 || !S_ISREG(original.st_mode)) {
       error(call, "invalid_update", "Run the installed AppImage and use Vela's verified update cache");
+      return;
+    }
+    if (original.st_uid != getuid()) {
+      error(call, "read_only", "Move Vela's AppImage to a folder owned by your user before updating");
       return;
     }
     auto* pending = new PendingInstall{state, FL_METHOD_CALL(g_object_ref(call)),

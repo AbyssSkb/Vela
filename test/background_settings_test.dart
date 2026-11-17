@@ -1,7 +1,6 @@
 import 'package:vela/background_settings.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -45,7 +44,6 @@ void main() {
   testWidgets(
     'desktop background and login controls use desktop native methods',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       SharedPreferences.setMockInitialValues({});
       final calls = <String>[];
       var login = false;
@@ -68,7 +66,6 @@ void main() {
         return null;
       });
       addTearDown(() {
-        debugDefaultTargetPlatformOverride = null;
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
           channel,
           null,
@@ -96,6 +93,7 @@ void main() {
       expect(calls, isNot(contains('start')));
       expect(calls, isNot(contains('status')));
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
   testWidgets(

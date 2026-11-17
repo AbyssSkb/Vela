@@ -52,16 +52,17 @@ unsafe extern "system" {
         info: *mut c_void,
         size: u32,
     ) -> i32;
-    fn SetFileInformationByHandle(
-        file: *mut c_void,
-        class: i32,
-        info: *const c_void,
-        size: u32,
-    ) -> i32;
 }
 
 #[link(name = "ntdll")]
 unsafe extern "system" {
+    fn NtSetInformationFile(
+        file: *mut c_void,
+        status: *mut IoStatusBlock,
+        info: *const c_void,
+        size: u32,
+        class: i32,
+    ) -> i32;
     fn NtQueryVolumeInformationFile(
         file: *mut c_void,
         status: *mut IoStatusBlock,
@@ -222,10 +223,24 @@ pub(super) fn rename_exclusive(
             buffer.as_mut_ptr().cast::<u8>().add(name_offset).cast(),
             name.len(),
         );
-        if SetFileInformationByHandle(source.as_raw_handle(), 3, info.cast(), length as u32) != 0 {
+        let mut status = IoStatusBlock {
+            status_or_pointer: 0,
+            information: 0,
+        };
+        // The Win32 wrapper rejects RootDirectory; the native call preserves it.
+        let result = NtSetInformationFile(
+            source.as_raw_handle(),
+            &mut status,
+            info.cast(),
+            length as u32,
+            10,
+        );
+        if result >= 0 {
             Ok(())
         } else {
-            Err(io::Error::last_os_error())
+            Err(io::Error::from_raw_os_error(
+                RtlNtStatusToDosError(result) as i32
+            ))
         }
     }
 }

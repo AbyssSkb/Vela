@@ -378,8 +378,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (updates.state == AppUpdateState.ready &&
         lastUpdateState != AppUpdateState.ready) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || shuttingDown || updates.state != AppUpdateState.ready)
+        if (!mounted || shuttingDown || updates.state != AppUpdateState.ready) {
           return;
+        }
         final zh = Localizations.localeOf(context).languageCode == 'zh';
         _message(
           zh ? '更新已下载，可在设置中安装' : 'Update downloaded. Install it from settings.',
@@ -3042,8 +3043,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         contentOperationActive ||
         changingRelay ||
         shuttingDown ||
-        updates.installing)
+        updates.installing) {
       return;
+    }
     PreparedTransfer? content;
     activeSendOperations++;
     try {

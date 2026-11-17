@@ -212,6 +212,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
       sender.reply(toApplicationShouldTerminate: true)
     }
     window.prepareToTerminate(finish)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: finish)
     return .terminateLater
   }
 

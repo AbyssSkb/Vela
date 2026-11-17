@@ -44,20 +44,11 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
   func shareAvailable() { shareChannel?.invokeMethod("available", arguments: nil) }
   func notifyVisible() { backgroundChannel?.invokeMethod("visible", arguments: nil) }
   func prepareToTerminate(_ completion: @escaping () -> Void) {
-    updater.prepareToTerminate {
-      var replied = false
-      let finish = {
-        guard !replied else { return }
-        replied = true
-        completion()
-      }
-      guard let channel = self.backgroundChannel else {
-        finish()
-        return
-      }
-      channel.invokeMethod("shutdown", arguments: nil) { _ in finish() }
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: finish)
+    guard let channel = backgroundChannel else {
+      completion()
+      return
     }
+    channel.invokeMethod("shutdown", arguments: nil) { _ in completion() }
   }
   func hideWindow() {
     orderOut(nil)

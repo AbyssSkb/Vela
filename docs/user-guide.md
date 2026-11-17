@@ -6,7 +6,7 @@ Vela shares content between paired Android, macOS, Windows, and Linux devices. K
 
 ## Install a build
 
-Published installers are listed in [Releases](https://github.com/AbyssSkb/Vela/releases). The [Installation packages workflow](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml) also produces temporary development previews, retained for seven days. Those previews disable automatic updates; Android previews use debug signing.
+Published installers are listed in [Releases](https://github.com/AbyssSkb/Vela/releases); choose a versioned release rather than the machine-readable `updates` entry. The [Installation packages workflow](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml) also produces temporary development previews, retained for seven days. Those previews disable automatic updates; Android previews use debug signing.
 
 Choose the package matching your OS and CPU. On macOS, install the app from the DMG into a writable Applications location before updating. Windows uses a current-user installer. On Linux, keep the AppImage in a writable, stable location and make it executable; moving it later can invalidate its login-startup entry. Linux requires a desktop session with a Secret Service keyring for identity storage, and tray/notification support varies by desktop environment.
 
@@ -68,7 +68,7 @@ Incoming notifications open Vela so you can approve a transfer. Desktop release 
 
 Update-enabled releases check at startup and every 12 hours, download in the background, and show their state under **Settings → App updates**. You can also check there manually. Installation requires confirmation and remains unavailable while a transfer, folder operation, or pairing is active.
 
-macOS uses Sparkle to verify and replace the application. Windows downloads a verified EXE and runs the upgrade installer after orderly shutdown. Linux downloads and verifies a complete AppImage before its helper replaces the old file; a read-only location must be moved before updating. Android launches the system installer and may ask you to allow Vela to install apps, then asks for installation confirmation.
+All platforms verify a signed update manifest and download the candidate before installation. After your installation confirmation, macOS hands the cached ZIP to Sparkle for verification and replacement; Sparkle does not stage an update before that confirmation. Windows runs the verified EXE after orderly shutdown. Linux replaces a complete verified AppImage through its helper; a read-only location must be moved before updating. Android launches the system installer and may ask you to allow Vela to install apps, then asks for installation confirmation.
 
 Update manifests and payloads are checked against the public key bundled in the application, with size and content checks for downloaded packages. Failed verification leaves the installed version in place. Keep the current installation until the update succeeds; upgrades are designed to preserve identity, paired devices, history, and received files. Actual old-to-new upgrades remain part of release acceptance testing.
 

@@ -27,7 +27,7 @@ Vela 的一条主线是：选择内容 → 选择可信设备 → 对端确认 �
 | macOS 窗口与菜单 | `MainFlutterWindow.swift`、`AppDelegate.swift` | 窗口、通道注册、菜单显示优先级 |
 | macOS 接收目录与分享暂存 | `Runner/ReceiveDirectoryAccess.swift`、`Shared/ShareInbox.swift` | 目录授权、分享清单和暂存目录；分享扩展复用清单规则 |
 | 桌面托盘、通知与登录启动 | `windows/runner/desktop_integration.cpp`、`linux/runner/desktop_integration.cc` | 窗口可见性、托盘与通知、系统事件、正常退出握手 |
-| 原生更新安装 | `macos/Runner/AppUpdater.swift`、`windows/runner/updater.cpp`、`linux/runner/updater.cc` | 平台更新接口、安装器与退出/重启配合 |
+| 原生更新安装 | `macos/Runner/VelaUpdater.swift`、`windows/runner/updater.cpp`、`linux/runner/updater.cc` | 平台更新接口、安装器与退出/重启配合 |
 | 远端构建与发布 | `.github/workflows/`、`tool/release/`、`packaging/` | 目标构建、安装包、签名更新源与草稿发布 |
 | 调试驱动入口 | `lib/debug_driver.dart` | debug 模式下双实例测试的命令分派 |
 
@@ -50,7 +50,7 @@ Android 文件位于 `android/app/src/main/kotlin/com/example/vela/`；macOS 主
 
 **在线与后台：**Rust 接受经过验证的响应，更新带有效期的在线证据，`PresenceController` 根据快照和有效期维护展示状态。`readSnapshot` 只读取已有证据，`probePeers` 主动探测；系统网络变化通过 `networkChanged` 协调，恢复必须先使旧证据失效。Rust 的 `send_tracked_probe` 发送探测，`on_network_changed` 推进网络代次，`request_probe` 只请求探测；统计开关不控制这些业务动作。Android 的 Service 可以启动无 Activity 的同一个 FlutterEngine，仍运行普通 Dart `main`；通道由 Application 安装一次，Activity 只补充权限和选择器等交互能力。
 
-**更新：**`AppUpdateController` 在配置完整的发行版本中检查更新。macOS 通过自定义 Sparkle driver 接入共同的更新状态；Windows/Linux/Android 验证签名清单、流式下载并核对长度和 SHA-256，再调用原生安装流程。Windows 运行已验证安装器，Linux 通过独立 helper 替换整个 AppImage，Android 调用系统安装器。当前传输、文件夹处理或配对会阻止安装，安装前排空节点与持久化事务。打包脚本先生成完整草稿 Release，发布版本资源后再刷新 `updates` 更新源。
+**更新：**`AppUpdateController` 在配置完整的发行版本中检查 JSON 签名清单，流式下载并核对长度和 SHA-256，再调用原生安装流程。macOS 仅在用户确认安装后，将缓存 ZIP 经临时本机 appcast 交给 Sparkle；确认前不让 SDK 暂存安装。Windows 运行已验证安装器，Linux 通过独立 helper 替换整个 AppImage，Android 调用系统安装器。当前传输、文件夹处理或配对会阻止安装，安装前排空节点与持久化事务。打包脚本先生成完整草稿 Release，发布版本资源后再刷新 `updates` 更新源。
 
 ## 跨语言约定
 

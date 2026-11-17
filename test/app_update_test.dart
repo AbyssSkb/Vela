@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart';
@@ -127,6 +126,32 @@ void main() {
       await expectLater(verify(await envelope(invalid)), throwsFormatException);
     }
   });
+
+  test(
+    'macOS metadata requires a correctly encoded Sparkle archive signature',
+    () async {
+      for (final signature in [null, 'AA==']) {
+        final metadata = {
+          ...payload(
+            platform: 'macos',
+            arch: 'arm64',
+            url: 'https://github.com/AbyssSkb/Vela/releases/download/v1.1.0/Vela-macos-arm64.zip',
+          ),
+          'edSignature': signature,
+        };
+        await expectLater(
+          AppUpdateManifest.verify(
+            await envelope(metadata),
+            publicKey: publicKey,
+            platform: 'macos',
+            arch: 'arm64',
+            repository: repository,
+          ),
+          throwsFormatException,
+        );
+      }
+    },
+  );
 
   group('download and installation', () {
     late Directory cache;
@@ -261,13 +286,65 @@ void main() {
     test('macOS waits for consent and drains the app before install', () async {
       controller.dispose();
       var prepared = 0;
+      final archiveSignature = await Ed25519().sign(bytes, keyPair: keyPair);
+      signed = await envelope({
+        ...payload(
+          platform: 'macos',
+          arch: 'arm64',
+          url: 'https://github.com/AbyssSkb/Vela/releases/download/v1.1.0/Vela-macos-arm64.zip',
+        ),
+        'edSignature': base64Encode(archiveSignature.bytes),
+      });
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             calls.add(call);
-            if (call.method == 'configure') return true;
-            if (call.method == 'install') {
+            if (call.method == 'getUpdateDirectory') return cache.path;
+            if (call.method == 'installDownloaded') {
               expect(controller.installing, isTrue);
               expect(await nativeCall('prepareInstall'), isTrue);
+              final args = call.arguments as Map;
+              final feed = Uri.parse(args['feedUrl'] as String);
+              expect(args['publicKey'], publicKey);
+              expect(feed.scheme, 'http');
+              expect(feed.host, '127.0.0.1');
+              expect(
+                feed.path,
+                matches(RegExp(r'^/[a-f0-9]{64}/appcast\.xml$')),
+              );
+              final client = _LoopbackHttpOverrides().createHttpClient(null);
+              try {
+                final response = await (await client.getUrl(feed)).close();
+                expect(response.statusCode, HttpStatus.ok);
+                final xml = await response.transform(utf8.decoder).join();
+                expect(xml, contains('sparkle:version="6"'));
+                expect(
+                  xml,
+                  contains(
+                    'sparkle:edSignature="${base64Encode(archiveSignature.bytes)}"',
+                  ),
+                );
+                final asset = feed.replace(
+                  path: feed.path.replaceFirst('appcast.xml', 'payload.zip'),
+                );
+                final content = await (await client.getUrl(asset)).close();
+                expect(
+                  await content.fold<List<int>>(
+                    [],
+                    (buffer, chunk) => buffer..addAll(chunk),
+                  ),
+                  bytes,
+                );
+                final denied = await (await client.getUrl(
+                  feed.replace(path: '/appcast.xml'),
+                )).close();
+                expect(denied.statusCode, HttpStatus.notFound);
+                await denied.drain<void>();
+                final readOnly = await (await client.postUrl(feed)).close();
+                expect(readOnly.statusCode, HttpStatus.methodNotAllowed);
+                await readOnly.drain<void>();
+              } finally {
+                client.close(force: true);
+              }
             }
             return null;
           });
@@ -278,19 +355,76 @@ void main() {
         build: 5,
         publicKey: publicKey,
         channel: channel,
+        readUrl: (url) =>
+            Stream.value(url.path.endsWith('.json') ? signed : bytes),
         prepareInstall: () async {
           prepared++;
         },
       );
       await controller.start();
-      await nativeCall('updateEvent', {'status': 'ready', 'version': '1.1.0'});
+      expect(controller.state, AppUpdateState.ready);
       expect(prepared, 0);
+      expect(
+        calls.where((call) => call.method == 'installDownloaded'),
+        isEmpty,
+      );
       expect(await nativeCall('prepareInstall'), isFalse);
       await controller.setBusy(false);
       expect(await nativeCall('prepareInstall'), isFalse);
       await controller.install();
       expect(prepared, 1);
-      expect(calls.where((call) => call.method == 'install'), hasLength(1));
+      expect(controller.state, AppUpdateState.installing);
+      expect(
+        calls.where((call) => call.method == 'installDownloaded'),
+        hasLength(1),
+      );
+    });
+
+    test('failed macOS handoff closes the temporary local feed', () async {
+      controller.dispose();
+      Uri? feed;
+      final archiveSignature = await Ed25519().sign(bytes, keyPair: keyPair);
+      signed = await envelope({
+        ...payload(
+          platform: 'macos',
+          arch: 'arm64',
+          url: 'https://github.com/AbyssSkb/Vela/releases/download/v1.1.0/Vela-macos-arm64.zip',
+        ),
+        'edSignature': base64Encode(archiveSignature.bytes),
+      });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'getUpdateDirectory') return cache.path;
+            if (call.method == 'installDownloaded') {
+              feed = Uri.parse((call.arguments as Map)['feedUrl'] as String);
+              throw PlatformException(code: 'update_failed');
+            }
+            return null;
+          });
+      controller = AppUpdateController(
+        platform: 'macos',
+        arch: 'arm64',
+        version: '1.0.0',
+        build: 5,
+        publicKey: publicKey,
+        channel: channel,
+        readUrl: (url) =>
+            Stream.value(url.path.endsWith('.json') ? signed : bytes),
+      );
+      await controller.start();
+      await controller.setBusy(false);
+      await controller.install();
+      expect(controller.state, AppUpdateState.ready);
+      final client = _LoopbackHttpOverrides().createHttpClient(null)
+        ..connectionTimeout = const Duration(seconds: 1);
+      try {
+        await expectLater(
+          client.getUrl(feed!),
+          throwsA(isA<SocketException>()),
+        );
+      } finally {
+        client.close(force: true);
+      }
     });
 
     testWidgets('ready updates require explicit confirmation', (tester) async {
@@ -339,3 +473,6 @@ void main() {
     });
   });
 }
+
+// Widget tests replace HttpClient; these two checks exercise a real loopback server.
+class _LoopbackHttpOverrides extends HttpOverrides {}
