@@ -60,10 +60,10 @@ case "$PLATFORM" in
     done
     mkdir -p build/windows/x64/runner/Release/third_party_notices
     cp build/release-notices/* build/windows/x64/runner/Release/third_party_notices/
-    '/c/Program Files (x86)/Inno Setup 6/ISCC.exe' \
+    MSYS_NO_PATHCONV=1 '/c/Program Files (x86)/Inno Setup 6/ISCC.exe' \
       "/DAppVersion=$VERSION" "/DAppVersionNumeric=${WINDOWS_VERSION:?}" \
       "/DBundleDir=$(cygpath -w "$PWD/build/windows/x64/runner/Release")" \
-      "/DOutputDir=$(cygpath -w "$PWD/dist")" packaging/windows/vela.iss
+      "/DOutputDir=$(cygpath -w "$PWD/dist")" "$(cygpath -w "$PWD/packaging/windows/vela.iss")"
     cmake --build build/windows/x64 --config Release --target vela_updater_test
     build/windows/x64/runner/Release/vela_updater_test.exe
     ;;

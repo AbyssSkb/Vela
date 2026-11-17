@@ -1,0 +1,134 @@
+name: Packaged desktop startup smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Installation packages or Release run containing desktop artifacts
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  startup:
+    name: Loader and window (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            runner: windows-2022
+          - target: linux-x64
+            runner: ubuntu-22.04
+    steps:
+      - name: Validate source run
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ inputs.run_id }}
+        run: '[[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
+          pattern: '*-${{ matrix.target }}'
+          path: ${{ runner.temp }}/vela-smoke-artifacts
+          merge-multiple: true
+      - name: Install and open the Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packages = @(Get-ChildItem "$env:RUNNER_TEMP/vela-smoke-artifacts/*-windows-x64-setup.exe")
+          if ($packages.Count -ne 1) { throw 'Expected one Windows installer' }
+          $smokeDirectory = Join-Path $env:RUNNER_TEMP 'vela-smoke'
+          New-Item -ItemType Directory -Force $smokeDirectory | Out-Null
+          $installDirectory = Join-Path $smokeDirectory 'Vela installed'
+          $app = $null
+          try {
+            $install = Start-Process -FilePath $packages[0].FullName -PassThru -ArgumentList @(
+              '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
+              ('/DIR="{0}"' -f $installDirectory),
+              ('/LOG="{0}"' -f (Join-Path $smokeDirectory 'install.log'))
+            )
+            $install.WaitForExit()
+            if ($install.ExitCode -ne 0) { throw "Installer exited $($install.ExitCode)" }
+            $executable = Join-Path $installDirectory 'vela.exe'
+            $app = Get-Process -Name vela -ErrorAction SilentlyContinue |
+              Where-Object { $_.Path -eq $executable } | Select-Object -First 1
+            if ($null -eq $app) {
+              $app = Start-Process -FilePath $executable -PassThru `
+                -WorkingDirectory $installDirectory `
+                -RedirectStandardOutput (Join-Path $smokeDirectory 'stdout.log') `
+                -RedirectStandardError (Join-Path $smokeDirectory 'stderr.log')
+            }
+            Start-Sleep -Seconds 15
+            $app.Refresh()
+            if ($app.HasExited) { throw "Installed app exited $($app.ExitCode)" }
+            if ($app.MainWindowHandle -eq 0) { throw 'Installed app did not show a window' }
+            'Windows installed package remained alive with a window for 15 seconds.'
+          } finally {
+            if ($null -ne $app -and -not $app.HasExited) {
+              Stop-Process -Id $app.Id -Force
+              $app.WaitForExit()
+            }
+            $uninstaller = Join-Path $installDirectory 'unins000.exe'
+            if (Test-Path $uninstaller) {
+              $uninstall = Start-Process -FilePath $uninstaller -Wait -PassThru `
+                -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+              if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exited $($uninstall.ExitCode)" }
+            }
+            Get-ChildItem "$smokeDirectory/*.log" | ForEach-Object {
+              Write-Output "--- $($_.Name) ---"
+              Get-Content $_.FullName
+            }
+          }
+      - name: Install a virtual Linux display
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb x11-utils dbus-x11
+      - name: Extract and open the Linux package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=("$RUNNER_TEMP"/vela-smoke-artifacts/*-linux-x64.AppImage)
+          [[ ${#packages[@]} == 1 ]] || { echo 'Expected one Linux AppImage' >&2; exit 1; }
+          export VELA_SMOKE_ROOT="$RUNNER_TEMP/vela-smoke"
+          mkdir -p "$VELA_SMOKE_ROOT"
+          cd "$VELA_SMOKE_ROOT"
+          chmod +x "${packages[0]}"
+          "${packages[0]}" --appimage-extract > /dev/null
+          export XDG_CONFIG_HOME="$VELA_SMOKE_ROOT/config" XDG_DATA_HOME="$VELA_SMOKE_ROOT/data"
+          export XDG_CACHE_HOME="$VELA_SMOKE_ROOT/cache" XDG_STATE_HOME="$VELA_SMOKE_ROOT/state"
+          export XDG_RUNTIME_DIR="$VELA_SMOKE_ROOT/runtime"
+          mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          export FLUTTER_LINUX_RENDERER=software LIBGL_ALWAYS_SOFTWARE=1
+          xvfb-run -a -s '-screen 0 1280x720x24' dbus-run-session -- bash -euo pipefail <<'SMOKE'
+          "$VELA_SMOKE_ROOT/squashfs-root/AppRun" > "$VELA_SMOKE_ROOT/app.log" 2>&1 &
+          app_pid=$!
+          cleanup() {
+            kill "$app_pid" 2>/dev/null || true
+            wait "$app_pid" 2>/dev/null || true
+            cat "$VELA_SMOKE_ROOT/app.log"
+          }
+          trap cleanup EXIT
+          sleep 15
+          kill -0 "$app_pid"
+          xwininfo -root -tree | tee "$VELA_SMOKE_ROOT/windows.log"
+          xwininfo -name Vela -stats | tee "$VELA_SMOKE_ROOT/window.log"
+          grep -q 'Map State: IsViewable' "$VELA_SMOKE_ROOT/window.log"
+          echo 'Extracted Linux package remained alive with a window for 15 seconds.'
+          SMOKE
+      - name: Record scope
+        if: always()
+        shell: bash
+        run: |
+          printf '%s\n' 'This checks packaged native loading and window creation only. It does not verify device pairing, transfers, secure-storage services, tray behavior, or updates.' >> "$GITHUB_STEP_SUMMARY"

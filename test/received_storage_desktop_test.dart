@@ -94,6 +94,21 @@ void main() {
   );
 
   test(
+    'Windows opens received filenames literally through the native channel',
+    () async {
+      final calls = <MethodCall>[];
+      messenger.setMockMethodCallHandler(files, (call) async {
+        calls.add(call);
+        return null;
+      });
+      const reference = r'C:\Downloads\notes & %TEMP% (final).txt';
+      await storage.open(reference);
+      expect(calls.single.method, 'openPath');
+      expect(calls.single.arguments, {'path': reference});
+    },
+  );
+
+  test(
     'desktop history reveals files through the native file manager',
     () async {
       final calls = <MethodCall>[];

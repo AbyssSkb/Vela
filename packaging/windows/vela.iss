@@ -44,5 +44,8 @@ Source: "..\..\rust_builder\cargokit\LICENSE"; DestDir: "{app}"; DestName: "Carg
 [Icons]
 Name: "{autoprograms}\Vela"; Filename: "{app}\vela.exe"
 
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Vela"; Flags: dontcreatekey uninsdeletevalue
+
 [Run]
 Filename: "{app}\vela.exe"; Description: "Launch Vela"; Flags: nowait postinstall

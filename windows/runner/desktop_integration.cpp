@@ -13,6 +13,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <filesystem>
 #include <vector>
 
 #include "resource.h"
@@ -378,6 +379,26 @@ void DesktopIntegration::HandleFiles(
     if (reinterpret_cast<intptr_t>(ShellExecuteW(window_, L"open", url.c_str(),
                                                 nullptr, nullptr, SW_SHOWNORMAL)) <= 32) {
       result->Error("url", "Could not open URL");
+    } else {
+      result->Success();
+    }
+  } else if (call.method_name() == "openPath") {
+    const auto path = Wide(StringArgument(call.arguments(), "path"));
+    if (path.empty() || path.find(L'\0') != std::wstring::npos ||
+        !std::filesystem::path(path).is_absolute()) {
+      result->Error("arguments", "Expected an absolute path");
+      return;
+    }
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+      result->Error("open", "The path is unavailable");
+      return;
+    }
+    const auto opened = reinterpret_cast<intptr_t>(ShellExecuteW(
+        window_, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+    if (opened <= 32) {
+      result->Error(opened == SE_ERR_NOASSOC ? "no_app" : "open",
+                    "Could not open path");
     } else {
       result->Success();
     }

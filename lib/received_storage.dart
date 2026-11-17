@@ -171,7 +171,8 @@ class ReceivedStorage {
   }
 
   Future<void> open(String reference) async {
-    if (_platform == TargetPlatform.android) {
+    if (_platform == TargetPlatform.android ||
+        _platform == TargetPlatform.windows) {
       await _files.invokeMethod<void>('openPath', {'path': reference});
       return;
     }
