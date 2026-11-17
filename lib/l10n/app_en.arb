@@ -1,0 +1,407 @@
+{
+  "@@locale": "en",
+  "deviceRemoved": "Device removed",
+  "legacyPairingsNotice": "Existing device pairings need to be set up again. Your files and history are unchanged.",
+  "devices": "Devices",
+  "showList": "Show list",
+  "showGraph": "Show graph",
+  "myDevice": "This device",
+  "addDevice": "Add device",
+  "settings": "Settings",
+  "deviceName": "Device name",
+  "language": "Language",
+  "systemDefault": "System default",
+  "simplifiedChinese": "Simplified Chinese",
+  "english": "English",
+  "appearance": "Appearance",
+  "light": "Light",
+  "dark": "Dark",
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "Close",
+  "remove": "Remove",
+  "rename": "Rename",
+  "deviceDetails": "Device details",
+  "renameDevice": "Rename device",
+  "useDeviceName": "Use device name",
+  "deviceNameRequired": "Enter a device name",
+  "nameTooLong": "Device name is too long",
+  "files": "Files",
+  "media": "Photos",
+  "mediaPickFailed": "Couldn't open the photo picker. Try again.",
+  "clipboard": "Clipboard",
+  "sendFile": "Send file",
+  "sendClipboard": "Send clipboard",
+  "chooseDevice": "Choose a device",
+  "sendSelected": "Send selected item",
+  "cancelShare": "Cancel share",
+  "selectedFile": "File selected. Choose a device to send.",
+  "selectedText": "Text selected. Choose a device to send.",
+  "connectDevices": "Connect your devices",
+  "emptyDevices": "Add a device to share files and clipboard.",
+  "deviceCode": "Device code",
+  "copyDeviceCode": "Copy device code",
+  "deviceCodeCopied": "Device code copied",
+  "showDeviceCode": "Scan or enter this code on your other device, then confirm the pairing request.",
+  "enterOrScan": "Enter or scan the code from your other device.",
+  "enterCode": "Enter the code from your other device.",
+  "scanCode": "Scan device code",
+  "scanTitle": "Scan device code",
+  "cameraError": "Cannot open the camera. Check camera permission.",
+  "invalidDeviceCode": "Enter a 64-character device code",
+  "connect": "Connect",
+  "cannotAddSelf": "You cannot add this device.",
+  "connectingPair": "Adding device…",
+  "pairRequest": "Add device?",
+  "confirmOwnDevice": "Confirm this is your device.",
+  "reject": "Decline",
+  "add": "Add",
+  "pairDeclined": "The other device declined the request.",
+  "pairConflict": "The other device is already adding this device. Please try again.",
+  "pairWaiting": "Waiting for the device",
+  "pairFailed": "Could not connect. Check that both devices are running the latest version.",
+  "removeDevice": "Remove device",
+  "removeDeviceQuestion": "Remove device?",
+  "selectDevices": "Select devices",
+  "selectAll": "Select all",
+  "selectedCount": "{count} selected",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDevicesQuestion": "{count, plural, =1{Remove 1 device?} other{Remove {count} devices?}}",
+  "@removeDevicesQuestion": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDevicesBody": "The selected devices will be unpaired. Offline devices will sync when they reconnect.",
+  "removeRecordsQuestion": "{count, plural, =1{Remove 1 record?} other{Remove {count} records?}}",
+  "@removeRecordsQuestion": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeRecordsBody": "Removing records keeps the files. Deleted files cannot be recovered.",
+  "removeRecordsOnly": "Records only",
+  "removeRecordsAndFiles": "Also delete files",
+  "removeRecordAndFile": "Delete record and file",
+  "deleteFilesWarning": "The file will be permanently deleted and cannot be recovered.",
+  "deleteFilesFailed": "Some files could not be deleted; their records were kept.",
+  "removalSyncing": "Removed. Syncing to the other device.",
+  "receive": "Accept",
+  "clipboardText": "Clipboard text",
+  "clipboardImage": "Clipboard image",
+  "clipboardReceived": "Clipboard received",
+  "open": "Open",
+  "openNoApp": "No app can open this file.",
+  "openFailed": "Could not open the file.",
+  "sendFailed": "Could not send",
+  "receiveFailed": "Could not receive",
+  "transferInterrupted": "Transfer interrupted. Try again.",
+  "transferDeclined": "The other device declined.",
+  "saveFailed": "Could not save the file. Check storage space.",
+  "emptyClipboard": "There is nothing to send on the clipboard.",
+  "singleClipboardFile": "Only one clipboard file can be sent at a time.",
+  "readSharedFailed": "Could not read the shared file.",
+  "readClipboardFailed": "Couldn't read the clipboard. Copy the content again and retry.",
+  "writeClipboardFailed": "Could not write to the clipboard.",
+  "startupFailed": "Could not start. Restart the app.",
+  "mobile": "Phone",
+  "tablet": "Tablet",
+  "desktop": "Computer",
+  "device": "Device",
+  "reachable": "Reachable",
+  "unreachable": "Temporarily unreachable",
+  "checking": "Checking",
+  "unknown": "Status unknown",
+  "more": "More options",
+  "storageFailed": "Could not save settings.",
+  "systemDeviceName": "Use system device name",
+  "nameVisible": "Your other devices will see this name.",
+  "deviceAliasHint": "Only shown on this device.",
+  "selectFileFirst": "Choose a file, then a device.",
+  "noDevices": "Add a device first.",
+  "requestAccepted": "Device added",
+  "deviceCodeShort": "Device code {code}",
+  "@deviceCodeShort": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "peerUnpaired": "{name} unpaired this device.",
+  "@peerUnpaired": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addedPeer": "Added {name}",
+  "@addedPeer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sentTo": "Sent to {name}",
+  "@sentTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "receiving": "Receiving {name}",
+  "notificationSending": "Sending",
+  "@receiving": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendingTo": "Sending to {name}",
+  "@sendingTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "connectingTo": "Sending to {name}",
+  "@connectingTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "received": "Received {name}",
+  "@received": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareFrom": "Sharing from {name}",
+  "@shareFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeDeviceBody": "This also unpairs {name}. If they are offline, sync will retry when both devices open the updated app and reconnect.",
+  "@removeDeviceBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "failedWithReason": "{title}: {reason}",
+  "@failedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshDevices": "Refresh device status",
+  "transferCancelled": "Transfer cancelled",
+  "cancelling": "Cancelling",
+  "directConnection": "Direct",
+  "relayConnection": "Relay",
+  "mixedConnection": "Direct and relay traffic",
+  "transferHistory": "Received",
+  "openReceiveFolder": "Open receive folder",
+  "showInFolder": "Open containing folder",
+  "recordDetails": "Details",
+  "recordName": "Name",
+  "recordDevice": "Device",
+  "recordTime": "Time",
+  "fileDetails": "File details",
+  "fileNameLabel": "Name",
+  "fileSizeLabel": "Size",
+  "receivedAtLabel": "Received",
+  "receivedFromLabel": "From",
+  "connectingShort": "Linking",
+  "incomingShort": "Incoming",
+  "transferNotificationTitle": "Transfer",
+  "noTransferHistory": "No received items yet",
+  "clearHistory": "Clear history",
+  "clearHistoryConfirm": "Clear received history? Received files will not be deleted.",
+  "historyReceivedFrom": "From {name}",
+  "@historyReceivedFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "moreOptions": "More options",
+  "removeRecord": "Remove record",
+  "historyText": "Clipboard text",
+  "historyImage": "Clipboard image",
+  "historyUnknownDevice": "Unknown device",
+  "historyMissing": "File is missing or cannot be accessed",
+  "historyCopy": "Copy",
+  "historyCopied": "Copied",
+  "historySaveFailed": "Transferred, but could not save history",
+  "filesCount": "{count} files",
+  "@filesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filesReceived": "Received {count} files",
+  "@filesReceived": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "viewHistory": "View history",
+  "dropFilesHere": "Drop files to send",
+  "dropFilesOnly": "Folders are not supported yet",
+  "dropAlreadyPending": "Finish with the selected content first",
+  "tooManyFiles": "You can send up to 100 files at once",
+  "backgroundReceiving": "Background receiving",
+  "notificationSettings": "Notifications",
+  "notificationSystemSettings": "System notification settings",
+  "notificationRequests": "Incoming requests",
+  "notificationRequestsHint": "Alerts when a device sends content, with accept and decline actions",
+  "notificationProgress": "Transfer progress",
+  "notificationProgressHint": "Shows progress and speed; uses live updates when supported",
+  "notificationResults": "Transfer results",
+  "notificationResultsHint": "Keeps completion and failure notifications, with an option to open files",
+  "notificationLive": "Live updates",
+  "notificationLiveAllowed": "Allowed; presentation is decided by the system",
+  "notificationLiveDisabled": "Not allowed; standard notifications are used",
+  "notificationLiveUnsupported": "This system uses standard notifications",
+  "notificationChannelHint": "Adjust banners, sound, vibration and lock-screen display in system settings",
+  "notificationReceivedTitle": "Received",
+  "notificationReceivedShort": "Received",
+  "backgroundDescription": "Keep a connection available and receive requests in the background. A system notification is shown and battery use may increase.",
+  "backgroundReady": "Waiting for devices",
+  "backgroundUnavailable": "Could not change background receiving. Check system settings.",
+  "backgroundDiagnostic": "Background checks",
+  "backgroundNotification": "Notifications",
+  "backgroundBattery": "Battery optimization",
+  "backgroundRestricted": "System background restrictions",
+  "backgroundRunning": "Receiving service",
+  "backgroundAllowed": "Allowed",
+  "backgroundNeedsAttention": "Check settings",
+  "backgroundBatteryHint": "If the device frequently goes offline, allow unrestricted battery use in system settings.",
+  "backgroundVendorGuide": "View manufacturer guidance",
+  "backgroundLimits": "These checks reflect current system settings and cannot guarantee that every manufacturer will keep the app running.",
+  "backgroundOffer": "A device is sending content",
+  "backgroundOff": "Off",
+  "backgroundOn": "On",
+  "saveAs": "Save as",
+  "revealInFinder": "Show in Finder",
+  "savedFile": "File saved",
+  "saveFileFailed": "Could not save file",
+  "openLink": "Open link",
+  "openLinkFailed": "Could not open link",
+  "focusOnReceive": "Show window for incoming requests",
+  "focusOnReceiveHint": "Bring Vela to the foreground automatically",
+  "autoAccept": "Auto accept",
+  "autoAcceptHint": "Receive content without confirmation",
+  "retry": "Retry",
+  "fileUnavailable": "Cannot read the file. Select it again.",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "settingsDevice": "Device",
+  "settingsReceiving": "Receiving",
+  "saveLocation": "Save location",
+  "downloadsFolder": "Downloads",
+  "chooseFolder": "Choose folder",
+  "useDownloads": "Use Downloads",
+  "saveLocationUnavailable": "Can't access this location. Choose it again.",
+  "savingFile": "Saving",
+  "savedPrivately": "Couldn't save to the selected location. The file is kept in Vela.",
+  "settingsDisplay": "Display",
+  "relaySettings": "Relay servers",
+  "relaySettingsHint": "Manage custom relays",
+  "relayEnabled": "Use custom relays",
+  "relayEnabledDetail": "Uses public relays when no custom relay is configured",
+  "relayDisabledDetail": "Uses Iroh public relays",
+  "relayToggleFailed": "Could not change relay settings",
+  "relayBusy": "Finish the current transfer or pairing first",
+  "relayCustomOnly": "Only custom relays are used. Configure the same relay list on your other devices.",
+  "relayPublic": "Public relays",
+  "relayPublicDetail": "Default candidates",
+  "relayShowToken": "Show token",
+  "relayHideToken": "Hide token",
+  "relayDefaultsKept": "Public relays remain available",
+  "addRelay": "Add relay",
+  "editRelay": "Edit relay",
+  "relayUrl": "Relay address",
+  "relayToken": "Access token (optional)",
+  "relayInvalid": "Enter a valid HTTPS relay address",
+  "relayDuplicate": "This relay is already added",
+  "relayFailed": "Could not save the relay. Try again.",
+  "relayRemove": "Remove relay",
+  "relayTest": "Test connection",
+  "relayTestShort": "Test",
+  "relayTestSuccess": "Relay connected",
+  "relayTestAuth": "Access denied. Check the token.",
+  "relayTestTimeout": "Connection timed out. Check the address and network.",
+  "relayTestFailed": "Could not connect to the relay.",
+  "searchHistory": "Search history",
+  "noHistoryMatches": "No matching records",
+  "transferBusy": "Another transfer is in progress. Try again shortly.",
+  "backgroundUnknown": "Unknown",
+  "backgroundNode": "Receiving node",
+  "backgroundLowPowerStandby": "Low Power Standby exemption",
+  "backgroundAutoStart": "Auto-start",
+  "backgroundAutoStartHint": "Status cannot be checked automatically. Search system settings for auto-start and enable Vela if available.",
+  "backgroundAutoStartOplusHint": "Status cannot be checked automatically. Try Settings → Apps → Auto launch → Vela, or search settings for auto-start.",
+  "macKeepAwake": "Keep available in background",
+  "macKeepAwakeHint": "Prevent idle sleep while Vela is running. The display can still turn off; battery use may increase.",
+  "macKeepAwakeActive": "Keep-awake activity",
+  "macKeepAwakeLimits": "Vela may still sleep when the lid is closed or sleep is requested.",
+  "backgroundLogin": "Open at login",
+  "backgroundLoginApproval": "Approval required in System Settings",
+  "backgroundLoginNotFound": "Login item unavailable",
+  "backgroundLoginUnsupported": "Requires macOS 13 or later",
+  "backgroundLoginFailed": "Could not change the login item. Check System Settings.",
+  "backgroundNodeInitialized": "Initialized",
+  "backgroundNodeNotInitialized": "Not initialized",
+  "sendText": "Send text",
+  "enterText": "Type or paste text",
+  "folder": "Folder",
+  "preparingFolder": "Preparing folder…",
+  "folderPrepareFailed": "Could not prepare the folder",
+  "restoreFolder": "Restore folder",
+  "restoringFolder": "Restoring folder…",
+  "folderRestored": "Folder restored",
+  "folderRestoreFailed": "Could not restore the folder. The archive was kept.",
+  "textContent": "Text",
+  "textReceived": "Text received",
+  "view": "View",
+  "viewText": "View text",
+  "textTooLarge": "Text must be no larger than 1 MiB",
+  "desktopBackgroundHint": "Keep Vela in the system tray when the window is closed. Quit from the tray menu to stop receiving.",
+  "desktopBackgroundLimits": "Receiving stops when Vela is quit or the computer sleeps. Tray availability depends on your desktop environment.",
+  "desktopTray": "System tray"
+}

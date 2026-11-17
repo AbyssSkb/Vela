@@ -1,0 +1,6 @@
+#include "../../Flutter/Flutter-Debug.xcconfig"
+#include "Warnings.xcconfig"
+
+VELA_CODE_SIGN_IDENTITY = -
+VELA_CODE_SIGN_STYLE = Automatic
+#include? "LocalSigning.xcconfig"

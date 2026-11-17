@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a reproducible problem with Vela.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. English and Chinese reports are welcome.
+        Remove device codes, QR codes, credentials, IP addresses, private file paths, and clipboard content from attachments. Do not report security vulnerabilities in a public issue.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Devices and versions
+      description: Include Vela version or commit, OS version, and device model on both ends. For source builds, include Flutter and Rust versions.
+      placeholder: |
+        Sender: Vela version, OS version, device model
+        Receiver: Vela version, OS version, device model
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include what you sent (type and approximate size), without sharing private content.
+      placeholder: |
+        1. Pair the devices...
+        2. Send...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behavior
+      description: Include error messages and whether the problem happens every time.
+    validations:
+      required: true
+  - type: textarea
+    id: network
+    attributes:
+      label: Network and background state
+      description: For connection or background problems, describe Wi-Fi/cellular/VPN, whether the devices share a network, app visibility, sleep or wake, background reception settings, and Android battery restrictions. Do not include IP addresses or relay credentials.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Optional. Review and redact personal information before posting.

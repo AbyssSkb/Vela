@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag matching pubspec.yaml (for example v1.0.0)
+        type: string
+        required: true
+      publish:
+        description: Publish the complete release and update feeds; otherwise leave a draft
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    environment: release
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      public_key: ${{ steps.key.outputs.public_key }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+      - name: Validate version and release credentials
+        id: version
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+          UPDATE_PRIVATE_KEY_PEM: ${{ secrets.UPDATE_PRIVATE_KEY_PEM }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python tool/release/version.py --tag "$TAG" --github-output "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import os
+          names = ('UPDATE_PRIVATE_KEY_PEM', 'ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD')
+          missing = [name for name in names if not os.environ.get(name)]
+          if missing:
+              raise SystemExit('Configure protected release secrets: ' + ', '.join(missing))
+          PY
+      - name: Validate pinned update key
+        id: key
+        env:
+          UPDATE_PRIVATE_KEY_PEM: ${{ secrets.UPDATE_PRIVATE_KEY_PEM }}
+          EXPECTED_PUBLIC_KEY: ${{ vars.VELA_UPDATE_PUBLIC_KEY }}
+        run: |
+          umask 077
+          key="$RUNNER_TEMP/vela-update.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$UPDATE_PRIVATE_KEY_PEM" > "$key"
+          actual=$(python tool/release/feeds.py --key "$key" --print-public-key)
+          if [[ -z "$EXPECTED_PUBLIC_KEY" || "$actual" != "$EXPECTED_PUBLIC_KEY" ]]; then
+            echo 'VELA_UPDATE_PUBLIC_KEY must match the release signing key.' >&2
+            exit 1
+          fi
+          printf 'public_key=%s\n' "$actual" >> "$GITHUB_OUTPUT"
+
+  packages:
+    needs: prepare
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.prepare.outputs.tag }}
+      signed: true
+      public_key: ${{ needs.prepare.outputs.public_key }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+  assemble:
+    needs: [prepare, packages]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Sign update feeds
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+          UPDATE_PRIVATE_KEY_PEM: ${{ secrets.UPDATE_PRIVATE_KEY_PEM }}
+        run: |
+          umask 077
+          key="$RUNNER_TEMP/vela-update.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$UPDATE_PRIVATE_KEY_PEM" > "$key"
+          rm -f dist/*-test.apk
+          python tool/release/feeds.py --key "$key" --repository "$REPOSITORY" --tag "$TAG"
+      - name: Create complete draft and optionally publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          PUBLISH: ${{ inputs.publish && 'true' || 'false' }}
+        run: bash tool/release/publish.sh

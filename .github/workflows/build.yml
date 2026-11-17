@@ -1,0 +1,141 @@
+name: Installation packages
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      signed:
+        type: boolean
+        default: false
+      public_key:
+        type: string
+        default: ''
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !inputs.signed }}
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    environment: ${{ inputs.signed && 'release' || 'build' }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-arm64
+            platform: macos
+            arch: arm64
+            runner: macos-15
+          - target: macos-x64
+            platform: macos
+            arch: x64
+            runner: macos-15-intel
+          - target: windows-x64
+            platform: windows
+            arch: x64
+            runner: windows-2022
+          - target: linux-x64
+            platform: linux
+            arch: x64
+            runner: ubuntu-22.04
+          - target: android-arm64
+            platform: android
+            arch: arm64
+            runner: ubuntu-24.04
+          - target: android-x64
+            platform: android
+            arch: x64
+            runner: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      VELA_PREVIEW_BUILD: ${{ inputs.signed && 'false' || 'true' }}
+      VELA_UPDATE_PUBLIC_KEY: ${{ inputs.public_key || '' }}
+      VELA_UPDATE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Read package version
+        id: version
+        run: python tool/release/version.py --github-output "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+      - name: Install the Rust compiler
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Linux build and packaging dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libnotify-dev libayatana-appindicator3-dev librsvg2-dev libgirepository1.0-dev imagemagick
+      - run: flutter pub get --enforce-lockfile
+      - name: Configure Android release key
+        if: inputs.signed && matrix.platform == 'android'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: python tool/release/android_signing.py
+      - name: Build and package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build }}
+          WINDOWS_VERSION: ${{ steps.version.outputs.windows }}
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+          VELA_UPDATE_REPOSITORY: ${{ github.repository }}
+        run: bash tool/release/build.sh
+      - name: Mark preview artifacts
+        if: ${{ !inputs.signed }}
+        run: |
+          printf '%s\n' 'Development preview: automatic updates are disabled. Android uses a debug key; do not use this package as a public release.' > dist/PREVIEW.txt
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ${{ inputs.signed && 'release' || 'preview' }}-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Remove ephemeral signing files
+        if: always() && matrix.platform == 'android'
+        run: rm -f android/release.keystore android/key.properties

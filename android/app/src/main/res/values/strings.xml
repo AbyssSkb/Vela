@@ -1,0 +1,9 @@
+<resources>
+    <string name="notification_requests">Incoming requests</string>
+    <string name="notification_progress">Transfer progress</string>
+    <string name="notification_results">Transfer results</string>
+    <string name="notification_service">Background receiving</string>
+    <string name="background_starting">Starting Vela…</string>
+    <string name="background_ready">Ready to receive</string>
+    <string name="background_failed">Could not start Vela. Tap to open.</string>
+</resources>

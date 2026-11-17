@@ -1,0 +1,26 @@
+name: Feature request
+description: Describe a use case Vela could serve better.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: Search existing requests first. English and Chinese are welcome.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation, devices, and what gets in your way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What would a successful experience look like?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Current workaround or alternatives
+      description: Optional. Explain what you use today and what is missing.

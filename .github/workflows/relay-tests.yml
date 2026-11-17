@@ -1,0 +1,46 @@
+name: External relay tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      relay:
+        description: Relay environment to verify
+        type: choice
+        options: [public, private]
+        default: public
+
+permissions:
+  contents: read
+
+jobs:
+  relay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: relay-tests
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Public relay-only transfer
+        if: inputs.relay == 'public'
+        run: cargo +1.98.1 test --locked --manifest-path rust/Cargo.toml --lib api::node::tests::relay_only_connection_reports_relay_traffic -- --ignored --exact --nocapture
+      - name: Private relay configuration, authentication, and transfer
+        if: inputs.relay == 'private'
+        env:
+          VELA_RELAY_TEST_URL: ${{ secrets.VELA_RELAY_TEST_URL }}
+          VELA_RELAY_TEST_TOKEN: ${{ secrets.VELA_RELAY_TEST_TOKEN }}
+        run: |
+          if [[ -z "$VELA_RELAY_TEST_URL" || -z "$VELA_RELAY_TEST_TOKEN" ]]; then
+            echo 'Configure VELA_RELAY_TEST_URL and VELA_RELAY_TEST_TOKEN in the relay-tests environment.' >&2
+            exit 1
+          fi
+          umask 077
+          export VELA_RELAY_TEST_TOKEN_FILE="$RUNNER_TEMP/vela-relay-token"
+          trap 'rm -f "$VELA_RELAY_TEST_TOKEN_FILE"' EXIT
+          printf '%s' "$VELA_RELAY_TEST_TOKEN" > "$VELA_RELAY_TEST_TOKEN_FILE"
+          cargo +1.98.1 test --locked --manifest-path rust/Cargo.toml --lib custom_relay_without_official_discovery -- --ignored --nocapture
+          cargo +1.98.1 test --locked --manifest-path rust/Cargo.toml --lib private_relay_transfers_and_rejects_bad_token -- --ignored --nocapture

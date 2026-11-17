@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Vela
+Comment=Share files and clipboard between your devices
+Exec=vela
+Icon=io.github.abyssskb.vela
+Terminal=false
+Categories=Network;FileTransfer;
+StartupWMClass=io.github.abyssskb.vela

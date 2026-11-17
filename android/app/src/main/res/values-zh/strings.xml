@@ -1,0 +1,9 @@
+<resources>
+    <string name="notification_requests">接收请求</string>
+    <string name="notification_progress">传输进度</string>
+    <string name="notification_results">传输结果</string>
+    <string name="notification_service">后台接收</string>
+    <string name="background_starting">正在启动 Vela…</string>
+    <string name="background_ready">准备接收</string>
+    <string name="background_failed">Vela 启动失败，点击打开</string>
+</resources>

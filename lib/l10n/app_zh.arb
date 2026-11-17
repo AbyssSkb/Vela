@@ -1,0 +1,407 @@
+{
+  "@@locale": "zh",
+  "deviceRemoved": "已移除设备",
+  "legacyPairingsNotice": "检测到旧版设备数据，请重新配对设备。接收的文件和历史记录不受影响。",
+  "devices": "设备",
+  "showList": "切换为列表",
+  "showGraph": "切换为关系图",
+  "myDevice": "我的设备",
+  "addDevice": "添加设备",
+  "settings": "设置",
+  "deviceName": "设备名称",
+  "language": "语言",
+  "systemDefault": "跟随系统",
+  "simplifiedChinese": "简体中文",
+  "english": "English",
+  "appearance": "外观",
+  "light": "浅色",
+  "dark": "深色",
+  "save": "保存",
+  "cancel": "取消",
+  "close": "关闭",
+  "remove": "移除",
+  "rename": "重命名",
+  "deviceDetails": "设备详情",
+  "renameDevice": "重命名设备",
+  "useDeviceName": "使用设备原名",
+  "deviceNameRequired": "请输入设备名称",
+  "nameTooLong": "设备名称过长",
+  "files": "文件",
+  "media": "相册",
+  "mediaPickFailed": "无法打开相册，请重试",
+  "clipboard": "剪贴板",
+  "sendFile": "发送文件",
+  "sendClipboard": "发送剪贴板",
+  "chooseDevice": "选择设备",
+  "sendSelected": "发送已选内容",
+  "cancelShare": "取消分享",
+  "selectedFile": "已选择文件，点击设备发送",
+  "selectedText": "已选择文字，点击设备发送",
+  "connectDevices": "连接你的设备",
+  "emptyDevices": "添加设备后，即可分享文件和剪贴板",
+  "deviceCode": "设备码",
+  "copyDeviceCode": "复制设备码",
+  "deviceCodeCopied": "设备码已复制",
+  "showDeviceCode": "在另一台设备上扫码或输入设备码，然后确认配对请求。",
+  "enterOrScan": "输入另一台设备的设备码，或扫描它的二维码。",
+  "enterCode": "输入另一台设备的设备码。",
+  "scanCode": "扫码填写设备码",
+  "scanTitle": "扫描设备码",
+  "cameraError": "无法打开相机，请检查相机权限",
+  "invalidDeviceCode": "请输入 64 位设备码",
+  "connect": "连接",
+  "cannotAddSelf": "不能添加当前设备",
+  "connectingPair": "正在添加设备…",
+  "pairRequest": "添加设备？",
+  "confirmOwnDevice": "请确认这是你的设备。",
+  "reject": "拒绝",
+  "add": "添加",
+  "pairDeclined": "对方拒绝了配对请求",
+  "pairConflict": "对方正在添加此设备，请稍后重试",
+  "pairWaiting": "等待设备响应",
+  "pairFailed": "无法连接设备，请确认双方都已打开最新版本",
+  "removeDevice": "移除设备",
+  "removeDeviceQuestion": "移除设备？",
+  "selectDevices": "多选设备",
+  "selectAll": "全选",
+  "selectedCount": "已选择 {count} 项",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDevicesQuestion": "移除 {count} 台设备？",
+  "@removeDevicesQuestion": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDevicesBody": "将解除与所选设备的配对。离线设备会在下次连接时同步。",
+  "removeRecordsQuestion": "删除 {count} 条记录？",
+  "@removeRecordsQuestion": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeRecordsBody": "仅删除记录时会保留文件；删除文件后无法恢复。",
+  "removeRecordsOnly": "仅删除记录",
+  "removeRecordsAndFiles": "同时删除文件",
+  "removeRecordAndFile": "删除记录和文件",
+  "deleteFilesWarning": "文件将被永久删除，无法恢复。",
+  "deleteFilesFailed": "部分文件无法删除，相关记录已保留",
+  "removalSyncing": "已移除，正在同步到对方",
+  "receive": "接收",
+  "clipboardText": "剪贴板文字",
+  "clipboardImage": "剪贴板图片",
+  "clipboardReceived": "剪贴板内容已接收",
+  "open": "打开",
+  "openNoApp": "没有可打开此文件的应用",
+  "openFailed": "无法打开文件",
+  "sendFailed": "发送失败",
+  "receiveFailed": "接收失败",
+  "transferInterrupted": "传输中断，请重试",
+  "transferDeclined": "对方拒绝了接收",
+  "saveFailed": "无法保存文件，请检查存储空间",
+  "emptyClipboard": "剪贴板没有可发送的内容",
+  "singleClipboardFile": "暂时一次发送一个剪贴板文件",
+  "readSharedFailed": "无法读取分享的文件",
+  "readClipboardFailed": "无法读取剪贴板，请重新复制后重试",
+  "writeClipboardFailed": "无法写入剪贴板",
+  "startupFailed": "无法启动，请重新打开应用",
+  "mobile": "手机",
+  "tablet": "平板",
+  "desktop": "电脑",
+  "device": "设备",
+  "reachable": "可连接",
+  "unreachable": "暂时无法连接",
+  "checking": "正在检查",
+  "unknown": "状态未知",
+  "more": "更多操作",
+  "storageFailed": "无法保存设置",
+  "systemDeviceName": "使用系统设备名",
+  "nameVisible": "其他设备会看到此名称",
+  "deviceAliasHint": "只在本设备显示",
+  "selectFileFirst": "选择文件后，再选择接收设备",
+  "noDevices": "请先添加设备",
+  "requestAccepted": "已添加设备",
+  "deviceCodeShort": "设备码 {code}",
+  "@deviceCodeShort": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "peerUnpaired": "{name} 已解除配对",
+  "@peerUnpaired": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addedPeer": "已添加 {name}",
+  "@addedPeer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sentTo": "已发送给 {name}",
+  "@sentTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "receiving": "正在接收 {name}",
+  "notificationSending": "正在发送",
+  "@receiving": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendingTo": "正在发送给 {name}",
+  "@sendingTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "connectingTo": "正在发送给 {name}",
+  "@connectingTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "received": "已接收 {name}",
+  "@received": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareFrom": "来自 {name} 的分享",
+  "@shareFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeDeviceBody": "将同时解除与「{name}」的配对。对方离线时，双方下次打开新版并联网后重试同步。",
+  "@removeDeviceBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "failedWithReason": "{title}：{reason}",
+  "@failedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshDevices": "刷新设备状态",
+  "transferCancelled": "传输已取消",
+  "cancelling": "正在取消",
+  "directConnection": "直连",
+  "relayConnection": "中继",
+  "mixedConnection": "直连与中继均有流量",
+  "transferHistory": "接收记录",
+  "openReceiveFolder": "打开接收文件夹",
+  "showInFolder": "打开所在文件夹",
+  "recordDetails": "详情",
+  "recordName": "名称",
+  "recordDevice": "设备",
+  "recordTime": "时间",
+  "fileDetails": "文件详情",
+  "fileNameLabel": "文件名",
+  "fileSizeLabel": "大小",
+  "receivedAtLabel": "接收时间",
+  "receivedFromLabel": "来自",
+  "connectingShort": "连接中",
+  "incomingShort": "待接收",
+  "transferNotificationTitle": "传输",
+  "noTransferHistory": "暂无接收记录",
+  "clearHistory": "清空记录",
+  "clearHistoryConfirm": "清空接收记录？接收的文件不会被删除。",
+  "historyReceivedFrom": "来自 {name}",
+  "@historyReceivedFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "moreOptions": "更多选项",
+  "removeRecord": "删除记录",
+  "historyText": "剪贴板文字",
+  "historyImage": "剪贴板图片",
+  "historyUnknownDevice": "未知设备",
+  "historyMissing": "文件不存在或无法访问",
+  "historyCopy": "复制",
+  "historyCopied": "已复制",
+  "historySaveFailed": "已传输，但无法保存记录",
+  "filesCount": "{count} 个文件",
+  "@filesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filesReceived": "已接收 {count} 个文件",
+  "@filesReceived": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "viewHistory": "查看记录",
+  "dropFilesHere": "放开以发送文件",
+  "dropFilesOnly": "暂不支持拖入文件夹",
+  "dropAlreadyPending": "请先处理已选择的内容",
+  "tooManyFiles": "一次最多发送 100 个文件",
+  "backgroundReceiving": "后台接收",
+  "notificationSettings": "通知",
+  "notificationSystemSettings": "系统通知设置",
+  "notificationRequests": "接收请求",
+  "notificationRequestsHint": "设备发来内容时提醒，可在通知中接收或拒绝",
+  "notificationProgress": "传输进度",
+  "notificationProgressHint": "显示进度和速度，系统支持时显示实时活动",
+  "notificationResults": "传输结果",
+  "notificationResultsHint": "完成或失败后保留通知，可打开接收的文件",
+  "notificationLive": "实时活动",
+  "notificationLiveAllowed": "已允许，展示形式由系统决定",
+  "notificationLiveDisabled": "未允许，将使用普通通知",
+  "notificationLiveUnsupported": "当前系统使用普通通知",
+  "notificationChannelHint": "可在系统设置中调整横幅、声音、振动和锁屏显示",
+  "notificationReceivedTitle": "接收完成",
+  "notificationReceivedShort": "已接收",
+  "backgroundDescription": "允许应用在后台保持连接并接收请求。运行时会显示系统通知，可能增加耗电。",
+  "backgroundReady": "正在等待设备发送",
+  "backgroundUnavailable": "无法更改后台接收，请检查系统设置。",
+  "backgroundDiagnostic": "后台状态检查",
+  "backgroundNotification": "通知",
+  "backgroundBattery": "电池优化",
+  "backgroundRestricted": "系统后台限制",
+  "backgroundRunning": "后台接收服务",
+  "backgroundAllowed": "已允许",
+  "backgroundNeedsAttention": "需要检查",
+  "backgroundBatteryHint": "若后台经常离线，可在系统设置中允许不受限制的电池使用。",
+  "backgroundVendorGuide": "查看手机厂商指引",
+  "backgroundLimits": "检查结果反映当前系统设置，不能保证所有厂商系统都不会结束应用。",
+  "backgroundOffer": "有设备正在发送内容",
+  "backgroundOff": "未开启",
+  "backgroundOn": "已开启",
+  "saveAs": "另存为",
+  "revealInFinder": "在 Finder 中显示",
+  "savedFile": "文件已保存",
+  "saveFileFailed": "无法保存文件",
+  "openLink": "打开链接",
+  "openLinkFailed": "无法打开链接",
+  "focusOnReceive": "收到请求时显示窗口",
+  "focusOnReceiveHint": "自动打开 Vela 并切到前台",
+  "autoAccept": "自动接收",
+  "autoAcceptHint": "收到内容时无需确认",
+  "retry": "重试",
+  "fileUnavailable": "文件无法读取，请重新选择",
+  "today": "今天",
+  "yesterday": "昨天",
+  "settingsDevice": "设备",
+  "settingsReceiving": "接收",
+  "saveLocation": "保存位置",
+  "downloadsFolder": "下载",
+  "chooseFolder": "选择文件夹",
+  "useDownloads": "使用下载目录",
+  "saveLocationUnavailable": "无法访问保存位置，请重新选择",
+  "savingFile": "正在保存",
+  "savedPrivately": "无法保存到所选位置，文件已保存在应用中",
+  "settingsDisplay": "显示",
+  "relaySettings": "中继服务器",
+  "relaySettingsHint": "管理自定义中继",
+  "relayEnabled": "使用自定义中继",
+  "relayEnabledDetail": "未配置时使用 Iroh 官方中继",
+  "relayDisabledDetail": "使用 Iroh 官方中继",
+  "relayToggleFailed": "无法更改中继设置",
+  "relayBusy": "请先完成当前传输或配对",
+  "relayCustomOnly": "仅使用自定义中继。请在其他设备配置相同的中继列表。",
+  "relayPublic": "公共中继",
+  "relayPublicDetail": "默认候选",
+  "relayShowToken": "显示令牌",
+  "relayHideToken": "隐藏令牌",
+  "relayDefaultsKept": "公共中继始终保留",
+  "addRelay": "添加中继",
+  "editRelay": "编辑中继",
+  "relayUrl": "中继地址",
+  "relayToken": "访问令牌（可选）",
+  "relayInvalid": "请输入有效的 HTTPS 中继地址",
+  "relayDuplicate": "这个中继已添加",
+  "relayFailed": "无法保存中继，请重试",
+  "relayRemove": "移除中继",
+  "relayTest": "测试连接",
+  "relayTestShort": "测试",
+  "relayTestSuccess": "中继连接成功",
+  "relayTestAuth": "中继拒绝访问，请检查令牌",
+  "relayTestTimeout": "连接超时，请检查地址和网络",
+  "relayTestFailed": "无法连接中继",
+  "searchHistory": "搜索记录",
+  "noHistoryMatches": "没有找到匹配的记录",
+  "transferBusy": "已有传输正在进行，请稍后重试",
+  "backgroundUnknown": "未知",
+  "backgroundNode": "接收节点",
+  "backgroundLowPowerStandby": "低功耗待机豁免",
+  "backgroundAutoStart": "自启动",
+  "backgroundAutoStartHint": "状态无法自动检测。打开系统设置，搜索“自启动”，找到 Vela 并开启（如系统提供）。",
+  "backgroundAutoStartOplusHint": "状态无法自动检测。尝试：设置 → 应用 → 自启动 → Vela；找不到时在设置中搜索“自启动”。",
+  "macKeepAwake": "后台保持可用",
+  "macKeepAwakeHint": "Vela 运行时防止因空闲进入睡眠，屏幕仍可关闭，可能增加耗电。",
+  "macKeepAwakeActive": "保持唤醒状态",
+  "macKeepAwakeLimits": "合盖或手动睡眠时，Mac 仍可能进入睡眠。",
+  "backgroundLogin": "登录时启动",
+  "backgroundLoginApproval": "需要在系统设置中允许",
+  "backgroundLoginNotFound": "无法找到登录项",
+  "backgroundLoginUnsupported": "需要 macOS 13 或更新版本",
+  "backgroundLoginFailed": "无法更改登录启动项，请检查系统设置。",
+  "backgroundNodeInitialized": "已初始化",
+  "backgroundNodeNotInitialized": "未初始化",
+  "sendText": "发送文字",
+  "enterText": "输入或粘贴文字",
+  "folder": "文件夹",
+  "preparingFolder": "正在准备文件夹…",
+  "folderPrepareFailed": "无法准备文件夹",
+  "restoreFolder": "还原文件夹",
+  "restoringFolder": "正在还原文件夹…",
+  "folderRestored": "文件夹已还原",
+  "folderRestoreFailed": "无法还原文件夹，压缩包已保留。",
+  "textContent": "文字",
+  "textReceived": "已收到文字",
+  "view": "查看",
+  "viewText": "查看文字",
+  "textTooLarge": "文字不能超过 1 MiB",
+  "desktopBackgroundHint": "关闭窗口后，Vela 继续在系统托盘运行。请从托盘菜单退出以停止接收。",
+  "desktopBackgroundLimits": "退出 Vela 或电脑进入睡眠后会停止接收。托盘是否可用取决于桌面环境。",
+  "desktopTray": "系统托盘"
+}

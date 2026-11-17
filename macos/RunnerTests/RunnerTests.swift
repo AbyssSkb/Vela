@@ -1,0 +1,105 @@
+import Carbon
+import Cocoa
+import FlutterMacOS
+import XCTest
+
+@testable import Vela
+
+class RunnerTests: XCTestCase {
+
+  func testMenuStatusPrioritizesNotificationsAndRestoresNodeState() {
+    let app = AppDelegate()
+    XCTAssertEqual(app.menuStatus, "starting")
+    app.setNodeStatus("ready")
+    app.setTransferring(true)
+    XCTAssertEqual(app.menuStatus, "transferring")
+    app.setIncoming(true)
+    XCTAssertEqual(app.menuStatus, "notification")
+    app.setNodeStatus("failed")
+    app.setIncoming(false)
+    XCTAssertEqual(app.menuStatus, "transferring")
+    app.setTransferring(false)
+    XCTAssertEqual(app.menuStatus, "failed")
+    app.setNodeStatus("unexpected")
+    XCTAssertEqual(app.menuStatus, "failed")
+  }
+
+  func testBackgroundActivityStartsOnceAndStops() {
+    let app = AppDelegate()
+    defer { app.setBackgroundActive(false) }
+    XCTAssertFalse(app.backgroundActive)
+    app.setBackgroundActive(true)
+    app.setBackgroundActive(true)
+    XCTAssertTrue(app.backgroundActive)
+    app.setBackgroundActive(false)
+    app.setBackgroundActive(false)
+    XCTAssertFalse(app.backgroundActive)
+  }
+
+  func testOnlyLoginLaunchEventIsRecognized() {
+    let event = NSAppleEventDescriptor(
+      eventClass: AEEventClass(kCoreEventClass), eventID: AEEventID(kAEOpenApplication),
+      targetDescriptor: nil, returnID: AEReturnID(kAutoGenerateReturnID),
+      transactionID: AETransactionID(kAnyTransactionID))
+    XCTAssertFalse(AppDelegate.isLoginLaunch(nil))
+    XCTAssertFalse(AppDelegate.isLoginLaunch(event))
+    event.setParam(
+      NSAppleEventDescriptor(enumCode: keyAELaunchedAsLogInItem), forKeyword: keyAEPropData)
+    XCTAssertTrue(AppDelegate.isLoginLaunch(event))
+  }
+
+  func testShareManifestReturnsNativePathsForCurrentAndLegacyManifests() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("VelaShares")
+    let stage = UUID().uuidString
+    let manifest = root.appendingPathComponent("\(stage).json")
+    let paths = [root.appendingPathComponent("\(stage)/file.txt").path]
+    let encodedPaths = String(decoding: try JSONEncoder().encode(paths), as: UTF8.self)
+    for storedPaths: Any in [paths, encodedPaths] {
+      let data = try JSONSerialization.data(withJSONObject: ["stage": stage, "paths": storedPaths])
+      let decoded = try ShareInbox.decodeManifest(data, file: manifest, root: root)
+      XCTAssertEqual(decoded["paths"] as? [String], paths)
+    }
+
+    let text = try JSONSerialization.data(withJSONObject: ["stage": stage, "text": "Hello"])
+    XCTAssertEqual(
+      try ShareInbox.decodeManifest(text, file: manifest, root: root)["text"] as? String,
+      "Hello")
+  }
+
+  func testShareManifestRejectsInvalidPathsInCurrentAndLegacyManifests() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("VelaShares")
+    let stage = UUID().uuidString
+    let manifest = root.appendingPathComponent("\(stage).json")
+    let outsidePaths = [root.appendingPathComponent("other/file.txt").path]
+    let encodedOutsidePaths = String(decoding: try JSONEncoder().encode(outsidePaths), as: UTF8.self)
+    for paths: Any in [outsidePaths, encodedOutsidePaths, "not json"] {
+      let data = try JSONSerialization.data(withJSONObject: ["stage": stage, "paths": paths])
+      XCTAssertThrowsError(try ShareInbox.decodeManifest(data, file: manifest, root: root))
+    }
+    let wrongStage = try JSONSerialization.data(
+      withJSONObject: ["stage": UUID().uuidString, "text": "Hello"])
+    XCTAssertThrowsError(
+      try ShareInbox.decodeManifest(wrongStage, file: manifest, root: root))
+  }
+
+  func testShareManifestRejectsEmptyOversizedAndEscapingPaths() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("VelaShares")
+    let stage = UUID().uuidString
+    let manifest = root.appendingPathComponent("\(stage).json")
+    let path = root.appendingPathComponent("\(stage)/file.txt").path
+    for paths in [
+      [String](), Array(repeating: path, count: 101),
+      [root.appendingPathComponent("\(stage)/../outside.txt").path],
+      [root.appendingPathComponent(stage).path],
+    ] {
+      let data = try JSONSerialization.data(withJSONObject: ["stage": stage, "paths": paths])
+      XCTAssertThrowsError(try ShareInbox.decodeManifest(data, file: manifest, root: root))
+    }
+    let data = try JSONSerialization.data(
+      withJSONObject: ["stage": stage, "paths": Array(repeating: path, count: 100)])
+    XCTAssertEqual(
+      try ShareInbox.decodeManifest(data, file: manifest, root: root)["paths"] as? [String],
+      Array(repeating: path, count: 100))
+  }
+
+}
