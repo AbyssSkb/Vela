@@ -32,7 +32,7 @@ def fallback_files(package: dict, root: Path, sources: dict, source_root: Path) 
     if not fallback:
         raise ValueError(f"{name}: no license text in crate; add exact upstream source to license_sources.json")
     vcs_path = root / ".cargo_vcs_info.json"
-    revision = json.loads(vcs_path.read_text()).get("git", {}).get("sha1") if vcs_path.exists() else None
+    revision = json.loads(vcs_path.read_text(encoding="utf-8")).get("git", {}).get("sha1") if vcs_path.exists() else None
     if revision != fallback["revision"]:
         raise ValueError(f"{name}: upstream license revision does not match the published crate")
     if fallback.get("build_time_attribution_only"):
@@ -57,7 +57,7 @@ def fallback_files(package: dict, root: Path, sources: dict, source_root: Path) 
 
 
 def generate(metadata: dict, output: Path, source_index: Path) -> None:
-    sources = json.loads(source_index.read_text())["packages"]
+    sources = json.loads(source_index.read_text(encoding="utf-8"))["packages"]
     packages = sorted((p for p in metadata["packages"] if p["source"]), key=lambda p: (p["name"], p["version"]))
     material, index = [], []
     for package in packages:
@@ -94,8 +94,8 @@ def generate(metadata: dict, output: Path, source_index: Path) -> None:
         raise ValueError("Cargo metadata contains no registry dependencies")
     output.mkdir(parents=True, exist_ok=True)
     (output / "RUST-NOTICES.txt").write_text(
-        "Vela Rust dependency notices\nOriginal license material for the resolved target, including build dependencies.\n\n" + "".join(material))
-    (output / "rust-notices-index.json").write_text(json.dumps(index, indent=2) + "\n")
+        "Vela Rust dependency notices\nOriginal license material for the resolved target, including build dependencies.\n\n" + "".join(material), encoding="utf-8", newline="\n")
+    (output / "rust-notices-index.json").write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"Bundled license material for {len(packages)} Rust packages.")
 
 
@@ -106,7 +106,7 @@ def main() -> None:
     parser.add_argument("--sources", type=Path, default=Path(__file__).with_name("license_sources.json"))
     args = parser.parse_args()
     try:
-        generate(json.loads(args.metadata.read_text()), args.output, args.sources)
+        generate(json.loads(args.metadata.read_text(encoding="utf-8")), args.output, args.sources)
     except ValueError as error:
         raise SystemExit(f"Cannot package Rust notices: {error}") from error
 

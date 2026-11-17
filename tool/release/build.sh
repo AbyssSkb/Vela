@@ -85,7 +85,8 @@ case "$PLATFORM" in
     signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
     "$signer" verify "dist/Vela-$VERSION-android-$ARCH$suffix.apk"
     if [[ "$ARCH" == arm64 ]]; then
-      (cd android && ./gradlew testReleaseUnitTest)
+      (cd android && ./gradlew -Pandroid.onlyEnableUnitTestForTheTestedBuildType=false \
+        "-Ptarget-platform=$android_target" :app:testReleaseUnitTest)
     fi
     ;;
   *) printf 'Unsupported package platform: %s\n' "$PLATFORM" >&2; exit 2 ;;

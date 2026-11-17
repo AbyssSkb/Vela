@@ -1,6 +1,10 @@
 import hashlib
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -8,6 +12,46 @@ from notices import generate
 
 
 class NoticeTests(unittest.TestCase):
+    def test_unicode_license_is_utf8_under_non_utf8_process_locale(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = self.fixture(root)
+            crate = Path(package['manifest_path']).parent
+            (crate / 'LICENSE').write_text('Copyright Michał\n', encoding='utf-8')
+            metadata, sources = root / 'metadata.json', root / 'sources.json'
+            metadata.write_text(json.dumps({'packages': [package]}), encoding='utf-8')
+            sources.write_text('{"packages":{}}', encoding='utf-8')
+            output = root / 'output'
+            environment = os.environ | {'LC_ALL': 'C', 'PYTHONCOERCECLOCALE': '0', 'PYTHONIOENCODING': 'ascii'}
+            subprocess.run([sys.executable, '-X', 'utf8=0', str(Path(__file__).with_name('notices.py')),
+                            '--metadata', str(metadata), '--sources', str(sources), '--output', str(output)],
+                           env=environment, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.assertIn('Copyright Michał\n'.encode('utf-8'), (output / 'RUST-NOTICES.txt').read_bytes())
+
+    def test_windows_checkout_preserves_upstream_license_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, checkout, hooks = root / 'source', root / 'checkout', root / 'hooks'
+            source.mkdir()
+            hooks.mkdir()
+            git = ['git', '-c', f'core.hooksPath={hooks}', '-c', 'commit.gpgsign=false']
+            def run(*args, cwd=source):
+                subprocess.run(git + list(args), cwd=cwd, check=True,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            run('init', '--quiet')
+            attributes = Path(__file__).resolve().parents[2] / '.gitattributes'
+            shutil.copyfile(attributes, source / '.gitattributes')
+            name = Path('tool/release/licenses/fixture-LICENSE.md')
+            (source / name).parent.mkdir(parents=True)
+            original = b'Original upstream license\nCopyright fixture author\n'
+            (source / name).write_bytes(original)
+            run('-c', 'core.autocrlf=false', 'add', '.')
+            run('-c', 'user.name=Vela tests', '-c', 'user.email=tests@example.invalid',
+                'commit', '--quiet', '-m', 'Fixture')
+            run('clone', '--quiet', '--no-checkout', str(source), str(checkout), cwd=root)
+            run('-c', 'core.autocrlf=true', 'checkout', '--quiet', 'HEAD', cwd=checkout)
+            self.assertEqual((checkout / name).read_bytes(), original)
+
     def fixture(self, root, name='fixture', targets=None):
         crate = root / name
         crate.mkdir()
