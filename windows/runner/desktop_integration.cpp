@@ -1,10 +1,12 @@
 #include <winsock2.h>
+#include <ws2tcpip.h>
 
 #include "desktop_integration.h"
 
 #include <flutter/method_result_functions.h>
 #include <flutter/standard_method_codec.h>
 #include <iphlpapi.h>
+#include <netioapi.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <winhttp.h>

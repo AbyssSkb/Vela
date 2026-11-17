@@ -3,12 +3,29 @@ set -euo pipefail
 
 : "${VERSION:?}" "${BUILD_NUMBER:?}" "${PLATFORM:?}" "${ARCH:?}" "${VELA_UPDATE_REPOSITORY:?}"
 mkdir -p dist
+case "$PLATFORM/$ARCH" in
+  macos/arm64) rust_target=aarch64-apple-darwin ;;
+  macos/x64) rust_target=x86_64-apple-darwin ;;
+  windows/x64) rust_target=x86_64-pc-windows-msvc ;;
+  linux/x64) rust_target=x86_64-unknown-linux-gnu ;;
+  android/arm64) rust_target=aarch64-linux-android ;;
+  android/x64) rust_target=x86_64-linux-android ;;
+  *) printf 'Unsupported package target: %s/%s\n' "$PLATFORM" "$ARCH" >&2; exit 2 ;;
+esac
+mkdir -p build/release-notices
+cargo metadata --locked --format-version 1 --manifest-path rust/Cargo.toml \
+  --filter-platform "$rust_target" > build/release-notices-metadata.json
+python tool/release/notices.py --metadata build/release-notices-metadata.json --output build/release-notices
+cp LICENSE build/release-notices/VELA-LICENSE.txt
+cp rust_builder/cargokit/LICENSE build/release-notices/CARGOKIT-LICENSE.txt
+update_key="${VELA_UPDATE_PUBLIC_KEY:-}"
+if [[ "$PLATFORM/$ARCH" == android/x64 ]]; then update_key=''; fi
 defines=(
   "--dart-define=VELA_VERSION=$VERSION"
   "--dart-define=VELA_BUILD_NUMBER=$BUILD_NUMBER"
   "--dart-define=VELA_UPDATE_ARCH=$ARCH"
   "--dart-define=VELA_UPDATE_REPOSITORY=$VELA_UPDATE_REPOSITORY"
-  "--dart-define=VELA_UPDATE_PUBLIC_KEY=${VELA_UPDATE_PUBLIC_KEY:-}"
+  "--dart-define=VELA_UPDATE_PUBLIC_KEY=$update_key"
 )
 
 case "$PLATFORM" in
@@ -19,7 +36,8 @@ case "$PLATFORM" in
       *) exit 2 ;;
     esac
     # Flutter's CI build path disables the sandbox; configure only, then use normal Xcode entitlements.
-    flutter build macos --release --no-pub --config-only "${defines[@]}"
+    flutter build macos --release --config-only \
+      --build-name="${VERSION%%-*}" --build-number="$BUILD_NUMBER" "${defines[@]}"
     xcode=(xcodebuild -workspace macos/Runner.xcworkspace -scheme Runner -configuration Release \
       -derivedDataPath "$PWD/build/macos" -destination "platform=macOS,arch=$xcode_arch" \
       "ARCHS=$xcode_arch" "EXCLUDED_ARCHS=$excluded_arch" ONLY_ACTIVE_ARCH=YES \
@@ -33,7 +51,12 @@ case "$PLATFORM" in
     fi
     ;;
   windows)
-    flutter build windows --release --no-pub "${defines[@]}"
+    flutter build windows --release "${defines[@]}"
+    for dll in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do
+      test -s "build/windows/x64/runner/Release/$dll"
+    done
+    mkdir -p build/windows/x64/runner/Release/third_party_notices
+    cp build/release-notices/* build/windows/x64/runner/Release/third_party_notices/
     '/c/Program Files (x86)/Inno Setup 6/ISCC.exe' \
       "/DAppVersion=$VERSION" "/DAppVersionNumeric=${WINDOWS_VERSION:?}" \
       "/DBundleDir=$(cygpath -w "$PWD/build/windows/x64/runner/Release")" \
@@ -42,7 +65,7 @@ case "$PLATFORM" in
     build/windows/x64/runner/Release/vela_updater_test.exe
     ;;
   linux)
-    flutter build linux --release --no-pub "${defines[@]}"
+    flutter build linux --release "${defines[@]}"
     python3 linux/runner/updater_helper_test.py build/linux/x64/release/bundle/vela_update_helper
     bash packaging/linux/package.sh
     ;;
@@ -52,7 +75,9 @@ case "$PLATFORM" in
       x64) android_target=android-x64 ;;
       *) exit 2 ;;
     esac
-    flutter build apk --release --no-pub --target-platform "$android_target" "${defines[@]}"
+    mkdir -p android/app/src/main/assets/third_party_notices
+    cp build/release-notices/* android/app/src/main/assets/third_party_notices/
+    flutter build apk --release --target-platform "$android_target" "${defines[@]}"
     suffix=''
     if [[ "${VELA_PREVIEW_BUILD:-true}" == true ]]; then suffix=-preview; fi
     if [[ "$ARCH" == x64 ]]; then suffix=-test; fi
@@ -65,3 +90,4 @@ case "$PLATFORM" in
     ;;
   *) printf 'Unsupported package platform: %s\n' "$PLATFORM" >&2; exit 2 ;;
 esac
+git diff --exit-code -- pubspec.lock

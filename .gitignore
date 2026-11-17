@@ -42,6 +42,7 @@ migrate_working_dir/
 /coverage/
 /dist/
 /feeds/
+/android/app/src/main/assets/third_party_notices/
 
 # Symbolication related
 app.*.symbols

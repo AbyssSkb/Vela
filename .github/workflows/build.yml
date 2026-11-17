@@ -32,7 +32,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: packages-${{ github.workflow }}-${{ github.ref }}
+  group: packages-${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: ${{ !inputs.signed }}
 
 jobs:
@@ -124,6 +124,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.arch }}
           VELA_UPDATE_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: bash tool/release/build.sh
       - name: Mark preview artifacts
         if: ${{ !inputs.signed }}

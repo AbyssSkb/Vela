@@ -59,7 +59,7 @@ Follow [releasing.md](docs/releasing.md). Preview package builds carry no truste
 
 Use the bug report form and include the version on **both** devices, exact reproduction steps, and expected and actual behavior. For connection problems, describe Wi-Fi/cellular/VPN use and whether the apps were visible, in the background, or recovering from sleep. For Android background problems, include the device manufacturer and battery restrictions.
 
-Review logs and screenshots before posting: remove device codes, QR codes, IP addresses, file paths, clipboard content, and credentials. Do not disclose security vulnerabilities or private files in a public issue.
+Review logs and screenshots before posting: remove device codes, QR codes, IP addresses, file paths, clipboard content, and credentials. Use [SECURITY.md](SECURITY.md) for private vulnerability reports; keep private files out of public issues.
 
 ## Work together
 

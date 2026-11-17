@@ -17,6 +17,8 @@ mkdir -p "$appdir/usr/bin" "$appdir/usr/share/icons/hicolor/256x256/apps" "$appd
 cp -a "$bundle/." "$appdir/usr/bin/"
 cp "$repo/LICENSE" "$appdir/usr/share/doc/vela/LICENSE"
 cp "$repo/rust_builder/cargokit/LICENSE" "$appdir/usr/share/doc/vela/Cargokit-LICENSE"
+mkdir -p "$appdir/usr/share/doc/vela/third-party-notices"
+cp "$repo"/build/release-notices/* "$appdir/usr/share/doc/vela/third-party-notices/"
 convert "$repo/assets/branding/vela-icon.png" -resize 256x256 "$appdir/usr/share/icons/hicolor/256x256/apps/io.github.abyssskb.vela.png"
 
 fetch() {
@@ -33,6 +35,7 @@ fetch 'https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimage
   ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0 "$stage/appimagetool"
 curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
   -H 'Accept: application/octet-stream' \
+  -H "Authorization: Bearer ${GH_TOKEN:?Set a read-only GitHub token for the pinned runtime asset}" \
   'https://api.github.com/repos/AppImage/type2-runtime/releases/assets/657374641' -o "$stage/runtime-x86_64"
 printf '%s  %s\n' 617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46 "$stage/runtime-x86_64" | sha256sum --check --status
 fetch 'https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/7a3fbc31a9e5075073ff8790f26effbac5f84453/linuxdeploy-plugin-gtk.sh' \

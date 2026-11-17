@@ -16,6 +16,17 @@ trap 'rm -rf "$stage"' EXIT
 mkdir -p "$repo/dist"
 ditto "$app" "$stage/Vela.app"
 app="$stage/Vela.app"
+notices="$app/Contents/Resources/ThirdPartyNotices"
+mkdir -p "$notices"
+cp "$repo"/build/release-notices/* "$notices/"
+sparkle_found=false
+for license in "$repo"/build/macos/SourcePackages/checkouts/[Ss]parkle/LICENSE*; do
+  if [[ -f "$license" ]]; then
+    cp "$license" "$notices/Sparkle-${license##*/}"
+    sparkle_found=true
+  fi
+done
+[[ "$sparkle_found" == true ]] || { echo 'Missing Sparkle license in the resolved Swift package checkout' >&2; exit 1; }
 
 # Seal nested code before its containing bundle; keep each helper's entitlements.
 while IFS= read -r -d '' binary; do

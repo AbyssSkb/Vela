@@ -13,7 +13,7 @@ Vela builds on GitHub-hosted runners. Keep local verification small when disk is
 
 The package matrix builds macOS ARM64/Intel, Windows x64, Linux x64, Android ARM64, and an Android x86_64 test package. Preview artifacts expire after seven days. Previews contain no trusted update key; Android previews explicitly use a disposable debug key. They are not public update releases.
 
-The zero-cost desktop route uses ad-hoc macOS signing and an EXE installer without Windows Authenticode. Update authenticity uses the project's own Ed25519 key; it does not provide Apple notarization or Windows publisher trust. The macOS build preserves the existing sandbox. Future paid certificates can improve OS trust without replacing the update-signing key.
+The zero-cost desktop route uses ad-hoc macOS signing and an EXE installer without Windows Authenticode. Windows bundles the compiler runtime DLLs beside Vela for current-user installation; app updates also carry those libraries. Update authenticity uses the project's own Ed25519 key; it does not provide Apple notarization or Windows publisher trust. The macOS build preserves the existing sandbox. Future paid certificates can improve OS trust without replacing the update-signing key.
 
 ## Configure release credentials once
 
@@ -32,11 +32,12 @@ Set the repository variable **`VELA_UPDATE_PUBLIC_KEY`** to the raw 32-byte Ed25
 If creating keys for the first public release, use OpenSSL with Ed25519 support and JDK `keytool` in a private directory outside the checkout:
 
 ```sh
+umask 077
 openssl genpkey -algorithm Ed25519 -out vela-update.pem
 keytool -genkeypair -keystore vela-release.jks -alias vela -keyalg RSA -keysize 3072 -validity 10000
 ```
 
-`keytool` prompts for passwords. With the checkout's `tool/release/feeds.py`, derive the public variable value:
+`keytool` prompts for passwords. Then, from the checkout, derive the public variable value:
 
 ```sh
 python3 tool/release/feeds.py --key /path/to/private/vela-update.pem --print-public-key
@@ -48,7 +49,7 @@ Existing macOS/Android application IDs are intentionally retained to preserve cu
 
 ## Create a version
 
-1. Increment the semantic version and build number in `pubspec.yaml`. For example, `1.0.1+6` maps to tag `v1.0.1`. The build number must increase and fit `1..65535`.
+1. Increment the semantic version and build number in `pubspec.yaml`. For example, `0.1.0-beta.2+7` maps to tag `v0.1.0-beta.2`. The build number must increase and fit `1..65535`.
 2. Push the version commit and matching tag. `v*` tag pushes start the release workflow and leave a complete draft by default.
 3. Check all package jobs and inspect the draft artifacts. Run a clean installation and an old-to-new upgrade before advertising the release.
 4. Run **Release** manually for the existing tag with **publish** enabled when ready. The workflow publishes versioned installers first, then updates the machine-readable feeds under the rolling `updates` release.

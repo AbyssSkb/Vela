@@ -28,6 +28,7 @@ Vela 的一条主线是：选择内容 → 选择可信设备 → 对端确认 �
 | macOS 接收目录与分享暂存 | `Runner/ReceiveDirectoryAccess.swift`、`Shared/ShareInbox.swift` | 目录授权、分享清单和暂存目录；分享扩展复用清单规则 |
 | 桌面托盘、通知与登录启动 | `windows/runner/desktop_integration.cpp`、`linux/runner/desktop_integration.cc` | 窗口可见性、托盘与通知、系统事件、正常退出握手 |
 | 原生更新安装 | `macos/Runner/VelaUpdater.swift`、`windows/runner/updater.cpp`、`linux/runner/updater.cc` | 平台更新接口、安装器与退出/重启配合 |
+| Android 覆盖安装 | `android/app/src/main/kotlin/com/example/vela/UpdateBridge.kt` | 安装来源许可、APK 身份检查和系统安装确认 |
 | 远端构建与发布 | `.github/workflows/`、`tool/release/`、`packaging/` | 目标构建、安装包、签名更新源与草稿发布 |
 | 调试驱动入口 | `lib/debug_driver.dart` | debug 模式下双实例测试的命令分派 |
 

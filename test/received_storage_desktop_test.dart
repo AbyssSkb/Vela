@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+// ignore: depend_on_referenced_packages
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vela/received_storage.dart';
 
@@ -20,16 +22,24 @@ class DirectoryPicker extends FilePickerPlatform {
   }) async => path;
 }
 
+class DownloadsProvider extends PathProviderPlatform {
+  DownloadsProvider(this.path);
+  final String path;
+
+  @override
+  Future<String?> getDownloadsPath() async => path;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const storage = ReceivedStorage(platform: TargetPlatform.windows);
   const files = MethodChannel('vela/files');
-  const paths = MethodChannel('plugins.flutter.io/path_provider');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   late Directory temporary;
   late DirectoryPicker picker;
   late FilePickerPlatform previousPicker;
+  late PathProviderPlatform previousPaths;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -37,15 +47,15 @@ void main() {
     previousPicker = FilePickerPlatform.instance;
     picker = DirectoryPicker();
     FilePickerPlatform.instance = picker;
-    messenger.setMockMethodCallHandler(
-      paths,
-      (_) async => '${temporary.path}/Downloads',
+    previousPaths = PathProviderPlatform.instance;
+    PathProviderPlatform.instance = DownloadsProvider(
+      '${temporary.path}/Downloads',
     );
   });
 
   tearDown(() async {
     FilePickerPlatform.instance = previousPicker;
-    messenger.setMockMethodCallHandler(paths, null);
+    PathProviderPlatform.instance = previousPaths;
     messenger.setMockMethodCallHandler(files, null);
     await temporary.delete(recursive: true);
   });

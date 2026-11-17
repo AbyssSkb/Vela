@@ -38,7 +38,6 @@
 		BCA000000000000000000003 /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCA000000000000000000005 /* ShareInbox.swift */; };
 		BCB000000000000000000002 /* VelaUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB000000000000000000001 /* VelaUpdater.swift */; };
 		BCB000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = BCB000000000000000000006 /* Sparkle */; };
-		BCB000000000000000000004 /* Sparkle in Bundle Framework */ = {isa = PBXBuildFile; productRef = BCB000000000000000000006 /* Sparkle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BCB000000000000000000008 /* UpdaterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB000000000000000000007 /* UpdaterTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -73,7 +72,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				BCB000000000000000000004 /* Sparkle in Bundle Framework */,
 			);
 			name = "Bundle Framework";
 			runOnlyForDeploymentPostprocessing = 0;
