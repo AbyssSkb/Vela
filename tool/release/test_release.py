@@ -9,10 +9,28 @@ import unittest
 
 from feeds import generate, public_key, required_artifacts
 from android_signing import configure
+from macos_entitlements import validate as validate_macos_entitlements
 from version import read_version
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_macos_package_rejects_unexpanded_or_missing_sandbox_entitlements(self):
+        info = {'CFBundleIdentifier': 'com.example.vela'}
+        entitlements = {
+            'com.apple.security.app-sandbox': True,
+            'com.apple.security.temporary-exception.mach-lookup.global-name':
+                ['com.example.vela-spks', 'com.example.vela-spki'],
+        }
+        validate_macos_entitlements(info, entitlements)
+        for invalid in (
+            entitlements | {'com.apple.security.app-sandbox': False},
+            entitlements | {'com.apple.security.temporary-exception.mach-lookup.global-name':
+                            ['$(PRODUCT_BUNDLE_IDENTIFIER)-spks', '$(PRODUCT_BUNDLE_IDENTIFIER)-spki']},
+            entitlements | {'unexpanded': '$(OTHER_SETTING)'},
+        ):
+            with self.assertRaises(ValueError):
+                validate_macos_entitlements(info, invalid)
+
     def test_draft_does_not_publish_or_change_live_feeds(self):
         commands = self.run_publication(publish=False)
         self.assertFalse(any(command[:2] == ['release', 'edit'] for command in commands))

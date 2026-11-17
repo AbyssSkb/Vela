@@ -2,3 +2,5 @@ lib/src/rust/** linguist-generated=true
 lib/l10n/generated/** linguist-generated=true
 rust/src/frb_generated.rs linguist-generated=true
 rust_builder/cargokit/** linguist-vendored=true
+# Preserve upstream license bytes for their recorded SHA-256 digests.
+tool/release/licenses/** -text linguist-vendored=true

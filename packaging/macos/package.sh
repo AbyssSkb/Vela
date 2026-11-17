@@ -38,8 +38,11 @@ while IFS= read -r -d '' bundle; do
   codesign --force --sign - --preserve-metadata=identifier,entitlements,flags "$bundle"
   codesign --verify --strict "$bundle"
 done < <(find "$app/Contents" -depth -type d \( -name '*.framework' -o -name '*.app' -o -name '*.xpc' -o -name '*.appex' \) -print0)
-codesign --force --sign - --entitlements "$repo/macos/Runner/Release.entitlements" "$app"
+codesign --force --sign - --preserve-metadata=identifier,entitlements,flags "$app"
 codesign --verify --strict "$app"
+codesign --display --entitlements :- "$app" > "$stage/signed-entitlements.plist" 2>/dev/null
+python3 "$repo/tool/release/macos_entitlements.py" "$app/Contents/Info.plist" "$stage/signed-entitlements.plist"
+rm "$stage/signed-entitlements.plist"
 
 ditto -c -k --rsrc --extattr --keepParent "$app" "$repo/dist/Vela-$VERSION-macos-$ARCH.zip"
 cp "$repo/LICENSE" "$stage/LICENSE.txt"
