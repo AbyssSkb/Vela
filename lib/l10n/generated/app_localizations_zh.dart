@@ -604,7 +604,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get enableBackgroundReceiving => '允许后台接收';
 
   @override
-  String get notificationBackgroundBlocked => '系统通知已关闭。需要确认的传输，请打开 Vela 后接收。';
+  String get notificationBackgroundBlocked => '通知已关闭。请打开 Vela 确认接收请求。';
 
   @override
   String get notificationSettings => '通知';

@@ -643,7 +643,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationBackgroundBlocked =>
-      'System notifications are off. Open Vela to accept transfers that need your confirmation.';
+      'Notifications are off. Open Vela to accept requests.';
 
   @override
   String get notificationSettings => 'Notifications';

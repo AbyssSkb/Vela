@@ -32,7 +32,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final explanation = find.textContaining('Open Vela to accept transfers');
+    final explanation = find.textContaining('Open Vela to accept requests');
     expect(explanation, findsOneWidget);
     expect(tester.getSize(explanation).width, greaterThan(240));
     expect(tester.takeException(), isNull);
