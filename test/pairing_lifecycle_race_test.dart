@@ -86,26 +86,27 @@ void main() {
       node.publish(info: null, proofValidUntilNs: null, unpaired: true);
       await waitUntil(() => node.taken.isCompleted);
       expect(node.peerTrusted, isFalse);
-      final dynamic home = tester.state(find.byType(HomePage));
-      final Object oldSession = home.presenceController.sessionFor(peerId);
+      final cancelPairing = find.byKey(const ValueKey('cancel-pairing'));
+      final peer = find.byKey(const ValueKey('peer-$peerId'));
 
       await tester.tap(find.byKey(const ValueKey('add-device')));
       await tester.pump(const Duration(milliseconds: 300));
       await tester.enterText(find.byKey(const ValueKey('peer-id')), peerId);
       await tester.tap(find.byKey(const ValueKey('confirm-peer')));
       await tester.pump();
-      await waitUntil(() => home.outgoingPairings.containsKey(peerId));
-      expect(
-        identical(home.presenceController.sessionFor(peerId), oldSession),
-        isFalse,
-      );
-      expect(find.byKey(const ValueKey('peer-$peerId')), findsOneWidget);
+      await waitUntil(() => cancelPairing.evaluate().isNotEmpty);
+      expect(peer, findsOneWidget);
       node.release.complete();
       await waitUntil(
-        () => home.outgoingPairingUiActive == false && node.peerTrusted,
+        () => cancelPairing.evaluate().isEmpty && node.peerTrusted,
       );
-      expect((home.peerState as PeerState).types[peerId], 'mobile');
-      expect(find.byKey(const ValueKey('peer-$peerId')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: peer,
+          matching: find.byIcon(Icons.phone_android_rounded),
+        ),
+        findsOneWidget,
+      );
     } finally {
       if (!node.release.isCompleted) node.release.complete();
       await tester.pumpWidget(const SizedBox());

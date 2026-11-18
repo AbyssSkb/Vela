@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-enum PairingDialogResult { accepted, declined, connectionClosed }
+enum PeerDecision { accepted, declined, connectionClosed }
 
-Future<PairingDialogResult> showPairingDialog(
+Future<PeerDecision> showPeerConfirmation(
   BuildContext context, {
   required WidgetBuilder builder,
   required Future<void> peerClosed,
@@ -18,16 +18,15 @@ Future<PairingDialogResult> showPairingDialog(
   final choice = navigator
       .push(route)
       .then(
-        (value) => value == true
-            ? PairingDialogResult.accepted
-            : PairingDialogResult.declined,
+        (value) =>
+            value == true ? PeerDecision.accepted : PeerDecision.declined,
       );
   final closed = peerClosed.then(
-    (_) => PairingDialogResult.connectionClosed,
-    onError: (Object _, StackTrace _) => PairingDialogResult.connectionClosed,
+    (_) => PeerDecision.connectionClosed,
+    onError: (Object _, StackTrace _) => PeerDecision.connectionClosed,
   );
   final result = await Future.any([choice, closed]);
-  if (result == PairingDialogResult.connectionClosed &&
+  if (result == PeerDecision.connectionClosed &&
       route.isActive &&
       navigator.mounted) {
     navigator.removeRoute(route);

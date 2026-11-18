@@ -1,9 +1,8 @@
 use super::request_io::response_acknowledged;
 use super::transfer::{
-    receive_transfer_path, report_receipt_progress, set_transfer_connection, wait_for_cancellation,
-    with_path_monitor,
+    receive_transfer_path, set_transfer_connection, wait_for_cancellation, with_path_monitor,
 };
-use super::transfer_io::create_unique_destination;
+use super::transfer_io::{create_unique_destination, receive_file_contents_and_checksum};
 use super::validation::{valid_device_name, valid_device_type};
 use super::{
     DeviceInfo, IncomingRequest, IncomingRequestInfo, Request, TransferJob, TransferOffer,
@@ -14,7 +13,7 @@ use crate::protocol::PAIRING_COMPLETE;
 use anyhow::Context;
 use anyhow::{anyhow, bail, Result};
 use flutter_rust_bridge::frb;
-use sha2::{Digest, Sha256};
+use iroh::endpoint::{RecvStream, SendStream};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -149,63 +148,60 @@ impl IncomingRequest {
         }
     }
 
+    async fn take_transfer_streams(&self) -> Result<(SendStream, RecvStream)> {
+        let send = self
+            .send
+            .lock()
+            .await
+            .take()
+            .ok_or_else(|| anyhow!("offer already handled"))?;
+        let recv = self
+            .recv
+            .lock()
+            .await
+            .take()
+            .ok_or_else(|| anyhow!("offer already handled"))?;
+        Ok((send, recv))
+    }
+
     pub async fn receive_files(&self, directory: String, job: &TransferJob) -> Result<Vec<String>> {
         let _run = job.start()?;
         let metadata = self.transfer_offer(job)?;
         if metadata.kind != ContentKind::Batch {
             bail!("not a batch transfer")
         }
-        let mut send = self
-            .send
-            .lock()
-            .await
-            .take()
-            .ok_or_else(|| anyhow!("offer already handled"))?;
-        let mut recv = self
-            .recv
-            .lock()
-            .await
-            .take()
-            .ok_or_else(|| anyhow!("offer already handled"))?;
+        let (mut send, mut recv) = self.take_transfer_streams().await?;
         set_transfer_connection(&job.transfer, &self._connection, false)?;
         let cancel = job.transfer.lock().unwrap().cancel.subscribe();
         *job.progress.lock().unwrap() = (0, metadata.size);
         let mut paths = Vec::new();
         let mut saved = false;
+        let receive = async {
+            self.accept_transfer(&mut send).await?;
+            let mut last_report = (0, tokio::time::Instant::now());
+            let mut buf = vec![0u8; 64 * 1024];
+            for entry in &metadata.files {
+                let (path, mut file) =
+                    create_unique_destination(Path::new(&directory), &entry.name).await?;
+                paths.push(path);
+                receive_file_contents_and_checksum(
+                    &mut recv,
+                    &mut send,
+                    &mut file,
+                    entry.size,
+                    &mut buf,
+                    &job.progress,
+                    &mut last_report,
+                )
+                .await?;
+            }
+            saved = true;
+            acknowledge_saved_files(&mut send).await
+        };
         let result = tokio::select! {
             biased;
             _ = wait_for_cancellation(cancel) => Err(FailureCode::Cancelled.error("transfer cancelled")),
-            result = with_path_monitor(async {
-                self.accept_transfer(&mut send).await?;
-                let mut done = 0;
-                let mut last_report = (0, tokio::time::Instant::now());
-                let mut buf = vec![0u8; 64 * 1024];
-                for file_metadata in &metadata.files {
-                    let (path, mut file) = create_unique_destination(Path::new(&directory), &file_metadata.name).await?;
-                    paths.push(path);
-                    let mut remaining = file_metadata.size;
-                    let mut hash = Sha256::new();
-                    while remaining > 0 {
-                        let cap = remaining.min(buf.len() as u64) as usize;
-                        let n = recv.read(&mut buf[..cap]).await?.ok_or_else(|| anyhow!("transfer interrupted"))?;
-                        file.write_all(&buf[..n]).await?;
-                        hash.update(&buf[..n]);
-                        remaining -= n as u64;
-                        done += n as u64;
-                        *job.progress.lock().unwrap() = (done, metadata.size);
-                        report_receipt_progress(&mut send, done, &mut last_report).await?;
-                    }
-                    let mut expected = [0u8; 32];
-                    recv.read_exact(&mut expected).await?;
-                    if hash.finalize().as_slice() != expected { bail!("file checksum mismatch") }
-                    file.flush().await?;
-                }
-                saved = true;
-                send.write_u8(1).await?;
-                send.finish()?;
-                let _ = send.stopped().await?;
-                Ok::<(), anyhow::Error>(())
-            }, receive_transfer_path(&self._connection, &job.transfer)) => result,
+            result = with_path_monitor(receive, receive_transfer_path(&self._connection, &job.transfer)) => result,
         };
         if !saved {
             for path in &paths {
@@ -225,52 +221,34 @@ impl IncomingRequest {
         if metadata.kind == ContentKind::Batch {
             bail!("not a single-file transfer")
         }
-        let mut send = self
-            .send
-            .lock()
-            .await
-            .take()
-            .ok_or_else(|| anyhow!("offer already handled"))?;
-        let mut recv = self
-            .recv
-            .lock()
-            .await
-            .take()
-            .ok_or_else(|| anyhow!("offer already handled"))?;
+        let (mut send, mut recv) = self.take_transfer_streams().await?;
         set_transfer_connection(&job.transfer, &self._connection, false)?;
         let cancel = job.transfer.lock().unwrap().cancel.subscribe();
         let (path, mut file) =
             create_unique_destination(Path::new(&directory), &metadata.name).await?;
         *job.progress.lock().unwrap() = (0, metadata.size);
         let mut saved = false;
+        let receive = async {
+            self.accept_transfer(&mut send).await?;
+            let mut last_report = (0, tokio::time::Instant::now());
+            let mut buf = vec![0u8; 64 * 1024];
+            receive_file_contents_and_checksum(
+                &mut recv,
+                &mut send,
+                &mut file,
+                metadata.size,
+                &mut buf,
+                &job.progress,
+                &mut last_report,
+            )
+            .await?;
+            saved = true;
+            acknowledge_saved_files(&mut send).await
+        };
         let result = tokio::select! {
             biased;
             _ = wait_for_cancellation(cancel) => Err(FailureCode::Cancelled.error("transfer cancelled")),
-            result = with_path_monitor(async {
-            self.accept_transfer(&mut send).await?;
-            let mut remaining = metadata.size;
-            let mut last_report = (0, tokio::time::Instant::now());
-            let mut hash = Sha256::new();
-            let mut buf = vec![0u8; 64 * 1024];
-            while remaining > 0 {
-                let cap = remaining.min(buf.len() as u64) as usize;
-                let n = recv.read(&mut buf[..cap]).await?.ok_or_else(|| anyhow!("transfer interrupted"))?;
-                file.write_all(&buf[..n]).await?;
-                hash.update(&buf[..n]);
-                remaining -= n as u64;
-                *job.progress.lock().unwrap() = (metadata.size - remaining, metadata.size);
-                report_receipt_progress(&mut send, metadata.size - remaining, &mut last_report).await?;
-            }
-            let mut expected = [0u8; 32];
-            recv.read_exact(&mut expected).await?;
-            if hash.finalize().as_slice() != expected { bail!("file checksum mismatch") }
-            file.flush().await?;
-            saved = true;
-            send.write_u8(1).await?;
-            send.finish()?;
-            let _ = send.stopped().await?;
-            Ok::<(), anyhow::Error>(())
-            }, receive_transfer_path(&self._connection, &job.transfer)) => result,
+            result = with_path_monitor(receive, receive_transfer_path(&self._connection, &job.transfer)) => result,
         };
         if result.is_err() && !saved {
             drop(file);
@@ -281,4 +259,11 @@ impl IncomingRequest {
         }
         Ok(path.to_string_lossy().into_owned())
     }
+}
+
+async fn acknowledge_saved_files(send: &mut SendStream) -> Result<()> {
+    send.write_u8(1).await?;
+    send.finish()?;
+    let _ = send.stopped().await?;
+    Ok(())
 }

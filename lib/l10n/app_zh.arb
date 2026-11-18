@@ -227,7 +227,6 @@
   "cancelling": "正在取消",
   "directConnection": "直连",
   "relayConnection": "中继",
-  "mixedConnection": "直连与中继均有流量",
   "transferHistory": "接收记录",
   "openReceiveFolder": "打开接收文件夹",
   "showInFolder": "打开所在文件夹",

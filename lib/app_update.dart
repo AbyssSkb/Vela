@@ -219,10 +219,14 @@ class AppUpdateController extends ChangeNotifier {
   Future<dynamic> _nativeCall(MethodCall call) async {
     if (_disposed) return false;
     if (call.method == 'prepareInstall') {
-      if (!installing || _busy || prepareInstall == null) return false;
+      if (!installing || prepareInstall == null) return false;
+      if (_busy) throw PlatformException(code: 'busy');
       try {
         await prepareInstall!();
         return !_disposed;
+      } on PlatformException catch (error) {
+        if (error.code == 'busy') rethrow;
+        return false;
       } catch (_) {
         return false;
       }
@@ -415,7 +419,8 @@ class AppUpdateController extends ChangeNotifier {
       if (manifest == null || file == null || !await _matches(file, manifest)) {
         throw const FormatException('Update changed after download');
       }
-      if (_busy || _disposed) throw StateError('Application is busy');
+      if (_disposed) return;
+      if (_busy) throw PlatformException(code: 'busy');
       final arguments = platform == 'macos'
           ? {
               'feedUrl': (await _startLocalFeed(manifest, file)).toString(),

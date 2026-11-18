@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,36 +29,113 @@ void main() {
     await expectLater(storage.writableDirectory(), throwsStateError);
   });
 
-  test(
-    'saved resources preserve document URIs and validate the response',
-    () async {
-      messenger.setMockMethodCallHandler(
-        storageChannel,
-        (call) async => [
-          {'path': 'content://downloads/1', 'name': 'photo.png'},
-        ],
-      );
-      final saved = await storage.saveReceived(['/private/photo.png']);
-      expect(saved.single.reference, 'content://downloads/1');
-      expect(saved.single.name, 'photo.png');
+  group('finalizing received files', () {
+    late Directory staging;
+    late List<String> paths;
 
-      messenger.setMockMethodCallHandler(
-        storageChannel,
-        (call) async => [
-          {'path': '', 'name': 'photo.png'},
-        ],
+    setUp(() async {
+      staging = await Directory.systemTemp.createTemp('vela-staged-files-');
+      paths = [
+        for (final name in ['first', 'second'])
+          (await File('${staging.path}/$name').writeAsString(name)).path,
+      ];
+    });
+
+    tearDown(() => staging.delete(recursive: true));
+
+    test(
+      'publishes the complete batch before removing staging files',
+      () async {
+        messenger.setMockMethodCallHandler(storageChannel, (call) async {
+          expect(call.method, 'saveReceived');
+          expect(call.arguments, {'paths': paths});
+          return [
+            {'path': 'content://downloads/1', 'name': 'first (1)'},
+            {'path': 'content://downloads/2', 'name': 'second'},
+          ];
+        });
+        final result = await storage.finishReceive(
+          paths,
+          publishFromStaging: true,
+          isCancelled: () => false,
+        );
+        expect(result.savedPrivately, isFalse);
+        expect(result.files.map((f) => (f.reference, f.name, f.size)), [
+          ('content://downloads/1', 'first (1)', 5),
+          ('content://downloads/2', 'second', 6),
+        ]);
+        expect(await staging.list().toList(), isEmpty);
+      },
+    );
+
+    test(
+      'keeps every private file on a failed or incomplete publication',
+      () async {
+        for (final reply in <Object>[
+          PlatformException(code: 'storage'),
+          [],
+          [
+            {'path': 'content://downloads/1', 'name': 'first'},
+            {'path': '', 'name': 'second'},
+          ],
+        ]) {
+          messenger.setMockMethodCallHandler(storageChannel, (_) async {
+            if (reply is PlatformException) throw reply;
+            return reply;
+          });
+          final result = await storage.finishReceive(
+            paths,
+            publishFromStaging: true,
+            isCancelled: () => false,
+          );
+          expect(result.savedPrivately, isTrue);
+          expect(result.files.map((f) => f.reference), paths);
+          expect(await File(paths.first).readAsString(), 'first');
+          expect(await File(paths.last).readAsString(), 'second');
+        }
+      },
+    );
+
+    for (final alreadyCancelled in [true, false]) {
+      test(
+        'removes staging on cancellation ${alreadyCancelled ? 'before' : 'during'} publication',
+        () async {
+          var calls = 0;
+          messenger.setMockMethodCallHandler(storageChannel, (_) async {
+            calls++;
+            throw PlatformException(code: 'cancelled');
+          });
+          await expectLater(
+            storage.finishReceive(
+              paths,
+              publishFromStaging: true,
+              isCancelled: () => alreadyCancelled,
+            ),
+            throwsA(
+              isA<PlatformException>().having(
+                (e) => e.code,
+                'code',
+                'cancelled',
+              ),
+            ),
+          );
+          expect(calls, alreadyCancelled ? 0 : 1);
+          expect(await staging.list().toList(), isEmpty);
+        },
       );
-      await expectLater(
-        storage.saveReceived(['/private/photo.png']),
-        throwsFormatException,
+    }
+
+    test('direct receives keep the file at its final location', () async {
+      final result = await storage.finishReceive(
+        paths,
+        publishFromStaging: false,
+        isCancelled: () => false,
       );
-      messenger.setMockMethodCallHandler(storageChannel, (call) async => []);
-      await expectLater(
-        storage.saveReceived(['/private/photo.png']),
-        throwsFormatException,
-      );
-    },
-  );
+      expect(result.savedPrivately, isFalse);
+      expect(result.files.first.reference, paths.first);
+      expect(await File(paths.first).readAsString(), 'first');
+    });
+  });
 
   test(
     'document access and reveal stay behind the platform contract',

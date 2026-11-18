@@ -9,24 +9,6 @@ import 'package:vela/src/rust/frb_generated.dart';
 
 import 'support/fakes.dart';
 
-class _Devices implements PairedDevices {
-  _Devices(this.state);
-
-  @override
-  PeerState state;
-
-  @override
-  Future<bool> update(PeerState Function(PeerState) change) async {
-    final next = change(state);
-    final changed = !identical(next, state);
-    state = next;
-    return changed;
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 Future<void> _flush() async {
   for (var i = 0; i < 20; i++) {
     await Future<void>.value();
@@ -36,25 +18,37 @@ Future<void> _flush() async {
 void main() {
   late FakeNode node;
   late PresenceController controller;
-  late _Devices devices;
+  late PairedDevices devices;
+
+  PairedDevices trustedDevices(FakeNode node) => PairedDevices(
+    node: node,
+    store: MemoryPeerStore(),
+    initialState: PeerState(
+      peers: {peerId: 'Phone'},
+      types: {peerId: 'mobile'},
+    ),
+    onMembershipChanging: (_, changed) =>
+        controller.membershipChanging(changed),
+    onStateChanged: controller.membershipPublished,
+    onMembershipSettled: controller.membershipSettled,
+  );
 
   setUp(() {
     node = FakeNode();
     RustLib.initMock(api: FakeRustApi(node));
-    devices = _Devices(
-      PeerState(peers: {peerId: 'Phone'}, types: {peerId: 'mobile'}),
-    );
     controller = PresenceController(
       pairingActive: (_) => false,
       canPersistInfo: () => true,
       recordDiagnostic: (_, [__]) {},
       removeUnpaired: (_, __, ___) async {},
     );
-    controller.attach(node, devices);
+    devices = trustedDevices(node);
+    controller.attach(devices);
   });
 
   tearDown(() async {
     controller.dispose();
+    await devices.close();
     await node.close();
     RustLib.dispose();
   });
@@ -87,8 +81,10 @@ void main() {
     expect(node.watchHeld, isTrue);
 
     final old = node;
+    await devices.close();
     node = FakeNode();
-    controller.attach(node, devices);
+    devices = trustedDevices(node);
+    controller.attach(devices);
     await controller.syncMonitoring(enabled: true);
     await controller.readSnapshot();
     old.releaseWatch.complete();
@@ -106,7 +102,7 @@ void main() {
       await _flush();
       expect(node.freshCalls, hasLength(1));
 
-      controller.membershipChanging(devices.state, PeerState(), {peerId});
+      controller.membershipChanging({peerId});
       await probe;
       await _flush();
       expect(node.freshCalls, hasLength(1));
@@ -118,15 +114,17 @@ void main() {
     },
   );
 
-  test('membership rollback creates a new session identity', () {
-    final previousSession = controller.sessionFor(peerId);
-    final old = devices.state;
-    controller.membershipChanging(old, PeerState(), {peerId});
-    expect(controller.sessionFor(peerId), isNull);
-
-    controller.restoreSessions(old);
-    expect(controller.sessionFor(peerId), isNotNull);
-    expect(identical(controller.sessionFor(peerId), previousSession), isFalse);
-    expect(controller.visibleChecks, contains(peerId));
+  test('only a membership change clears a peer’s online status', () async {
+    await controller.syncMonitoring(enabled: true);
+    node.publish(
+      info: const DeviceInfo(name: 'Phone', deviceType: 'mobile'),
+      proofValidUntilNs: BigInt.from(9000000000),
+    );
+    await controller.readSnapshot();
+    expect(controller.values[peerId], PeerPresence.reachable);
+    await devices.setAlias(peerId, 'Work');
+    expect(controller.values[peerId], PeerPresence.reachable);
+    await devices.remove(peerId);
+    expect(controller.values, isNot(contains(peerId)));
   });
 }

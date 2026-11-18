@@ -32,14 +32,14 @@ class ControlledPreferences extends InMemorySharedPreferencesStore {
   }
 }
 
-TransferRecord record(String name, {String? path, DateTime? time}) =>
+TransferRecord record(String name, {String? fileReference, DateTime? time}) =>
     TransferRecord(
       name: name,
       peer: 'Phone',
       time: time ?? DateTime(2026),
       kind: HistoryKind.file,
       received: true,
-      path: path,
+      fileReference: fileReference,
     );
 
 void main() {
@@ -49,7 +49,7 @@ void main() {
     test(
       'keeps records and write queue across reload (first fails: $failFirst)',
       () async {
-        final original = record('legacy', path: '/legacy');
+        final original = record('legacy', fileReference: '/legacy');
         final legacy = original.toJson()..remove('size');
         SharedPreferences.setMockInitialValues({
           'history_test': jsonEncode([legacy]),
@@ -103,8 +103,8 @@ void main() {
       addTearDown(() => dir.delete(recursive: true));
       final file = File('${dir.path}/file');
       await file.writeAsString('content');
-      final existing = record('file', path: file.path);
-      final denied = record('denied', path: 'content://files/denied');
+      final existing = record('file', fileReference: file.path);
+      final denied = record('denied', fileReference: 'content://files/denied');
       SharedPreferences.setMockInitialValues({
         'history_test': jsonEncode([existing.toJson(), denied.toJson()]),
       });
@@ -114,7 +114,7 @@ void main() {
         store.records.value,
         deleteFiles: true,
         deleteFile: (reference) async {
-          if (reference == denied.path) throw StateError('denied');
+          if (reference == denied.fileReference) throw StateError('denied');
           await const ReceivedStorage().delete(reference);
         },
       );

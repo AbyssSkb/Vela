@@ -416,9 +416,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get relayConnection => '中继';
 
   @override
-  String get mixedConnection => '直连与中继均有流量';
-
-  @override
   String get transferHistory => '接收记录';
 
   @override

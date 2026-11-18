@@ -32,7 +32,7 @@ pub fn init_app() {
 
 #[frb(opaque)]
 pub struct VelaNode {
-    presence: Option<Arc<crate::presence::PresenceManager>>,
+    presence: Arc<crate::presence::PresenceManager>,
     endpoint: Endpoint,
     trust: SharedTrust,
     network_changes: watch::Sender<u64>,
@@ -254,15 +254,11 @@ impl VelaNode {
     pub async fn network_change(&self, resumed: bool) {
         if resumed {
             crate::diagnostics::system_wake();
-            if let Some(presence) = &self.presence {
-                presence.invalidate_for_resume().await;
-            }
+            self.presence.invalidate_for_resume().await;
         } else {
             crate::diagnostics::network_changed();
         }
-        if let Some(presence) = &self.presence {
-            presence.on_network_changed().await;
-        }
+        self.presence.on_network_changed().await;
         self.network_changes
             .send_modify(|revision| *revision = revision.wrapping_add(1));
     }
@@ -277,9 +273,7 @@ impl VelaNode {
     }
 
     pub async fn close(&self) {
-        if let Some(presence) = &self.presence {
-            presence.shutdown().await;
-        }
+        self.presence.shutdown().await;
         self.endpoint.close().await;
     }
 }

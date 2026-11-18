@@ -854,12 +854,6 @@ abstract class AppLocalizations {
   /// **'Relay'**
   String get relayConnection;
 
-  /// No description provided for @mixedConnection.
-  ///
-  /// In en, this message translates to:
-  /// **'Direct and relay traffic'**
-  String get mixedConnection;
-
   /// No description provided for @transferHistory.
   ///
   /// In en, this message translates to:

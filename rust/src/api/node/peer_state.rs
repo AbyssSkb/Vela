@@ -16,9 +16,7 @@ impl VelaNode {
                 .map_err(|_| anyhow!("invalid device ID"))?;
         }
         self.trust.write().await.replace_trusted_peers(desired);
-        if let Some(presence) = &self.presence {
-            presence.reconcile_trusted_peers().await;
-        }
+        self.presence.reconcile_trusted_peers().await;
         Ok(())
     }
 
@@ -29,9 +27,7 @@ impl VelaNode {
             .parse::<iroh::EndpointId>()
             .map_err(|_| anyhow!("invalid device ID"))?;
         self.trust.write().await.begin_pairing(peer_id);
-        if let Some(presence) = &self.presence {
-            presence.reconcile_trusted_peers().await;
-        }
+        self.presence.reconcile_trusted_peers().await;
         Ok(())
     }
 
@@ -42,33 +38,20 @@ impl VelaNode {
             .parse::<iroh::EndpointId>()
             .map_err(|_| anyhow!("invalid device ID"))?;
         self.trust.write().await.end_pairing(&peer_id);
-        if let Some(presence) = &self.presence {
-            presence.reconcile_trusted_peers().await;
-        }
+        self.presence.reconcile_trusted_peers().await;
         Ok(())
     }
 
     pub async fn revoke_if_unpaired(&self, peer_id: String) -> bool {
-        match &self.presence {
-            Some(presence) => presence.revoke_if_unpaired(&peer_id).await,
-            None => false,
-        }
+        self.presence.revoke_if_unpaired(&peer_id).await
     }
 
     pub async fn set_presence_monitoring(&self, enabled: bool) -> Result<()> {
-        self.presence
-            .as_ref()
-            .ok_or_else(|| anyhow!("presence unavailable"))?
-            .set_monitoring(enabled)
-            .await
+        self.presence.set_monitoring(enabled).await
     }
 
     pub async fn wait_presence_snapshot(&self, after_revision: u64) -> Result<PresenceSnapshot> {
-        self.presence
-            .as_ref()
-            .ok_or_else(|| anyhow!("presence unavailable"))?
-            .wait_snapshot(after_revision)
-            .await
+        self.presence.wait_snapshot(after_revision).await
     }
 
     pub async fn set_device_info(&self, name: String, device_type: String) -> Result<()> {
@@ -99,12 +82,7 @@ impl VelaNode {
                 .cloned()
                 .ok_or_else(|| anyhow!("untrusted device"))?
         };
-        let info = self
-            .presence
-            .as_ref()
-            .ok_or_else(|| anyhow!("presence unavailable"))?
-            .check(peer_id, fresh)
-            .await?;
+        let info = self.presence.check(peer_id, fresh).await?;
         if !self.trust.read().await.is_current(peer_id, &session) {
             bail!("pairing changed")
         }

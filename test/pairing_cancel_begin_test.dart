@@ -136,8 +136,9 @@ void main() {
         expect(handle.cancels, greaterThanOrEqualTo(1));
         expect(handle.requests, 0);
         expect(node.pendingChanges, [true, false]);
-        final dynamic home = tester.state(find.byType(HomePage));
-        await waitUntil(() => home.outgoingPairingUiActive == false);
+        await waitUntil(
+          () => find.byKey(const ValueKey('cancel-pairing')).evaluate().isEmpty,
+        );
       } finally {
         if (!node.release.isCompleted) node.release.complete(handle);
         await tester.pumpWidget(const SizedBox());
@@ -225,7 +226,9 @@ void main() {
       expect(handle.requests, 1);
       expect(handle.cancels, greaterThanOrEqualTo(1));
       expect(node.pendingChanges, [true, false]);
-      await waitUntil(() => home.outgoingPairingUiActive == false);
+      await waitUntil(
+        () => find.byKey(const ValueKey('cancel-pairing')).evaluate().isEmpty,
+      );
       await tester.pump();
       expect(
         find.text(
@@ -234,7 +237,8 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Added Phone'), findsNothing);
-      expect((home.peerState as PeerState).peers.containsKey(peerId), isFalse);
+      expect(find.byKey(const ValueKey('peer-$peerId')), findsNothing);
+      expect(node.peerTrusted, isFalse);
     } finally {
       if (!node.release.isCompleted) node.release.complete(handle);
       await tester.pumpWidget(const SizedBox());

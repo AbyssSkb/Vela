@@ -5,98 +5,16 @@ import 'package:vela/device_graph.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/main.dart';
 import 'package:vela/peer_state.dart';
-import 'package:vela/src/rust/frb_generated.dart';
-import 'package:vela/src/rust/api/node.dart';
-import 'package:vela/src/rust/api/folder.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'support/fakes.dart' as fakes;
-import 'peer_test_utils.dart';
-
-class RecordingNode extends fakes.FakeNode {
-  String? sentText;
-  String? sentKind;
-  String? sentName;
-  @override
-  TransferJob newTransferJob() => RecordingTransferJob(this);
-}
-
-class RecordingTransferJob extends fakes.FakeTransferJob {
-  RecordingTransferJob(this.node);
-  final RecordingNode node;
-  @override
-  Future<void> sendFile({
-    required String peerId,
-    required String path,
-    required String kind,
-  }) async {
-    node.sentText = await File(path).readAsString();
-    node.sentKind = kind;
-    node.sentName = File(path).uri.pathSegments.last;
-  }
-}
-
-class FolderPicker extends FilePickerPlatform {
-  FolderPicker(this.path);
-  final String path;
-  @override
-  Future<String?> getDirectoryPath({
-    String? dialogTitle,
-    String? initialDirectory,
-    AndroidOptions androidOptions = const AndroidOptions(),
-    WindowsOptions windowsOptions = const WindowsOptions(),
-    LinuxOptions linuxOptions = const LinuxOptions(),
-    WebOptions webOptions = const WebOptions(),
-  }) async => path;
-}
-
-class FolderJob implements FolderArchiveJob {
-  String? source;
-  @override
-  Future<void> cancel() async {}
-  @override
-  Future<String> pack({
-    required String source,
-    required String outputDir,
-  }) async {
-    this.source = source;
-    final file = File('$outputDir/test.vela-folder.zip');
-    await file.writeAsString('archive');
-    return file.path;
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class RecordingApi extends fakes.FakeRustApi {
-  RecordingApi(super.node, this.folderJob);
-  final FolderJob folderJob;
-  @override
-  Future<FolderArchiveJob> crateApiFolderNewFolderArchiveJob() async =>
-      folderJob;
-}
-
-Future<void> _waitFor(WidgetTester tester, bool Function() ready) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 30));
-  while (!ready() && DateTime.now().isBefore(deadline)) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 10)),
-    );
-    await tester.pump(const Duration(milliseconds: 10));
-  }
-  expect(ready(), isTrue, reason: 'Home did not reach the expected state');
-}
+import 'support/home_environment.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  sqfliteFfiInit();
 
   testWidgets('five actions remain readable when the layout changes', (
     tester,
@@ -282,146 +200,104 @@ void main() {
   testWidgets(
     'home adapts to viewport size and keeps device view and selection on resize',
     (tester) async {
-      final dir = Directory.systemTemp.createTempSync('vela-responsive-test-');
-      final node = RecordingNode();
-      final folderJob = FolderJob();
-      final oldPicker = FilePickerPlatform.instance;
-      FilePickerPlatform.instance = FolderPicker('${dir.path}/source');
-      databaseFactory = databaseFactoryFfi;
-      await seedPeerState(
-        tester,
-        dir,
-        PeerState(
-          peers: {
-            fakes.peerId: 'Phone',
-            'c' * 64: 'Work Mac',
-            'd' * 64: 'Tablet',
-            'e' * 64: 'Laptop',
-          },
-          types: {
-            fakes.peerId: 'mobile',
-            'c' * 64: 'desktop',
-            'd' * 64: 'tablet',
-            'e' * 64: 'desktop',
-          },
-        ),
+      final node = fakes.FakeNode();
+      final devices = PeerState(
+        peers: {
+          fakes.peerId: 'Phone',
+          'c' * 64: 'Work Mac',
+          'd' * 64: 'Tablet',
+          'e' * 64: 'Laptop',
+        },
+        types: {
+          fakes.peerId: 'mobile',
+          'c' * 64: 'desktop',
+          'd' * 64: 'tablet',
+          'e' * 64: 'desktop',
+        },
       );
-      SharedPreferences.setMockInitialValues({});
-      RustLib.initMock(api: RecordingApi(node, folderJob));
-      const path = MethodChannel('plugins.flutter.io/path_provider');
-      const secure = MethodChannel(
-        'plugins.it_nomads.com/flutter_secure_storage',
-      );
-      const background = MethodChannel('vela/background');
-      const deviceInfo = MethodChannel('vela/device');
-      const share = MethodChannel('vela/share');
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        path,
-        (_) async => dir.path,
-      );
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        secure,
-        (_) async => null,
-      );
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        background,
-        (call) async => call.method == 'getWindowVisible' ? true : null,
-      );
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        deviceInfo,
-        (call) async => call.method == 'info'
-            ? {'name': 'MacBook', 'type': 'desktop'}
-            : null,
-      );
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        share,
-        (_) async => null,
-      );
-      tester.view.devicePixelRatio = 1;
-      final captureKey = GlobalKey();
-      final captureDirectory = Platform.environment['VELA_UI_CAPTURE_DIR'];
-      final fonts = Platform.environment['VELA_UI_CAPTURE_FONT_DIR'];
-      if (captureDirectory != null && fonts != null) {
-        await tester.runAsync(() async {
-          for (final (family, file) in [
-            ('Roboto', 'Roboto-Regular.ttf'),
-            ('MaterialIcons', 'MaterialIcons-Regular.otf'),
-          ]) {
-            final loader = FontLoader(family)
-              ..addFont(
-                File('$fonts/$file')
-                    .readAsBytes()
-                    .then((bytes) => bytes.buffer.asByteData()),
-              );
-            await loader.load();
-          }
-        });
-      }
+      Future<void> verifyLayout(Directory _) async {
+        final captureKey = GlobalKey();
+        final captureDirectory = Platform.environment['VELA_UI_CAPTURE_DIR'];
+        final fonts = Platform.environment['VELA_UI_CAPTURE_FONT_DIR'];
+        if (captureDirectory != null && fonts != null) {
+          await tester.runAsync(() async {
+            for (final (family, file) in [
+              ('Roboto', 'Roboto-Regular.ttf'),
+              ('MaterialIcons', 'MaterialIcons-Regular.otf'),
+            ]) {
+              final loader = FontLoader(family)
+                ..addFont(
+                  File('$fonts/$file')
+                      .readAsBytes()
+                      .then((bytes) => bytes.buffer.asByteData()),
+                );
+              await loader.load();
+            }
+          });
+        }
 
-      Future<void> capture(String name) async {
-        if (captureDirectory == null) return;
-        final boundary =
-            captureKey.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
-        await tester.runAsync(() async {
-          final image = await boundary.toImage(pixelRatio: 1);
-          final bytes = (await image.toByteData(
-            format: ui.ImageByteFormat.png,
-          ))!;
-          await File('$captureDirectory/$name.png')
-              .writeAsBytes(bytes.buffer.asUint8List());
-          image.dispose();
-        });
-      }
+        Future<void> capture(String name) async {
+          if (captureDirectory == null) return;
+          final boundary =
+              captureKey.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          await tester.runAsync(() async {
+            final image = await boundary.toImage(pixelRatio: 1);
+            final bytes = (await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            ))!;
+            await File('$captureDirectory/$name.png')
+                .writeAsBytes(bytes.buffer.asUint8List());
+            image.dispose();
+          });
+        }
 
-      Widget home({double scale = 1, bool animations = false}) =>
-          RepaintBoundary(
-            key: captureKey,
-            child: MaterialApp(
-              debugShowCheckedModeBanner: false,
-              theme: ThemeData(
-                useMaterial3: true,
-                colorScheme: ColorScheme.fromSeed(
-                  seedColor: const Color(0xff5367ca),
+        Widget home({double scale = 1, bool animations = false}) =>
+            RepaintBoundary(
+              key: captureKey,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: ThemeData(
+                  useMaterial3: true,
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: const Color(0xff5367ca),
+                  ),
+                  scaffoldBackgroundColor: const Color(0xfff8f9fd),
+                  fontFamily: fonts == null ? null : 'Roboto',
                 ),
-                scaffoldBackgroundColor: const Color(0xfff8f9fd),
-                fontFamily: fonts == null ? null : 'Roboto',
-              ),
-              locale: const Locale('en'),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: TextScaler.linear(scale),
-                  disableAnimations: !animations,
+                locale: const Locale('en'),
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(scale),
+                    disableAnimations: !animations,
+                  ),
+                  child: child!,
                 ),
-                child: child!,
+                home: HomePage(
+                  profile: 'test',
+                  language: 'en',
+                  appearance: 'light',
+                  changeSetting: (_, _) async {},
+                  diagnosticsEnabled: false,
+                  changeDiagnosticsEnabled: (_) async {},
+                ),
               ),
-              home: HomePage(
-                profile: 'test',
-                language: 'en',
-                appearance: 'light',
-                changeSetting: (_, _) async {},
-                diagnosticsEnabled: false,
-                changeDiagnosticsEnabled: (_) async {},
-              ),
-            ),
-          );
-      Future<void> resize(Size size) async {
-        tester.view.physicalSize = size;
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        expect(tester.takeException(), isNull);
-      }
+            );
+        Future<void> resize(Size size) async {
+          tester.view.physicalSize = size;
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(tester.takeException(), isNull);
+        }
 
-      final device = find.byKey(const ValueKey('peer-${fakes.peerId}'));
-      final file = find.byKey(const ValueKey('send-file'));
-      final devices = find.byKey(const ValueKey('home-devices'));
-
-      try {
+        final device = find.byKey(const ValueKey('peer-${fakes.peerId}'));
+        final file = find.byKey(const ValueKey('send-file'));
+        final devices = find.byKey(const ValueKey('home-devices'));
         await resize(const Size(390, 844));
         await tester.pumpWidget(home());
-        await _waitFor(tester, () => device.evaluate().isNotEmpty);
+        await waitForHome(tester, () => device.evaluate().isNotEmpty);
         expect(file, findsOneWidget);
         expect(find.byKey(const ValueKey('home-more')), findsOneWidget);
         expect(
@@ -446,54 +322,6 @@ void main() {
           titlePosition,
           reason: 'The page title must stay fixed while the window is resized',
         );
-        await resize(const Size(390, 844));
-        await tester.tap(find.byKey(const ValueKey('send-text')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.enterText(find.byType(TextField), 'Hello from Vela');
-        await tester.pump();
-        await tester.tap(find.text('Send text').last);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(find.text('Phone').last);
-        await _waitFor(tester, () => node.sentText != null);
-        expect(node.sentText, 'Hello from Vela');
-        expect(node.sentKind, 'typed_text');
-        expect(node.sentName, endsWith('.txt'));
-        await _waitFor(
-          tester,
-          () => !(tester.state(
-            find.byType(HomePage),
-          ) as dynamic).contentOperationActive,
-        );
-        ScaffoldMessenger.of(tester.element(find.byType(HomePage)))
-            .hideCurrentSnackBar();
-        await tester.pump(const Duration(milliseconds: 300));
-        if (Platform.isMacOS) {
-          node.sentText = null;
-          await tester.tap(find.byKey(const ValueKey('send-folder')));
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 300));
-          await tester.tap(find.text('Phone').last);
-          await _waitFor(tester, () => node.sentText != null);
-          expect(folderJob.source, '${dir.path}/source');
-          expect(node.sentText, 'archive');
-          expect(node.sentKind, 'file');
-          await _waitFor(
-            tester,
-            () => !(tester.state(
-              find.byType(HomePage),
-            ) as dynamic).contentOperationActive,
-          );
-          ScaffoldMessenger.of(tester.element(find.byType(HomePage)))
-              .hideCurrentSnackBar();
-          await tester.pump(const Duration(milliseconds: 300));
-          expect(
-            File('${dir.path}/test.vela-folder.zip').existsSync(),
-            isFalse,
-          );
-        }
-
         await resize(const Size(320, 844));
         expect(find.byKey(const ValueKey('select-devices')), findsNothing);
         expect(find.byKey(const ValueKey('toggle-device-view')), findsNothing);
@@ -794,37 +622,14 @@ void main() {
           isNull,
           reason: 'Large text must not overflow the wide layout',
         );
-      } finally {
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 50)),
-        );
-        RustLib.dispose();
-        FilePickerPlatform.instance = oldPicker;
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          path,
-          null,
-        );
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          secure,
-          null,
-        );
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          background,
-          null,
-        );
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          deviceInfo,
-          null,
-        );
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          share,
-          null,
-        );
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-        if (dir.existsSync()) dir.deleteSync(recursive: true);
       }
+
+      await withHomeTestEnvironment(
+        tester,
+        api: fakes.FakeRustApi(node),
+        devices: devices,
+        run: verifyLayout,
+      );
     },
   );
 

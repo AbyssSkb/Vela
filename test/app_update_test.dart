@@ -380,6 +380,41 @@ void main() {
       );
     });
 
+    test('install distinguishes a busy app from a failed shutdown', () async {
+      Object failure = PlatformException(code: 'busy');
+      controller.dispose();
+      controller = AppUpdateController(
+        platform: 'linux',
+        arch: 'x64',
+        version: '1.0.0',
+        build: 5,
+        publicKey: publicKey,
+        channel: channel,
+        readUrl: (url) =>
+            Stream.value(url.path.endsWith('.json') ? signed : bytes),
+        prepareInstall: () async => throw failure,
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'getUpdateDirectory') return cache.path;
+            if (call.method == 'installDownloaded' &&
+                await nativeCall('prepareInstall') != true) {
+              throw PlatformException(code: 'update_failed');
+            }
+            return null;
+          });
+      await controller.start();
+      await controller.setBusy(false);
+      await controller.install();
+      expect(controller.errorCode, 'busy');
+      expect(controller.canInstall, isTrue);
+
+      failure = StateError('could not close node');
+      await controller.install();
+      expect(controller.errorCode, 'update_failed');
+      expect(controller.canInstall, isTrue);
+    });
+
     test('failed macOS handoff closes the temporary local feed', () async {
       controller.dispose();
       Uri? feed;

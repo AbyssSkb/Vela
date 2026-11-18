@@ -30,6 +30,26 @@ async fn start_local_test_node(secret: Vec<u8>) -> Result<VelaNode> {
     Ok(runtime::start_node_with_endpoint(endpoint))
 }
 
+fn node_without_listener(endpoint: Endpoint) -> VelaNode {
+    let trust = Arc::new(RwLock::new(crate::trust::TrustState::default()));
+    let device_info = Arc::new(RwLock::new(None));
+    let presence = Arc::new(crate::presence::PresenceManager::new(
+        endpoint.clone(),
+        trust.clone(),
+        Arc::new(Mutex::new(std::collections::HashMap::new())),
+        device_info.clone(),
+    ));
+    VelaNode {
+        endpoint,
+        trust,
+        device_info,
+        presence,
+        network_changes: watch::channel(0).0,
+        transfer_slots: Arc::new(Semaphore::new(1)),
+        incoming_requests: Mutex::new(mpsc::channel(1).1),
+    }
+}
+
 impl VelaNode {
     async fn send_file_to(
         &self,
@@ -208,15 +228,9 @@ async fn node_network_change_returns_while_transport_notification_is_blocked() {
             }
         },
     ));
-    let (_offer_tx, offers) = mpsc::channel(1);
     let node = VelaNode {
-        presence: None,
-        endpoint,
-        trust: Arc::new(RwLock::new(crate::trust::TrustState::default())),
         network_changes,
-        device_info: Arc::new(RwLock::new(None)),
-        transfer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-        incoming_requests: Mutex::new(offers),
+        ..node_without_listener(endpoint)
     };
     node.network_change(false).await;
     calls.recv().await.unwrap();
@@ -236,23 +250,7 @@ async fn closing_node_wakes_pending_presence_snapshot() {
         .bind()
         .await
         .unwrap();
-    let trust = Arc::new(RwLock::new(crate::trust::TrustState::default()));
-    let presence = Arc::new(crate::presence::PresenceManager::new(
-        endpoint.clone(),
-        trust.clone(),
-        Arc::new(Mutex::new(std::collections::HashMap::new())),
-        Arc::new(RwLock::new(None)),
-    ));
-    let (_offer_tx, offers) = mpsc::channel(1);
-    let node = Arc::new(VelaNode {
-        presence: Some(presence),
-        endpoint,
-        trust,
-        network_changes: watch::channel(0).0,
-        device_info: Arc::new(RwLock::new(None)),
-        transfer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-        incoming_requests: Mutex::new(offers),
-    });
+    let node = Arc::new(node_without_listener(endpoint));
     node.set_presence_monitoring(true).await.unwrap();
     let revision = node.wait_presence_snapshot(0).await.unwrap().revision;
     let waiting = {
@@ -498,16 +496,7 @@ async fn private_relay_transfers_and_rejects_bad_token() {
         .bind()
         .await
         .unwrap();
-    let (_, offers) = mpsc::channel(1);
-    let node = VelaNode {
-        presence: None,
-        endpoint: a.clone(),
-        trust: Arc::new(RwLock::new(crate::trust::TrustState::default())),
-        network_changes: watch::channel(0).0,
-        device_info: Arc::new(RwLock::new(None)),
-        transfer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-        incoming_requests: Mutex::new(offers),
-    };
+    let node = node_without_listener(a.clone());
     assert!(node
         .add_relay("http://example.com/".into(), None)
         .await
@@ -538,16 +527,7 @@ async fn private_relay_transfers_and_rejects_bad_token() {
     let server = server.unwrap();
     let send_job = node.new_transfer_job().unwrap();
     set_transfer_connection(&send_job.transfer, &client, true).unwrap();
-    let (_, receiver_offers) = mpsc::channel(1);
-    let receiver = VelaNode {
-        presence: None,
-        endpoint: b.clone(),
-        trust: Arc::new(RwLock::new(crate::trust::TrustState::default())),
-        network_changes: watch::channel(0).0,
-        device_info: Arc::new(RwLock::new(None)),
-        transfer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-        incoming_requests: Mutex::new(receiver_offers),
-    };
+    let receiver = node_without_listener(b.clone());
     let receive_job = receiver.new_transfer_job().unwrap();
     set_transfer_connection(&receive_job.transfer, &server, false).unwrap();
     assert_eq!(send_job.progress().path, "relay");
@@ -613,16 +593,7 @@ async fn relay_only_connection_reports_relay_traffic() {
     .unwrap();
     let client = client.unwrap();
     let server = server.unwrap();
-    let (_, offers) = mpsc::channel(1);
-    let node = VelaNode {
-        presence: None,
-        endpoint: a.clone(),
-        trust: Arc::new(RwLock::new(crate::trust::TrustState::default())),
-        network_changes: watch::channel(0).0,
-        device_info: Arc::new(RwLock::new(None)),
-        transfer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-        incoming_requests: Mutex::new(offers),
-    };
+    let node = node_without_listener(a.clone());
     let send_job = node.new_transfer_job().unwrap();
     set_transfer_connection(&send_job.transfer, &client, true).unwrap();
     let _ = send_job.progress();
@@ -1891,17 +1862,7 @@ async fn test_pairing_initiator(target: &super::VelaNode) -> super::VelaNode {
         .bind()
         .await
         .unwrap();
-    let (_tx, requests) = mpsc::channel(1);
-    let a = VelaNode {
-        presence: None,
-        endpoint,
-        trust: Arc::new(RwLock::new(crate::trust::TrustState::default())),
-        network_changes: watch::channel(0).0,
-        device_info: Arc::new(RwLock::new(None)),
-        transfer_slots: Arc::new(tokio::sync::Semaphore::new(1)),
-        incoming_requests: Mutex::new(requests),
-    };
-    a
+    node_without_listener(endpoint)
 }
 
 #[tokio::test]

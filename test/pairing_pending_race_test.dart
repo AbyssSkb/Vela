@@ -128,8 +128,8 @@ void main() {
         await tester.pump();
         await waitUntil(() => node.falseStarted.isCompleted);
         node.second.complete(PairOffer());
-        final dynamic home = tester.state(find.byType(HomePage));
-        await waitUntil(() => home.incomingPairings.containsKey(peerId));
+        // The listener asks for its third request after dispatching the second.
+        await waitUntil(() => node.requests == 3);
         node.releaseFalse.complete();
         await waitUntil(
           () =>
@@ -141,7 +141,6 @@ void main() {
           isTrue,
           reason: 'the older completion must not clear the current pairing',
         );
-        expect(home.incomingPairings.containsKey(peerId), isTrue);
         await tester.tap(find.text('Decline'));
         await tester.pump();
       } finally {

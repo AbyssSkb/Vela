@@ -438,9 +438,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get relayConnection => 'Relay';
 
   @override
-  String get mixedConnection => 'Direct and relay traffic';
-
-  @override
   String get transferHistory => 'Received';
 
   @override
