@@ -24,7 +24,7 @@ Future<void> main(List<String> a) async {
         );
         await receiver.tap(find.text('拒绝'));
         await sender.waitFor(
-          find.byValueKey('notice-action'),
+          find.byValueKey('retry-send'),
           timeout: const Duration(seconds: 75),
         );
         await sender.requestData(
@@ -34,7 +34,7 @@ Future<void> main(List<String> a) async {
             'content': 'changed clipboard',
           }),
         );
-        await sender.tap(find.byValueKey('notice-action'));
+        await sender.tap(find.byValueKey('retry-send'));
         await receiver.requestData(jsonEncode({'action': 'mac-show-test'}));
         await receiver.waitFor(
           find.byValueKey('accept-offer'),

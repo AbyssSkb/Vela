@@ -265,6 +265,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sendFailed => '发送失败';
 
   @override
+  String sendFailedTo(String name) {
+    return '未能发送给 $name。';
+  }
+
+  @override
+  String get sendDeviceChanged => '配对已变更，请放弃本次发送后重新选择设备。';
+
+  @override
+  String get discardSend => '放弃发送';
+
+  @override
   String get receiveFailed => '接收失败';
 
   @override

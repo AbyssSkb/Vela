@@ -79,7 +79,7 @@ Future<void> main() async {
   );
   final secondRetry = session.allowRetry();
   await firstRetry.dismiss();
-  check(content.cleanups == 0, 'Old notice cannot release a new retry');
+  check(content.cleanups == 0, 'An old retry cannot release a new retry');
   check(firstRetry.take() == null, 'Retry is single use');
   await secondRetry.dismiss();
   await secondRetry.dismiss();
@@ -95,7 +95,7 @@ Future<void> main() async {
     sent,
     releaseSource: () async => sourceReleases++,
   );
-  await completed.releaseAfterSuccessfulSend();
+  await completed.release();
   await completed.discardPreparedFiles();
   check(
     sourceReleases == 1 && sent.cleanups == 1,
@@ -107,7 +107,7 @@ Future<void> main() async {
     await SendSession(
       failedRelease,
       releaseSource: () async => throw StateError('Source release failed'),
-    ).releaseAfterSuccessfulSend();
+    ).release();
     throw StateError('Expected source release failure');
   } catch (error) {
     check(

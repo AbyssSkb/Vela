@@ -8,7 +8,7 @@ class SendSession {
   SendRetry? _retry;
   Future<void>? _cleanup;
 
-  Future<void> releaseAfterSuccessfulSend() async {
+  Future<void> release() async {
     try {
       await releaseSource?.call();
     } finally {

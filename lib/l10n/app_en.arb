@@ -104,6 +104,14 @@
   "openNoApp": "No app can open this file.",
   "openFailed": "Could not open the file.",
   "sendFailed": "Could not send",
+  "sendFailedTo": "Couldn't send to {name}.",
+  "@sendFailedTo": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendDeviceChanged": "The device pairing changed. Discard this send and select the device again.",
+  "discardSend": "Discard send",
   "receiveFailed": "Could not receive",
   "transferInterrupted": "Transfer interrupted. Try again.",
   "transferDeclined": "The other device declined.",

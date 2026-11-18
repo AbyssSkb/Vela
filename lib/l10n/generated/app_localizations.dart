@@ -596,6 +596,24 @@ abstract class AppLocalizations {
   /// **'Could not send'**
   String get sendFailed;
 
+  /// No description provided for @sendFailedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t send to {name}.'**
+  String sendFailedTo(String name);
+
+  /// No description provided for @sendDeviceChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The device pairing changed. Discard this send and select the device again.'**
+  String get sendDeviceChanged;
+
+  /// No description provided for @discardSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard send'**
+  String get discardSend;
+
   /// No description provided for @receiveFailed.
   ///
   /// In en, this message translates to:

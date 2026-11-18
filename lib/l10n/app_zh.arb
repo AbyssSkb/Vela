@@ -104,6 +104,14 @@
   "openNoApp": "没有可打开此文件的应用",
   "openFailed": "无法打开文件",
   "sendFailed": "发送失败",
+  "sendFailedTo": "未能发送给 {name}。",
+  "@sendFailedTo": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "sendDeviceChanged": "配对已变更，请放弃本次发送后重新选择设备。",
+  "discardSend": "放弃发送",
   "receiveFailed": "接收失败",
   "transferInterrupted": "传输中断，请重试",
   "transferDeclined": "对方拒绝了接收",

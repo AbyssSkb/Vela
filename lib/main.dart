@@ -362,6 +362,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? notificationTransferId;
   PendingShare? pendingShare;
   PendingShare? handledAndroidShare;
+  ({String peer, Object? revision, String message, SendRetry retry})?
+  _failedSend;
   final List<Uint8List> dropBookmarks = [];
   final List<String> promisedDropFiles = [];
   bool dropHover = false, processingDrop = false;
@@ -372,6 +374,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       startup != null ||
       folderOperation ||
       processingDrop ||
+      _failedSend != null ||
       shuttingDown;
 
   Future<void> _prepareUpdateInstall() async {
@@ -448,6 +451,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           startupRetry?.cancel();
           activeTransfer?.cancel();
           await folderJob?.cancel();
+          if (_failedSend?.retry.take() case final session?) {
+            await _releaseSendSession(session);
+          }
           try {
             if (Platform.isMacOS) {
               await backgroundChannel.invokeMethod<void>(
@@ -794,7 +800,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         !mounted) {
       return;
     }
-    if (pendingShare != null) {
+    if (pendingShare != null || _failedSend != null) {
       _message(t.dropAlreadyPending, kind: NoticeKind.error);
       return;
     }
@@ -829,6 +835,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       if (!mounted ||
           pendingShare != null ||
+          _failedSend != null ||
           contentOperationActive ||
           outgoingPairingUiActive) {
         await _releaseDrop();
@@ -866,7 +873,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _takePendingShare() async {
-    if (pendingShare != null) return;
+    if (!mounted || disposed || shuttingDown || pendingShare != null) return;
     try {
       final share = await shareChannel.invokeMapMethod<String, dynamic>('take');
       if (mounted && share != null) {
@@ -1751,6 +1758,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         node == null ||
         changingRelay ||
         peers.isEmpty ||
+        _failedSend != null ||
         contentOperationActive ||
         outgoingPairingUiActive ||
         awaitingOfferDecision) {
@@ -2610,6 +2618,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     PendingShare? share,
   }) async {
     if (node == null ||
+        _failedSend != null ||
         contentOperationActive ||
         changingRelay ||
         shuttingDown ||
@@ -2808,9 +2817,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _releaseSendSession(SendSession session) async {
+    try {
+      await session.release();
+    } catch (error) {
+      debugPrint('Could not release send content: $error');
+    }
+  }
+
+  bool _canSendTo(String id, Object? revision) =>
+      peers.containsKey(id) &&
+      (pairedDevices?.isCurrentPairingRevision(id, revision) ?? false);
+
+  Future<void> _discardFailedSend(SendRetry retry) async {
+    if (!identical(_failedSend?.retry, retry)) return;
+    final session = retry.take();
+    if (session == null) return;
+    setState(() {
+      _failedSend = null;
+      if (identical(pendingShare, session.content.share)) pendingShare = null;
+    });
+    await _releaseSendSession(session);
+    if (Platform.isAndroid && mounted) await _sendPendingAndroidShare();
+  }
+
   Future<void> _send(String id, String name, SendSession session) async {
     final content = session.content;
     final share = content.share;
+    final revision = pairedDevices?.pairingRevisionFor(id);
     var transferStarted = false;
     TransferJob? sendingJob;
     var sendCompleted = false;
@@ -2821,12 +2855,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       if (!mounted) return;
       if (node == null ||
+          _failedSend != null ||
           contentOperationActive ||
           changingRelay ||
           shuttingDown ||
           updates.installing) {
         throw StateError(t.transferBusy);
       }
+      if (!_canSendTo(id, revision)) throw StateError(t.sendDeviceChanged);
       if (Platform.isAndroid &&
           share != null &&
           identical(pendingShare, share)) {
@@ -2836,12 +2872,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!await File(path).exists()) throw StateError(t.fileUnavailable);
       if (!mounted) return;
       if (node == null ||
+          _failedSend != null ||
           contentOperationActive ||
           changingRelay ||
           shuttingDown ||
           updates.installing) {
         throw StateError(t.transferBusy);
       }
+      if (!_canSendTo(id, revision)) throw StateError(t.sendDeviceChanged);
       final contentName = switch (content.kind) {
         TransferKind.text => t.clipboardText,
         TransferKind.typedText => t.textContent,
@@ -2881,11 +2919,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         unawaited(presenceController.readCurrentSnapshot());
         resultMessage = message;
       }
-      try {
-        await session.releaseAfterSuccessfulSend();
-      } catch (e) {
-        debugPrint('Could not release sent content: $e');
-      }
+      await _releaseSendSession(session);
     } catch (e) {
       debugPrint('Send failed: $e');
       if (mounted) {
@@ -2905,7 +2939,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 translations: t,
               );
         resultKind = cancelled ? NoticeKind.info : NoticeKind.error;
-        if (!cancelled && transferStarted && !sendCompleted)
+        if (!cancelled && transferStarted && !sendCompleted && !shuttingDown)
           retry = session.allowRetry();
       }
     } finally {
@@ -2913,37 +2947,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!sendCompleted) sendingJob?.cancel();
       if (identical(activeTransfer, sendingJob)) activeTransfer = null;
       if (transferStarted) _setTransferring(false);
-      if (retry == null) await _discardPreparedSendFiles(session);
+      if (retry == null && !sendCompleted) {
+        await _discardPreparedSendFiles(session);
+      }
       if (mounted) {
+        final retryOffer = retry;
         if (transferStarted) {
-          setState(() => contentOperationActive = false);
+          setState(() {
+            contentOperationActive = false;
+            if (retryOffer != null) {
+              _failedSend = (
+                peer: id,
+                revision: revision,
+                message: resultMessage!,
+                retry: retryOffer,
+              );
+            }
+          });
           _finishSystemTransfer(resultMessage);
         }
         if (resultMessage != null) {
-          final retryOffer = retry;
-          final notice = _message(
-            resultMessage,
-            kind: resultKind,
-            actionLabel: retryOffer == null ? null : t.retry,
-            onAction: retryOffer == null
-                ? null
-                : () {
-                    final next = retryOffer.take();
-                    if (next != null) unawaited(_send(id, name, next));
-                  },
-          );
-          if (retryOffer != null) {
-            unawaited(
-              notice!.closed.then((_) => retryOffer.dismiss()).catchError((
-                Object e,
-              ) {
-                debugPrint('Could not release abandoned content: $e');
-              }),
-            );
+          if (retryOffer == null) {
+            _message(resultMessage, kind: resultKind);
+          } else {
+            lastMessage = resultMessage;
           }
         }
       } else if (retry != null) {
-        await _discardPreparedSendFiles(session);
+        await _releaseSendSession(session);
       }
     }
   }
@@ -3096,22 +3127,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _message(
+  void _message(
     String message, {
     NoticeKind kind = NoticeKind.info,
     String? actionLabel,
     VoidCallback? onAction,
   }) {
     lastMessage = message;
-    return mounted
-        ? showNotice(
-            context,
-            message,
-            kind: kind,
-            actionLabel: actionLabel,
-            onAction: onAction,
-          )
-        : null;
+    if (mounted) {
+      showNotice(
+        context,
+        message,
+        kind: kind,
+        actionLabel: actionLabel,
+        onAction: onAction,
+      );
+    }
   }
 
   Future<bool> _receivedExists(String reference) async {
@@ -3168,6 +3199,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     presenceController.removeListener(_presenceChanged);
     presenceController.dispose();
     disposed = true;
+    if (_failedSend?.retry.take() case final session?) {
+      unawaited(_releaseSendSession(session));
+    }
     unawaited(runtime.dispose());
     super.dispose();
   }
@@ -3279,7 +3313,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       contentOperationActive || outgoingPairingUiActive;
 
   List<Widget> _sendButtons() {
-    final enabled = !_deviceActionsBlocked && !selectingPeers;
+    final enabled =
+        !_deviceActionsBlocked && !selectingPeers && _failedSend == null;
     return [
       HomeSendButton(
         key: const ValueKey('send-file'),
@@ -3318,7 +3353,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _tapDevice(String id) {
     if (selectingPeers) {
       _togglePeerSelection(id);
-    } else if (pendingShare case final share?) {
+    } else if (pendingShare case final share? when _failedSend == null) {
       _sendShare(id, peerState.displayName(id), share);
     } else {
       _showDeviceDetails(id);
@@ -3633,6 +3668,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ],
             ),
           )
+        : _failedSend != null
+        ? _buildSendRetryNotice()
         : pendingShare != null
         ? ActivityNotice(
             child: Row(
@@ -3659,6 +3696,62 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           )
         : null;
+  }
+
+  Widget _buildSendRetryNotice() {
+    final failed = _failedSend!;
+    final allowed = _canSendTo(failed.peer, failed.revision);
+    return ActivityNotice(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              allowed
+                  ? '${t.sendFailedTo(peerState.displayName(failed.peer))} ${failed.message}'
+                  : t.sendDeviceChanged,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          OverflowBar(
+            alignment: MainAxisAlignment.end,
+            spacing: 8,
+            children: [
+              TextButton(
+                onPressed: () => unawaited(_discardFailedSend(failed.retry)),
+                child: Text(t.discardSend),
+              ),
+              FilledButton(
+                key: const ValueKey('retry-send'),
+                onPressed: !allowed || changingRelay
+                    ? null
+                    : () {
+                        if (!identical(_failedSend?.retry, failed.retry) ||
+                            changingRelay ||
+                            !_canSendTo(failed.peer, failed.revision)) {
+                          return;
+                        }
+                        final session = failed.retry.take();
+                        if (session == null) return;
+                        setState(() => _failedSend = null);
+                        unawaited(
+                          _send(
+                            failed.peer,
+                            peerState.displayName(failed.peer),
+                            session,
+                          ),
+                        );
+                      },
+                child: Text(t.retry),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override

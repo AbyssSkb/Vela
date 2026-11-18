@@ -2,7 +2,7 @@
 
 Vela 在配对设备之间收发文件和剪贴板内容。Flutter 协调用户选择、确认和保存，Rust 负责连接、信任和传输，各平台提供通知、后台运行和文件访问。
 
-第一次读代码，先看 [Rust 双节点收发用例](../rust/src/api/node_tests.rs) 的 `sends_between_two_local_iroh_nodes`，再跟到 Flutter 的 [`receiveAcceptedContent`](../lib/received_content.dart)，最后看 [设备写入测试](../test/paired_devices_test.dart)。读完后应能回答：发送方什么时候看到成功？重新配对后哪个旧决定必须作废？关闭重试提示会删除什么？
+第一次读代码，先看 [Rust 双节点收发用例](../rust/src/api/node_tests.rs) 的 `sends_between_two_local_iroh_nodes`，再跟到 Flutter 的 [`receiveAcceptedContent`](../lib/received_content.dart)，最后看 [设备写入测试](../test/paired_devices_test.dart)。读完后应能回答：发送方什么时候看到成功？重新配对后哪个旧决定必须作废？放弃发送会删除什么？
 
 ## 先读这些文件
 
@@ -51,7 +51,7 @@ Android 文件位于 `android/app/src/main/kotlin/com/example/vela/`；macOS 主
 
 `PeerState` 的设备资料包括对端上报的名称、类型和本机别名。Dart 的配对版本（`pairingRevisionFor`）用于判定旧决定是否仍有效：配对、入站接收和异步撤销都要复核版本。Rust 的信任会话另行判断连接是否仍获授权。`onMembershipWriteFinished` 表示本次写入流程退出，不代表授信已同步成功。
 
-**发送与接收。** 来源转成 `PreparedTransfer` 后，每次通信创建一个 `TransferJob`。重试复用准备好的文件路径：剪贴板、归档或物化 URI 用应用的临时文件，普通文件仍读取用户原路径，不复制字节。成功后 `releaseAfterSuccessfulSend` 释放分享来源并删除应用临时文件；放弃重试只删除应用临时文件。`SendRetry` 只能领取一次，关闭旧提示不会释放新重试占用的内容。
+**发送与接收。** 来源转成 `PreparedTransfer` 后，每次通信创建一个 `TransferJob`。界面最多保留一次失败的发送，不随短提示消失。重试复用准备好的文件路径：剪贴板、归档或物化 URI 用应用的临时文件，普通文件仍读取用户原路径，不复制字节。`SendRetry` 只能领取一次，重试前复核设备的配对版本。成功或明确放弃后，`SendSession.release` 释放分享来源并删除应用临时文件，不删除用户原文件。
 
 接收方完成用户确认后复核配对版本，选择接收目录后再复核一次，才交给 Rust。Rust 校验内容、刷新文件并发送传输回执；发送方此时可以看到传输成功，不必等 Android 将暂存文件保存到用户位置。保存成功就清理暂存，保存失败保留私有副本，用户取消保存则清理暂存。历史中的 `fileReference` 可以是本地路径或 Android 文档 URI，打开、删除和导出均通过 `ReceivedStorage`。
 

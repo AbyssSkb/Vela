@@ -285,6 +285,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendFailed => 'Could not send';
 
   @override
+  String sendFailedTo(String name) {
+    return 'Couldn\'t send to $name.';
+  }
+
+  @override
+  String get sendDeviceChanged =>
+      'The device pairing changed. Discard this send and select the device again.';
+
+  @override
+  String get discardSend => 'Discard send';
+
+  @override
   String get receiveFailed => 'Could not receive';
 
   @override
