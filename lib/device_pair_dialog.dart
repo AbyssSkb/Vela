@@ -71,6 +71,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                 decoration: InputDecoration(
                   labelText: t.deviceCode,
                   errorText: idError,
+                  errorMaxLines: 3,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -120,23 +121,52 @@ class _ScanDevicePage extends StatefulWidget {
 
 class _ScanDevicePageState extends State<_ScanDevicePage> {
   bool scanned = false;
+  bool invalidCode = false;
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(AppLocalizations.of(context)!.scanTitle)),
-    body: MobileScanner(
-      errorBuilder: (_, _) =>
-          Center(child: Text(AppLocalizations.of(context)!.cameraError)),
-      onDetect: (capture) {
-        if (scanned) return;
-        for (final barcode in capture.barcodes) {
-          final value = deviceIdFromQr(barcode.rawValue ?? '');
-          if (value != null) {
-            scanned = true;
-            Navigator.pop(context, value);
-            return;
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+    return Scaffold(
+      appBar: AppBar(title: Text(t.scanTitle)),
+      body: MobileScanner(
+        errorBuilder: (_, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(t.cameraError, textAlign: TextAlign.center),
+          ),
+        ),
+        onDetect: (capture) {
+          if (scanned) return;
+          for (final barcode in capture.barcodes) {
+            final value = deviceIdFromQr(barcode.rawValue ?? '');
+            if (value != null) {
+              scanned = true;
+              Navigator.pop(context, value);
+              return;
+            }
           }
-        }
-      },
-    ),
-  );
+          if (!invalidCode && capture.barcodes.isNotEmpty) {
+            setState(() => invalidCode = true);
+          }
+        },
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (invalidCode)
+              Semantics(
+                liveRegion: true,
+                child: Text(t.invalidDeviceQr, textAlign: TextAlign.center),
+              ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(t.enterCodeManually, textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

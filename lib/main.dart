@@ -1160,6 +1160,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           peerClosed: closed,
           builder: (context) => AlertDialog(
             constraints: const BoxConstraints(maxWidth: 420),
+            scrollable: true,
             title: Text(t.pairRequest),
             content: Column(
               mainAxisSize: MainAxisSize.min,

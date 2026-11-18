@@ -161,6 +161,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cameraError => '无法打开相机，请检查相机权限';
 
   @override
+  String get enterCodeManually => '手动输入设备码';
+
+  @override
+  String get invalidDeviceQr => '请扫描另一台设备在「我的设备」中显示的二维码。';
+
+  @override
   String get invalidDeviceCode => '请输入 64 位设备码';
 
   @override
@@ -176,7 +182,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pairRequest => '添加设备？';
 
   @override
-  String get confirmOwnDevice => '请确认这是你的设备。';
+  String get confirmOwnDevice => '在发起请求的设备上打开「我的设备」，核对设备码开头和末尾的字符是否与下方一致。';
 
   @override
   String get reject => '拒绝';
