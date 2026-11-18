@@ -284,7 +284,7 @@ void main() {
         ),
       );
       await showPage(tester, () async {});
-      await tester.ensureVisible(find.text('Auto-start'));
+      await tester.scrollUntilVisible(find.text('Auto-start'), 150);
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Status cannot be checked automatically.'),

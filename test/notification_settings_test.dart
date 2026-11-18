@@ -5,6 +5,39 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('notification permission impact has room at large text sizes', (
+    tester,
+  ) async {
+    const channel = MethodChannel('vela/background');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      channel,
+      (_) async => {'allNotifications': false, 'requestNotifications': true},
+    );
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 640);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(channel, null);
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: NotificationSettingsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final explanation = find.textContaining('Open Vela to accept transfers');
+    expect(explanation, findsOneWidget);
+    expect(tester.getSize(explanation).width, greaterThan(240));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'notification categories open their corresponding system settings',
     (tester) async {

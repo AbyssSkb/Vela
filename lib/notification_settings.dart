@@ -67,6 +67,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
+    final largeText = MediaQuery.textScalerOf(context).scale(16) >= 24;
+    final notificationsOff = status?['allNotifications'] == false;
     Widget row(
       IconData icon,
       String title,
@@ -75,16 +77,22 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       String? statusKey,
       bool enabled = true,
     }) => ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      leading: Icon(icon, size: 22, color: colors.primary),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: largeText ? 12 : 20,
+        vertical: 6,
+      ),
+      leading: largeText ? null : Icon(icon, size: 22, color: colors.primary),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(
-        statusKey != 'liveAllowed' && status?[statusKey] == false
+        statusKey == 'allNotifications' && notificationsOff
+            ? t.notificationBackgroundBlocked
+            : statusKey != 'liveAllowed' &&
+                  (notificationsOff || status?[statusKey] == false)
             ? t.notificationOff
             : subtitle,
         style: TextStyle(color: colors.onSurfaceVariant),
       ),
-      trailing: enabled
+      trailing: enabled && !largeText
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -106,7 +114,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     );
     Widget divider() => Divider(
       height: 1,
-      indent: 60,
+      indent: largeText ? 12 : 60,
       endIndent: 20,
       color: colors.outlineVariant.withValues(alpha: .45),
     );
@@ -126,7 +134,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
-                Row(
+                Flex(
+                  direction: largeText ? Axis.vertical : Axis.horizontal,
+                  crossAxisAlignment: largeText
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
@@ -134,8 +146,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                           .backButtonTooltip,
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    if (!largeText) const SizedBox(width: 8),
+                    Flexible(
+                      flex: largeText ? 0 : 1,
                       child: Text(
                         t.notificationSettings,
                         style: Theme.of(context).textTheme.headlineSmall
@@ -182,16 +195,21 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                         'notification_results',
                         statusKey: 'resultNotifications',
                       ),
-                      divider(),
-                      row(
-                        Icons.dynamic_feed_outlined,
-                        t.notificationLive,
-                        liveText,
-                        'notification_live',
-                        statusKey: liveSupported ? 'liveAllowed' : null,
-                        enabled: liveSupported,
-                      ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Material(
+                  color: colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(18),
+                  clipBehavior: Clip.antiAlias,
+                  child: row(
+                    Icons.dynamic_feed_outlined,
+                    t.notificationLive,
+                    liveText,
+                    'notification_live',
+                    statusKey: 'liveAllowed',
+                    enabled: liveSupported,
                   ),
                 ),
               ],

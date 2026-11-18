@@ -17,6 +17,58 @@ import 'support/home_environment.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('home shows whether background confirmation is available', (
+    tester,
+  ) async {
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(peers: {fakes.peerId: 'Phone'}),
+      api: fakes.FakeRustApi(fakes.FakeNode()),
+      run: (_) async {
+        SharedPreferences.setMockInitialValues({
+          'background_receive_test': true,
+        });
+        var permission = false;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('vela/background'),
+          (call) async => call.method == 'status'
+              ? {
+                  'running': true,
+                  'nodeReady': true,
+                  'notifications': permission,
+                }
+              : null,
+        );
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'light',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final availability = find.byKey(
+          const ValueKey('local-background-availability'),
+        );
+        await waitForHome(tester, () => availability.evaluate().isNotEmpty);
+        expect(
+          find.text(
+            'Allow incoming request notifications to accept in the background.',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(availability);
+        await tester.pumpAndSettle();
+        expect(find.text('Open incoming request settings'), findsOneWidget);
+        permission = true;
+        await tester.pageBack();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.text('Receiving service is running.'), findsOneWidget);
+      },
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   testWidgets(
     'tray menu follows the resolved app language',
     (tester) async {

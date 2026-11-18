@@ -1166,6 +1166,24 @@ abstract class AppLocalizations {
   /// **'Background receiving'**
   String get backgroundReceiving;
 
+  /// No description provided for @localBackgroundReceiving.
+  ///
+  /// In en, this message translates to:
+  /// **'Background receiving on this device'**
+  String get localBackgroundReceiving;
+
+  /// No description provided for @enableBackgroundReceiving.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow background receiving'**
+  String get enableBackgroundReceiving;
+
+  /// No description provided for @notificationBackgroundBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'System notifications are off. Open Vela to accept transfers that need your confirmation.'**
+  String get notificationBackgroundBlocked;
+
   /// No description provided for @notificationSettings.
   ///
   /// In en, this message translates to:

@@ -356,17 +356,16 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                 ),
                 const SizedBox(height: 24),
                 Material(
-                  color: colors.surfaceContainerLow,
+                  color: colors.secondaryContainer,
                   borderRadius: BorderRadius.circular(20),
                   child: Column(
                     children: [
-                      SwitchListTile(
-                        title: Text(
-                          isMac ? t.macKeepAwake : t.backgroundReceiving,
+                      ListTile(
+                        title: Text(t.localBackgroundReceiving),
+                        subtitle: Semantics(
+                          liveRegion: true,
+                          child: Text(summary),
                         ),
-                        subtitle: Text(summary),
-                        value: enabled ?? false,
-                        onChanged: changing || enabled == null ? null : _toggle,
                       ),
                       if (recovery != null && recoveryLabel != null)
                         recoveryButton(
@@ -379,6 +378,18 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                           changing ? null : () => _toggle(true),
                         ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Material(
+                  color: colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(20),
+                  child: SwitchListTile(
+                    title: Text(
+                      isMac ? t.macKeepAwake : t.enableBackgroundReceiving,
+                    ),
+                    value: enabled ?? false,
+                    onChanged: changing || enabled == null ? null : _toggle,
                   ),
                 ),
                 if (isMac || usesTray) ...[
@@ -501,25 +512,28 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                             status['lowPowerStandbyExempt'] as bool?,
                             null,
                           ),
-                        ListTile(
-                          leading: const Icon(Icons.open_in_new_rounded),
-                          title: Text(t.backgroundAutoStart),
-                          subtitle: Text(
-                            isOplus
-                                ? t.backgroundAutoStartOplusHint
-                                : t.backgroundAutoStartHint,
-                          ),
-                          onTap: () => _openSettings('autostart'),
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.open_in_new_rounded),
-                          title: Text(t.backgroundVendorGuide),
-                          onTap: () => _openSettings('guide'),
-                        ),
                       ],
                     ],
                   ),
                 ),
+                if (!isMac && !usesTray) ...[
+                  const SizedBox(height: 12),
+                  ListTile(
+                    leading: const Icon(Icons.open_in_new_rounded),
+                    title: Text(t.backgroundAutoStart),
+                    subtitle: Text(
+                      isOplus
+                          ? t.backgroundAutoStartOplusHint
+                          : t.backgroundAutoStartHint,
+                    ),
+                    onTap: () => _openSettings('autostart'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.open_in_new_rounded),
+                    title: Text(t.backgroundVendorGuide),
+                    onTap: () => _openSettings('guide'),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -527,7 +541,9 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                     isMac
                         ? '${t.macKeepAwakeHint}\n\n${t.macKeepAwakeLimits}'
                         : usesTray
-                        ? '${t.desktopBackgroundHint}\n\n${t.desktopBackgroundLimits}'
+                        ? enabled == true && status['trayAvailable'] == true
+                              ? '${t.desktopBackgroundHint}\n\n${t.desktopBackgroundLimits}'
+                              : t.desktopBackgroundLimits
                         : '${t.backgroundDescription}\n\n${t.backgroundLimits}',
                     style: TextStyle(color: colors.onSurfaceVariant),
                   ),
