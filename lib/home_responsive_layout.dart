@@ -25,8 +25,9 @@ class HomeResponsiveLayout extends StatefulWidget {
     required bool largeText,
     required double width,
   }) {
-    if (!largeText)
+    if (!largeText) {
       return wide ? count * 40.0 + (count - 1) * _railRowGap : 220.0;
+    }
     final columns = _largeColumns(width);
     final rows = (count + columns - 1) ~/ columns;
     return wide

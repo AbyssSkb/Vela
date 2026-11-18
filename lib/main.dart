@@ -2631,10 +2631,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     bool clipboard = false,
     PendingShare? share,
   }) async {
-    if (_sendUnavailable) {
+    if (_sendUnavailable || activeSendOperations != 0) {
       return;
     }
-    activeSendOperations++;
+    setState(() => activeSendOperations++);
     try {
       PreparedTransfer? content;
       try {
@@ -2668,7 +2668,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _createSendSession(content),
       );
     } finally {
-      activeSendOperations--;
+      if (mounted) {
+        setState(() => activeSendOperations--);
+      } else {
+        activeSendOperations--;
+      }
     }
   }
 
@@ -2961,8 +2965,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         final cancelled =
             cancelling ||
             classifyTransferFailure(e) == TransferFailure.cancelled;
-        if (transferStarted)
+        if (transferStarted) {
           _recordDiagnostic(cancelled ? 'sendCancelled' : 'sendFailed', id);
+        }
         resultMessage = cancelled
             ? t.transferCancelled
             : sendErrorMessage(
@@ -2973,8 +2978,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 translations: t,
               );
         resultKind = cancelled ? NoticeKind.info : NoticeKind.error;
-        if (!cancelled && transferStarted && !sendCompleted && !shuttingDown)
+        if (!cancelled && transferStarted && !sendCompleted && !shuttingDown) {
           retry = session.allowRetry();
+        }
       }
     } finally {
       activeSendOperations--;
@@ -3351,7 +3357,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   List<Widget> _sendButtons() {
     final enabled =
-        !_sendUnavailable && !selectingPeers && pendingShare == null;
+        !_sendUnavailable &&
+        activeSendOperations == 0 &&
+        !selectingPeers &&
+        pendingShare == null;
     return [
       HomeSendButton(
         key: const ValueKey('send-file'),
@@ -3746,16 +3755,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         spacing: 8,
         children: [
           TextButton(
-            onPressed: () {
-              if (!identical(pendingShare, share)) return;
-              setState(() => pendingShare = null);
-              unawaited(_releaseShare(share));
-            },
+            onPressed: activeSendOperations != 0
+                ? null
+                : () {
+                    if (!identical(pendingShare, share) ||
+                        activeSendOperations != 0) {
+                      return;
+                    }
+                    setState(() => pendingShare = null);
+                    unawaited(_releaseShare(share));
+                  },
             child: Text(t.cancelShare),
           ),
           FilledButton(
             key: const ValueKey('choose-share-device'),
-            onPressed: peers.isEmpty || _sendUnavailable
+            onPressed:
+                peers.isEmpty || _sendUnavailable || activeSendOperations != 0
                 ? null
                 : () async {
                     final id = await _choosePeer(_sharedContentName(share));
@@ -3811,6 +3826,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     : () {
                         if (!identical(_failedSend?.retry, failed.retry) ||
                             changingRelay ||
+                            shuttingDown ||
+                            updates.installing ||
                             !_canSendTo(failed.peer, failed.revision)) {
                           return;
                         }

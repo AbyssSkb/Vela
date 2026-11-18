@@ -61,11 +61,7 @@ class HomeToolbar extends StatelessWidget {
       final t = AppLocalizations.of(context)!;
       final width = viewport.maxWidth;
       final buttonWidth = math.min(44.0, math.max(0.0, (width - 8) / 3));
-      final priority = [
-        if (addDevice != null) addDevice!,
-        if (received != null) received!,
-        ...actions,
-      ];
+      final priority = [?addDevice, ?received, ...actions];
       final titleWidth = MediaQuery.textScalerOf(context).scale(112);
       final slotCount = ((width - titleWidth - 44) / 44).floor().clamp(
         0,

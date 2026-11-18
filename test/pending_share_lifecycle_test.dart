@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'support/fakes.dart';
 
 class SharedTextJob extends FakeTransferJob {
   String? text, kind, path;
+  int sends = 0;
 
   @override
   Future<void> sendFile({
@@ -23,6 +25,7 @@ class SharedTextJob extends FakeTransferJob {
     required String path,
     required String kind,
   }) async {
+    sends++;
     this.path = path;
     this.kind = kind;
     text = await File(path).readAsString();
@@ -51,6 +54,8 @@ void main() {
         final text = send ? 'https://example.com' : 'Shared text';
         const stage = 'text-stage';
         final cleaned = <String>[];
+        final preparing = Completer<void>();
+        final release = Completer<void>();
         var pending = true;
         databaseFactory = databaseFactoryFfi;
         await seedPeerState(
@@ -68,7 +73,13 @@ void main() {
         const device = MethodChannel('vela/device');
         const share = MethodChannel('vela/share');
         final messenger = tester.binding.defaultBinaryMessenger;
-        messenger.setMockMethodCallHandler(path, (_) async => directory.path);
+        messenger.setMockMethodCallHandler(path, (call) async {
+          if (send && call.method == 'getTemporaryDirectory') {
+            if (!preparing.isCompleted) preparing.complete();
+            await release.future;
+          }
+          return directory.path;
+        });
         messenger.setMockMethodCallHandler(secure, (_) async => null);
         messenger.setMockMethodCallHandler(
           background,
@@ -128,7 +139,21 @@ void main() {
           expect(state.pendingShare.stage, stage);
           expect(find.text('Ready to send: Text'), findsOneWidget);
           if (send) {
-            await tester.tap(find.byKey(const ValueKey('choose-share-device')));
+            final choose = find.byKey(const ValueKey('choose-share-device'));
+            await tester.tap(choose);
+            await waitUntil(() => preparing.isCompleted);
+            await tester.pump();
+            expect(tester.widget<FilledButton>(choose).onPressed, isNull);
+            expect(
+              tester
+                  .widget<TextButton>(
+                    find.widgetWithText(TextButton, 'Cancel share'),
+                  )
+                  .onPressed,
+              isNull,
+            );
+            await tester.tap(find.byKey(const ValueKey('peer-$peerId')));
+            release.complete();
           } else {
             await tester.tap(find.text('Cancel share'));
           }
@@ -138,6 +163,7 @@ void main() {
           expect(cleaned, [stage]);
           expect(state.pendingShare, isNull);
           if (send) {
+            expect(node.job.sends, 1);
             expect(node.job.text, text);
             expect(node.job.kind, 'text');
             expect(File(node.job.path!).existsSync(), isFalse);
@@ -145,6 +171,7 @@ void main() {
             expect(node.job.text, isNull);
           }
         } finally {
+          if (!release.isCompleted) release.complete();
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.runAsync(
             () => Future<void>.delayed(const Duration(milliseconds: 10)),
