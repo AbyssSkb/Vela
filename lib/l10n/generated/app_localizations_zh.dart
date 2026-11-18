@@ -437,6 +437,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get transferHistory => '接收记录';
 
   @override
+  String get openReceivedHistory => '查看接收记录';
+
+  @override
+  String get openFile => '打开文件';
+
+  @override
   String get openReceiveFolder => '打开接收文件夹';
 
   @override

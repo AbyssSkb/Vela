@@ -247,6 +247,8 @@
   "directConnection": "Direct",
   "relayConnection": "Relay",
   "transferHistory": "Received",
+  "openReceivedHistory": "View received items",
+  "openFile": "Open file",
   "openReceiveFolder": "Open receive folder",
   "showInFolder": "Open containing folder",
   "recordDetails": "Details",

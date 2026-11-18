@@ -247,6 +247,8 @@
   "directConnection": "直连",
   "relayConnection": "中继",
   "transferHistory": "接收记录",
+  "openReceivedHistory": "查看接收记录",
+  "openFile": "打开文件",
   "openReceiveFolder": "打开接收文件夹",
   "showInFolder": "打开所在文件夹",
   "recordDetails": "详情",

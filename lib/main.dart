@@ -742,6 +742,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String? name,
     String? url,
     String? previewTextPath,
+    String? openLabel,
     bool received = false,
   }) {
     if (!Platform.isAndroid) return;
@@ -756,7 +757,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               'name': name,
               'url': url,
               'previewTextPath': previewTextPath,
-              'open': t.view,
+              'open': openLabel ?? t.open,
               'received': received,
               'title': received ? t.notificationReceivedTitle : null,
               'shortText': t.notificationReceivedShort,
@@ -1452,6 +1453,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         kind == TransferKind.file ||
         kind == TransferKind.clipboardFile ||
         kind == TransferKind.image;
+    final openLabel = content.link != null
+        ? t.openLink
+        : content.text != null
+        ? t.viewText
+        : t.openFile;
+    final restoreFolder = kind.historyKind(offeredName).canRestoreFolder;
     setState(() {
       activity = message;
       receivedPath = openable ? first.reference : null;
@@ -1464,15 +1471,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       previewTextPath: content.text != null && content.link == null
           ? first.reference
           : null,
+      openLabel: openLabel,
       received: true,
     );
     _message(
       message,
       kind: content.historySaved && !savedPrivately && !content.clipboardFailed
           ? NoticeKind.success
-          : NoticeKind.error,
-      actionLabel: t.view,
-      onAction: kind.historyKind(offeredName).canRestoreFolder
+          : NoticeKind.info,
+      actionLabel: restoreFolder
+          ? t.restoreFolder
+          : kind == TransferKind.batch
+          ? t.openReceivedHistory
+          : openLabel,
+      onAction: restoreFolder
           ? () => _restoreFolder(first.reference)
           : kind == TransferKind.batch
           ? _showHistory
@@ -3128,6 +3140,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _showHistory() {
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     Navigator.push(
       context,
       MaterialPageRoute<void>(
@@ -3319,15 +3332,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Icons.qr_code_rounded,
           _showMyDeviceDialog,
         ),
-        HomeToolbarAction(
-          'history',
-          t.transferHistory,
-          Icons.history_rounded,
-          _showHistory,
-          key: const ValueKey('transfer-history'),
-        ),
       ],
     ],
+    received: node == null
+        ? null
+        : HomeToolbarAction(
+            'history',
+            t.transferHistory,
+            Icons.history_rounded,
+            _showHistory,
+            key: const ValueKey('transfer-history'),
+          ),
     onSettings: node == null ? null : _showSettings,
   );
 

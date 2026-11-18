@@ -465,6 +465,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get transferHistory => 'Received';
 
   @override
+  String get openReceivedHistory => 'View received items';
+
+  @override
+  String get openFile => 'Open file';
+
+  @override
   String get openReceiveFolder => 'Open receive folder';
 
   @override

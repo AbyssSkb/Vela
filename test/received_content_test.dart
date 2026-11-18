@@ -228,15 +228,16 @@ void main() {
   final link = ContentOffer('text', {
     'link.txt': utf8.encode('https://example.com'),
   });
-  testReceiving('received HTTP link opens only when View is tapped', link, (
-    tester,
-    effects,
-  ) async {
-    expect(effects.openedUrl, isNull);
-    await tester.tap(find.text('View'));
-    await tester.pump();
-    expect(effects.openedUrl, 'https://example.com');
-  });
+  testReceiving(
+    'received HTTP link opens only when Open link is tapped',
+    link,
+    (tester, effects) async {
+      expect(effects.openedUrl, isNull);
+      await tester.tap(find.text('Open link'));
+      await tester.pump();
+      expect(effects.openedUrl, 'https://example.com');
+    },
+  );
 
   testReceiving(
     'link history keeps Open link and Copy on one row on a narrow screen',
@@ -274,7 +275,7 @@ void main() {
     (tester, effects) async {
       final archive = effects.fileCopyAttempts.single.single;
       expect(archive, endsWith('Photos.vela-folder.zip'));
-      await tester.tap(find.text('View'));
+      await tester.tap(find.text('Restore folder'));
       await waitFor(tester, find.text('Folder restored'));
       expect(effects.restored.archive, archive);
       expect(File(archive).readAsStringSync(), 'archive');
@@ -287,7 +288,7 @@ void main() {
     ContentOffer('typed_text', {'message.txt': utf8.encode('A typed message')}),
     (tester, effects) async {
       expect(effects.copiedTexts, isEmpty);
-      await tester.tap(find.text('View'));
+      await tester.tap(find.text('View text'));
       await waitFor(tester, find.text('A typed message'));
     },
     macOnly: true,
@@ -298,7 +299,7 @@ void main() {
     ContentOffer('text', {'clipboard.txt': utf8.encode('Clipboard words')}),
     (tester, effects) async {
       expect(effects.copiedTexts, ['Clipboard words']);
-      await tester.tap(find.text('View'));
+      await tester.tap(find.text('View text'));
       await waitFor(tester, find.text('Clipboard words'));
     },
     macOnly: true,
@@ -328,8 +329,9 @@ void main() {
     ContentOffer('image', {
       'clipboard.png': [1, 2, 3, 4],
     }),
-    (_, effects) async {
+    (tester, effects) async {
       expect(effects.copiedImage, [1, 2, 3, 4]);
+      expect(find.text('Open file'), findsOneWidget);
       final prefs = await SharedPreferences.getInstance();
       final history = TransferRecord.decode(prefs.getString('history_test'));
       final image = File(history.single.fileReference!);
@@ -343,8 +345,8 @@ void main() {
     'one.txt': utf8.encode('first'),
     'two.pdf': utf8.encode('second'),
   });
-  testReceiving('a received batch copies both files to the clipboard', batch, (
-    _,
+  testReceiving('received batch offers both files in Received', batch, (
+    tester,
     effects,
   ) async {
     expect(
@@ -353,6 +355,9 @@ void main() {
       ),
       ['one.txt', 'two.pdf'],
     );
+    await tester.tap(find.text('View received items'));
+    await waitFor(tester, find.text('one.txt'));
+    expect(find.text('two.pdf'), findsOneWidget);
   }, macOnly: true);
 
   testReceiving(

@@ -26,12 +26,14 @@ class HomeToolbar extends StatelessWidget {
     super.key,
     this.addDevice,
     required this.actions,
+    this.received,
     this.onSettings,
     this.selection,
   });
 
   final HomeToolbarAction? addDevice;
   final List<HomeToolbarAction> actions;
+  final HomeToolbarAction? received;
   final VoidCallback? onSettings;
   final Widget? selection;
 
@@ -59,8 +61,11 @@ class HomeToolbar extends StatelessWidget {
       final t = AppLocalizations.of(context)!;
       final width = viewport.maxWidth;
       final buttonWidth = math.min(44.0, math.max(0.0, (width - 8) / 3));
-      // Add gets the first available slot, at the right end of the toolbar.
-      final priority = [if (addDevice != null) addDevice!, ...actions];
+      final priority = [
+        if (addDevice != null) addDevice!,
+        if (received != null) received!,
+        ...actions,
+      ];
       final titleWidth = MediaQuery.textScalerOf(context).scale(112);
       final slotCount = ((width - titleWidth - 44) / 44).floor().clamp(
         0,
@@ -101,6 +106,7 @@ class HomeToolbar extends StatelessWidget {
                 SizedBox(width: math.min(16, math.max(0, width - 16))),
                 for (final action in actions)
                   if (visible.contains(action)) _button(context, action),
+                if (visible.contains(received)) _button(context, received!),
                 if (visible.contains(addDevice)) _button(context, addDevice!),
                 if (onSettings != null)
                   if (visible.length == priority.length)

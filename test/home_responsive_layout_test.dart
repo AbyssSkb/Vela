@@ -334,9 +334,10 @@ void main() {
         expect(file, findsOneWidget);
         expect(find.byKey(const ValueKey('home-more')), findsOneWidget);
         expect(
-          find.byKey(const ValueKey('toggle-device-view')),
+          find.byKey(const ValueKey('transfer-history')).hitTestable(),
           findsOneWidget,
         );
+        expect(find.byKey(const ValueKey('select-devices')), findsNothing);
         expect(
           tester.getRect(find.byKey(const ValueKey('refresh-devices'))).left -
               tester.getRect(find.text('Devices')).right,
@@ -358,6 +359,7 @@ void main() {
         await resize(const Size(320, 844));
         expect(find.byKey(const ValueKey('select-devices')), findsNothing);
         expect(find.byKey(const ValueKey('toggle-device-view')), findsNothing);
+        expect(find.byKey(const ValueKey('transfer-history')), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('home-more')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
@@ -413,7 +415,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 80));
         final animatedSlot = find
             .descendant(
-              of: find.byKey(const ValueKey('toolbar-fade-select')),
+              of: find.byKey(const ValueKey('toolbar-fade-view')),
               matching: find.byType(Opacity),
             )
             .first;

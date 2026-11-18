@@ -884,6 +884,18 @@ abstract class AppLocalizations {
   /// **'Received'**
   String get transferHistory;
 
+  /// No description provided for @openReceivedHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'View received items'**
+  String get openReceivedHistory;
+
+  /// No description provided for @openFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Open file'**
+  String get openFile;
+
   /// No description provided for @openReceiveFolder.
   ///
   /// In en, this message translates to:
