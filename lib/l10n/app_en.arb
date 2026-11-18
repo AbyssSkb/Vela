@@ -132,7 +132,20 @@
   "readSharedFailed": "Could not read the shared file.",
   "readClipboardFailed": "Couldn't read the clipboard. Copy the content again and retry.",
   "writeClipboardFailed": "Received, but couldn't copy to the clipboard.",
-  "startupFailed": "Could not start. Restart the app.",
+  "startupFailed": "Vela could not start.",
+  "diagnostics": "Diagnostics",
+  "diagnosticsUpdated": "Updated at {time}",
+  "@diagnosticsUpdated": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "diagnosticsStale": "Refresh failed. Showing results from {time}.",
+  "@diagnosticsStale": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
   "mobile": "Phone",
   "tablet": "Tablet",
   "desktop": "Computer",

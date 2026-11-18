@@ -91,6 +91,7 @@ Iroh encrypts endpoint traffic even when relayed; this protects content in trans
 
 | Symptom | Check first |
 | --- | --- |
+| Vela cannot start | Retry or open Diagnostics from the error screen. Diagnostics shows when the visible information was last updated |
 | Cannot pair | Use matching current versions, verify the device code, keep both apps open, and confirm the request on the other device |
 | Device appears offline | Check that the peer is running, its node initialized successfully, and its network is reachable; inspect any custom-relay configuration |
 | Android stops receiving in the background | Check the background page for service, notification, battery, and autostart status; a force-stopped app must be opened again |

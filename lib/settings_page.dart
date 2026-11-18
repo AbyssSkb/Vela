@@ -511,9 +511,7 @@ class _SettingsPageState extends State<SettingsPage>
                     divider(),
                     row(
                       Icons.monitor_heart_outlined,
-                      Localizations.localeOf(context).languageCode == 'zh'
-                          ? '诊断'
-                          : 'Diagnostics',
+                      t.diagnostics,
                       Localizations.localeOf(context).languageCode == 'zh'
                           ? '查看连接状态与事件'
                           : 'Connection status and events',

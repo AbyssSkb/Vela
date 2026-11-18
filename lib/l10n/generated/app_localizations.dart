@@ -677,8 +677,26 @@ abstract class AppLocalizations {
   /// No description provided for @startupFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not start. Restart the app.'**
+  /// **'Vela could not start.'**
   String get startupFailed;
+
+  /// No description provided for @diagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics'**
+  String get diagnostics;
+
+  /// No description provided for @diagnosticsUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated at {time}'**
+  String diagnosticsUpdated(String time);
+
+  /// No description provided for @diagnosticsStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh failed. Showing results from {time}.'**
+  String diagnosticsStale(String time);
 
   /// No description provided for @mobile.
   ///
