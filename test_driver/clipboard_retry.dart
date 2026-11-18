@@ -7,6 +7,10 @@ Future<void> main(List<String> a) async {
   final sender = await FlutterDriver.connect(dartVmServiceUrl: a[0]);
   final receiver = await FlutterDriver.connect(dartVmServiceUrl: a[1]);
   try {
+    final recipient =
+        (jsonDecode(await receiver.requestData('{"action":"device"}'))
+                as Map)['name']
+            as String;
     await sender.runUnsynchronized(
       () => receiver.runUnsynchronized(() async {
         await sender.requestData(
@@ -17,6 +21,7 @@ Future<void> main(List<String> a) async {
           }),
         );
         await sender.tap(find.byValueKey('send-clipboard'));
+        await sender.tap(find.text('发送给 $recipient'));
         await receiver.requestData(jsonEncode({'action': 'mac-show-test'}));
         await receiver.waitFor(
           find.byValueKey('accept-offer'),
