@@ -26,10 +26,9 @@ void main() {
       }).uris,
       ['content://media/1'],
     );
-    expect(
-      PendingShare.fromMap({'uri': 'content://media/1'}).uri,
+    expect(PendingShare.fromMap({'uri': 'content://media/1'}).uris, [
       'content://media/1',
-    );
+    ]);
   });
 
   test('keeps the cleanup stage for macOS text and URL shares', () {

@@ -1907,7 +1907,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _send(
         id,
         peerState.displayName(id),
-        _createSendSession(PreparedTransfer(paths: [path], ownedPaths: [path])),
+        _createSendSession(
+          PreparedTransfer(paths: [path], ownedTemporaryPaths: [path]),
+        ),
       );
     } catch (e) {
       debugPrint('Could not prepare folder: $e');
@@ -2667,7 +2669,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await file.writeAsBytes(bytes, flush: true);
       return PreparedTransfer(
         paths: [file.path],
-        ownedPaths: [file.path],
+        ownedTemporaryPaths: [file.path],
         kind: kind,
         fromClipboard: clipboard,
         share: share,
@@ -2700,7 +2702,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       return PreparedTransfer(
         paths: paths,
-        ownedPaths: paths,
+        ownedTemporaryPaths: paths,
         kind: kind,
         fromClipboard: clipboard,
         share: share,
@@ -2708,7 +2710,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (_) {
       if (paths.isNotEmpty) {
         await _cleanupPrepared(
-          PreparedTransfer(paths: paths, ownedPaths: paths),
+          PreparedTransfer(paths: paths, ownedTemporaryPaths: paths),
         );
       }
       rethrow;
@@ -2719,8 +2721,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (share.paths != null) {
       return Future.value(PreparedTransfer(paths: share.paths!, share: share));
     }
-    if (share.uris != null || share.uri != null) {
-      return _materializeUris(share.uris ?? [share.uri!], share: share);
+    if (share.uris case final uris?) {
+      return _materializeUris(uris, share: share);
     }
     return _writeTemporaryContent(
       utf8.encode(share.text!),
@@ -2774,7 +2776,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _cleanupPrepared(PreparedTransfer content) async {
     try {
-      await content.cleanup();
+      await content.deleteOwnedTemporaryFiles();
     } catch (e) {
       debugPrint('Could not remove temporary content: $e');
     }
@@ -2801,9 +2803,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         : () => _releaseShare(content.share!),
   );
 
-  Future<void> _discardSend(SendSession session) async {
+  Future<void> _discardPreparedSendFiles(SendSession session) async {
     try {
-      await session.discard();
+      await session.discardPreparedFiles();
     } catch (e) {
       debugPrint('Could not remove temporary content: $e');
     }
@@ -2883,7 +2885,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         resultMessage = message;
       }
       try {
-        await session.complete();
+        await session.releaseAfterSuccessfulSend();
       } catch (e) {
         debugPrint('Could not release sent content: $e');
       }
@@ -2914,7 +2916,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!sendCompleted) sendingJob?.cancel();
       if (identical(activeTransfer, sendingJob)) activeTransfer = null;
       if (transferStarted) _setTransferring(false);
-      if (retry == null) await _discardSend(session);
+      if (retry == null) await _discardPreparedSendFiles(session);
       if (mounted) {
         if (transferStarted) {
           setState(() => contentOperationActive = false);
@@ -2944,7 +2946,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           }
         }
       } else if (retry != null) {
-        await _discardSend(session);
+        await _discardPreparedSendFiles(session);
       }
     }
   }
