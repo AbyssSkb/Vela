@@ -69,6 +69,52 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
           : const Color(0xff174d2f),
   };
   final messenger = ScaffoldMessenger.of(context);
+  final details = Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, color: foreground, size: 19),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          message,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: foreground,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    ],
+  );
+  final actions = [
+    if (onAction != null) ...[
+      TextButton(
+        key: const ValueKey('notice-action'),
+        onPressed: () {
+          messenger.hideCurrentSnackBar();
+          onAction();
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: foreground,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: const Size(40, 40),
+        ),
+        child: Text(actionLabel!, textAlign: TextAlign.center),
+      ),
+      IconButton(
+        key: const ValueKey('notice-close'),
+        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+        onPressed: messenger.hideCurrentSnackBar,
+        color: foreground,
+        iconSize: 20,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+        icon: const Icon(Icons.close_rounded),
+      ),
+    ],
+  ];
   messenger.clearSnackBars();
   return messenger.showSnackBar(
     SnackBar(
@@ -82,48 +128,30 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       duration: onAction == null
           ? const Duration(seconds: 4)
           : const Duration(days: 1),
-      content: Row(
-        children: [
-          Icon(icon, color: foreground, size: 19),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          if (onAction != null) ...[
-            TextButton(
-              key: const ValueKey('notice-action'),
-              onPressed: () {
-                messenger.hideCurrentSnackBar();
-                onAction();
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: foreground,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(40, 40),
-              ),
-              child: Text(actionLabel!),
-            ),
-            IconButton(
-              key: const ValueKey('notice-close'),
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: messenger.hideCurrentSnackBar,
-              color: foreground,
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ],
+      content: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = MediaQuery.textScalerOf(context).scale(1);
+          if (actions.isNotEmpty &&
+              (constraints.maxWidth < 340 || scale > 1.3)) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                details,
+                OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  children: actions,
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: details),
+              ...actions,
+            ],
+          );
+        },
       ),
     ),
   );

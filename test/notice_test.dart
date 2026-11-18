@@ -174,6 +174,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('notice-action')), findsOneWidget);
-    expect(tester.getSize(find.byType(SnackBar)).height, lessThanOrEqualTo(80));
+    expect(
+      tester.getSize(find.byType(SnackBar)).height,
+      lessThanOrEqualTo(120),
+    );
+  });
+
+  testWidgets('received batch action remains readable at 2× text size', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showNotice(
+                context,
+                'Received 3 files',
+                kind: NoticeKind.success,
+                actionLabel: 'View received items',
+                onAction: () {},
+              ),
+              child: const Text('Show'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    expect(find.text('View received items').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
