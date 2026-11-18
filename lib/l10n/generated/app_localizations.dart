@@ -308,17 +308,17 @@ abstract class AppLocalizations {
   /// **'Cancel share'**
   String get cancelShare;
 
-  /// No description provided for @selectedFile.
+  /// No description provided for @pendingContent.
   ///
   /// In en, this message translates to:
-  /// **'File selected. Choose a device to send.'**
-  String get selectedFile;
+  /// **'Ready to send: {content}'**
+  String pendingContent(String content);
 
-  /// No description provided for @selectedText.
+  /// No description provided for @sendToDevice.
   ///
   /// In en, this message translates to:
-  /// **'Text selected. Choose a device to send.'**
-  String get selectedText;
+  /// **'Send to {name}'**
+  String sendToDevice(String name);
 
   /// No description provided for @connectDevices.
   ///
@@ -1049,7 +1049,7 @@ abstract class AppLocalizations {
   /// No description provided for @filesCount.
   ///
   /// In en, this message translates to:
-  /// **'{count} files'**
+  /// **'{count, plural, one{1 file} other{{count} files}}'**
   String filesCount(int count);
 
   /// No description provided for @filesReceived.

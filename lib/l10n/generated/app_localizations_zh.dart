@@ -115,10 +115,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancelShare => '取消分享';
 
   @override
-  String get selectedFile => '已选择文件，点击设备发送';
+  String pendingContent(String content) {
+    return '待发送：$content';
+  }
 
   @override
-  String get selectedText => '已选择文字，点击设备发送';
+  String sendToDevice(String name) {
+    return '发送给 $name';
+  }
 
   @override
   String get connectDevices => '连接你的设备';

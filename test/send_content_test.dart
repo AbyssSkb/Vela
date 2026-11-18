@@ -56,6 +56,37 @@ class FolderPicker extends FilePickerPlatform {
   }) async => path;
 }
 
+class FilesPicker extends FilePickerPlatform {
+  FilesPicker(this.paths);
+  final List<String> paths;
+
+  @override
+  Future<List<PlatformFile>> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => [for (final path in paths) PickedFile(path)];
+}
+
+final class PickedFile extends PlatformFile {
+  PickedFile(String path) : uri = File(path).uri;
+
+  @override
+  final Uri uri;
+  @override
+  String get name => uri.pathSegments.last;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class FolderJob implements FolderArchiveJob {
   String? source;
   @override
@@ -156,6 +187,12 @@ void main() {
           ),
           findsOneWidget,
         );
+        expect(find.text('Ready to send: Text'), findsOneWidget);
+        final sheet = find.byType(BottomSheet);
+        expect(
+          find.descendant(of: sheet, matching: find.text('Checking')),
+          findsWidgets,
+        );
         await tester.binding.handlePopRoute();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
@@ -209,6 +246,37 @@ void main() {
     );
   });
 
+  testWidgets('file selection names the content and keeps originals on Back', (
+    tester,
+  ) async {
+    final node = RecordingNode();
+    await withHomeTestEnvironment(
+      tester,
+      devices: devices,
+      api: fakes.FakeRustApi(node),
+      run: (directory) async {
+        final originalPicker = FilePickerPlatform.instance;
+        final file = File('${directory.path}/Report.txt')
+          ..writeAsStringSync('Report');
+        FilePickerPlatform.instance = FilesPicker([file.path]);
+        try {
+          await openHome(tester);
+          await tester.tap(find.byKey(const ValueKey('send-file')));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.text('Ready to send: Report.txt'), findsOneWidget);
+          await tester.binding.handlePopRoute();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(node.attemptedPath, isNull);
+          expect(file.readAsStringSync(), 'Report');
+        } finally {
+          FilePickerPlatform.instance = originalPicker;
+        }
+      },
+    );
+  });
+
   testWidgets('sending a folder deletes the temporary archive after success', (
     tester,
   ) async {
@@ -225,6 +293,9 @@ void main() {
         try {
           await openHome(tester);
           await tester.tap(find.byKey(const ValueKey('send-folder')));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.text('Ready to send: source'), findsOneWidget);
           await choosePhone(tester);
           await waitForSend(tester);
           expect(folderJob.source, source);

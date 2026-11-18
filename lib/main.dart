@@ -1661,30 +1661,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  String _presenceLabel(String id) => visiblePresenceChecks.contains(id)
+      ? t.checking
+      : switch (presence[id]) {
+          PeerPresence.reachable => t.reachable,
+          PeerPresence.unavailable => t.unreachable,
+          null => t.unknown,
+        };
+
   Widget _presenceIcon(String id) {
-    if (visiblePresenceChecks.contains(id)) {
-      return Tooltip(
-        message: t.checking,
-        child: Semantics(
-          label: t.checking,
-          child: Icon(
-            Icons.circle_outlined,
-            key: const ValueKey('device-presence-check'),
-            size: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
-    }
-    final reachable = presence[id] == PeerPresence.reachable;
-    final label = reachable ? t.reachable : t.unreachable;
+    final checking = visiblePresenceChecks.contains(id);
+    final value = checking ? null : presence[id];
+    final label = _presenceLabel(id);
     final colors = Theme.of(context).colorScheme;
-    final color = reachable ? Colors.green : colors.error;
     return Tooltip(
       message: label,
       child: Semantics(
         label: label,
-        child: Icon(Icons.circle, size: 12, color: color),
+        child: Icon(
+          value == null ? Icons.circle_outlined : Icons.circle,
+          key: checking ? const ValueKey('device-presence-check') : null,
+          size: 12,
+          color: switch (value) {
+            PeerPresence.reachable => Colors.green,
+            PeerPresence.unavailable => colors.error,
+            null => colors.onSurfaceVariant,
+          },
+        ),
       ),
     );
   }
@@ -1709,42 +1712,45 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<String?> _choosePeer() async {
+  Future<String?> _choosePeer(String contentName) async {
     if (peers.isEmpty) return null;
     if (peers.length == 1) return peers.keys.first;
     return showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: Text(
-                t.chooseDevice,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final peer in peers.keys)
-                    ListTile(
-                      leading: Icon(_deviceIcon(peer)),
-                      title: Text(
-                        peerState.displayName(peer),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: _presenceIcon(peer),
-                      onTap: () => Navigator.pop(context, peer),
+        child: ListenableBuilder(
+          listenable: presenceController,
+          builder: (context, _) => ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.chooseDevice,
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(t.pendingContent(contentName)),
+                  ],
+                ),
               ),
-            ),
-          ],
+              for (final peer in peers.keys)
+                ListTile(
+                  leading: Icon(_deviceIcon(peer)),
+                  title: Text(
+                    peerState.displayName(peer),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(_presenceLabel(peer)),
+                  onTap: () => Navigator.pop(context, peer),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1765,7 +1771,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return;
     }
     handledAndroidShare = share;
-    final id = await _choosePeer();
+    final id = await _choosePeer(_sharedContentName(share));
     if (changingRelay && identical(pendingShare, share)) {
       handledAndroidShare = null;
       return;
@@ -1776,43 +1782,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         !identical(pendingShare, share)) {
       return;
     }
-    await _sendShare(id, peerState.displayName(id), share);
+    await _sendShare(id, share);
   }
 
   Future<void> _chooseAndSend({
     bool clipboard = false,
     bool media = false,
   }) async {
-    final id = await _choosePeer();
-    if (id == null || !mounted || !peers.containsKey(id)) return;
+    if (_sendUnavailable) return;
     if (media) {
       try {
         final uris =
             await const MethodChannel('vela/files')
                 .invokeListMethod<String>('pickMedia') ??
             [];
-        if (!mounted || uris.isEmpty || !peers.containsKey(id)) return;
+        if (!mounted || uris.isEmpty) return;
         if (uris.length > 100) {
           _message(t.tooManyFiles, kind: NoticeKind.error);
           return;
         }
-        if (contentOperationActive) {
-          _message(t.transferBusy, kind: NoticeKind.error);
-          return;
-        }
-        await _sendShare(
-          id,
-          peerState.displayName(id),
-          PendingShare(uris: uris),
-        );
+        final share = PendingShare(uris: uris);
+        final id = await _choosePeer(_sharedContentName(share));
+        if (!mounted || id == null || !peers.containsKey(id)) return;
+        await _sendShare(id, share);
       } catch (e) {
         debugPrint('Media selection failed: $e');
         if (mounted) _message(t.mediaPickFailed, kind: NoticeKind.error);
       }
     } else {
       await _prepareAndSend(
-        id,
-        peerState.displayName(id),
         clipboard ? _prepareClipboard : _pickFiles,
         clipboard: clipboard,
       );
@@ -1823,23 +1821,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final selection = await showDialog<({String peer, String text})>(
       context: context,
       builder: (_) => _TextComposeDialog(
-        choosePeer: _choosePeer,
+        choosePeer: () => _choosePeer(t.textContent),
         hasMultiplePeers: peers.length > 1,
       ),
     );
     if (selection != null && mounted && peers.containsKey(selection.peer)) {
       await _sendShare(
         selection.peer,
-        peerState.displayName(selection.peer),
         PendingShare(text: selection.text, typed: true),
       );
     }
   }
 
   Future<void> _chooseAndSendFolder() async {
-    if (shuttingDown || updates.installing) return;
-    final id = await _choosePeer();
-    if (id == null || !mounted || !peers.containsKey(id)) return;
+    if (_sendUnavailable) return;
     String? source;
     try {
       source = Platform.isAndroid
@@ -1851,14 +1846,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) _message(t.folderPrepareFailed, kind: NoticeKind.error);
       return;
     }
-    if (source == null ||
-        !mounted ||
+    if (source == null || !mounted) return;
+    final folderName = Platform.isAndroid
+        ? t.folder
+        : Directory(source).uri.pathSegments
+                  .where((part) => part.isNotEmpty)
+                  .lastOrNull ??
+              t.folder;
+    final id = await _choosePeer(folderName);
+    if (!mounted ||
+        id == null ||
         !peers.containsKey(id) ||
         shuttingDown ||
         updates.installing) {
       return;
     }
-    if (contentOperationActive || node == null) {
+    if (_sendUnavailable) {
       _message(t.transferBusy, kind: NoticeKind.error);
       return;
     }
@@ -2611,42 +2614,50 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _prepareAndSend(
-    String id,
-    String name,
     Future<PreparedTransfer?> Function() prepare, {
+    String? id,
     bool clipboard = false,
     PendingShare? share,
   }) async {
-    if (node == null ||
-        _failedSend != null ||
-        contentOperationActive ||
-        changingRelay ||
-        shuttingDown ||
-        updates.installing) {
+    if (_sendUnavailable) {
       return;
     }
-    PreparedTransfer? content;
     activeSendOperations++;
     try {
-      content = await prepare();
-    } catch (e) {
-      debugPrint('Could not prepare content: $e');
-      if (mounted) {
-        _message(
-          sendErrorMessage(
-            e,
-            transferStarted: false,
-            clipboard: clipboard,
-            shared: share != null,
-            translations: t,
-          ),
-          kind: NoticeKind.error,
-        );
+      PreparedTransfer? content;
+      try {
+        content = await prepare();
+      } catch (e) {
+        debugPrint('Could not prepare content: $e');
+        if (mounted) {
+          _message(
+            sendErrorMessage(
+              e,
+              transferStarted: false,
+              clipboard: clipboard,
+              shared: share != null,
+              translations: t,
+            ),
+            kind: NoticeKind.error,
+          );
+        }
       }
+      if (content == null) return;
+      final target =
+          id ??
+          (mounted ? await _choosePeer(_preparedContentName(content)) : null);
+      if (target == null || !mounted || !peers.containsKey(target)) {
+        await _cleanupPrepared(content);
+        return;
+      }
+      await _send(
+        target,
+        peerState.displayName(target),
+        _createSendSession(content),
+      );
     } finally {
       activeSendOperations--;
     }
-    if (content != null) await _send(id, name, _createSendSession(content));
   }
 
   Future<PreparedTransfer?> _pickFiles() async {
@@ -2777,8 +2788,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _sendShare(String id, String name, PendingShare share) =>
-      _prepareAndSend(id, name, () => _prepareShare(share), share: share);
+  String _fileContentName(List<String> paths) => paths.length > 1
+      ? t.filesCount(paths.length)
+      : File(paths.single).uri.pathSegments.last;
+
+  String _sharedContentName(PendingShare share) =>
+      switch ((share.paths, share.uris)) {
+        (final paths?, _) => _fileContentName(paths),
+        (_, final uris?) => t.filesCount(uris.length),
+        _ => t.textContent,
+      };
+
+  String _preparedContentName(PreparedTransfer content) =>
+      switch (content.kind) {
+        TransferKind.text => t.clipboardText,
+        TransferKind.typedText => t.textContent,
+        TransferKind.image => t.clipboardImage,
+        _ => _fileContentName(content.paths),
+      };
+
+  Future<void> _sendShare(String id, PendingShare share) =>
+      _prepareAndSend(() => _prepareShare(share), id: id, share: share);
 
   Future<void> _cleanupPrepared(PreparedTransfer content) async {
     try {
@@ -2829,6 +2859,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       peers.containsKey(id) &&
       (pairedDevices?.isCurrentPairingRevision(id, revision) ?? false);
 
+  bool get _sendUnavailable =>
+      node == null ||
+      _failedSend != null ||
+      _deviceActionsBlocked ||
+      changingRelay ||
+      shuttingDown ||
+      updates.installing;
+
   Future<void> _discardFailedSend(SendRetry retry) async {
     if (!identical(_failedSend?.retry, retry)) return;
     final session = retry.take();
@@ -2854,12 +2892,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     activeSendOperations++;
     try {
       if (!mounted) return;
-      if (node == null ||
-          _failedSend != null ||
-          contentOperationActive ||
-          changingRelay ||
-          shuttingDown ||
-          updates.installing) {
+      if (_sendUnavailable) {
         throw StateError(t.transferBusy);
       }
       if (!_canSendTo(id, revision)) throw StateError(t.sendDeviceChanged);
@@ -2871,22 +2904,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final path = content.paths.first;
       if (!await File(path).exists()) throw StateError(t.fileUnavailable);
       if (!mounted) return;
-      if (node == null ||
-          _failedSend != null ||
-          contentOperationActive ||
-          changingRelay ||
-          shuttingDown ||
-          updates.installing) {
+      if (_sendUnavailable) {
         throw StateError(t.transferBusy);
       }
       if (!_canSendTo(id, revision)) throw StateError(t.sendDeviceChanged);
-      final contentName = switch (content.kind) {
-        TransferKind.text => t.clipboardText,
-        TransferKind.typedText => t.textContent,
-        TransferKind.image => t.clipboardImage,
-        _ when content.paths.length > 1 => t.filesCount(content.paths.length),
-        _ => File(path).uri.pathSegments.last,
-      };
+      final contentName = _preparedContentName(content);
       sendingJob = _beginTransfer(
         target: name,
         contentName: contentName,
@@ -3314,7 +3336,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   List<Widget> _sendButtons() {
     final enabled =
-        !_deviceActionsBlocked && !selectingPeers && _failedSend == null;
+        !_sendUnavailable && !selectingPeers && pendingShare == null;
     return [
       HomeSendButton(
         key: const ValueKey('send-file'),
@@ -3354,7 +3376,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (selectingPeers) {
       _togglePeerSelection(id);
     } else if (pendingShare case final share? when _failedSend == null) {
-      _sendShare(id, peerState.displayName(id), share);
+      unawaited(_sendShare(id, share));
     } else {
       _showDeviceDetails(id);
     }
@@ -3431,6 +3453,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    subtitle:
+                        !selectingPeers &&
+                            pendingShare != null &&
+                            _failedSend == null
+                        ? Text(_presenceLabel(id))
+                        : null,
                     trailing: selectingPeers
                         ? Semantics(
                             label: peerState.displayName(id),
@@ -3672,32 +3700,60 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         : _failedSend != null
         ? _buildSendRetryNotice()
         : pendingShare != null
-        ? ActivityNotice(
-            child: Row(
-              children: [
-                const Icon(Icons.share_rounded, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    pendingShare!.hasFiles ? t.selectedFile : t.selectedText,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  tooltip: t.cancelShare,
-                  onPressed: () {
-                    final share = pendingShare;
-                    setState(() => pendingShare = null);
-                    if (share != null) unawaited(_releaseShare(share));
-                  },
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-          )
+        ? ActivityNotice(child: _buildPendingShareNotice(pendingShare!))
         : null;
   }
+
+  Widget _buildPendingShareNotice(PendingShare share) => Column(
+    key: const ValueKey('pending-share'),
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Semantics(
+        liveRegion: true,
+        child: Text(
+          t.pendingContent(_sharedContentName(share)),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      if (peers.isEmpty) Text(t.noDevices),
+      OverflowBar(
+        alignment: MainAxisAlignment.end,
+        spacing: 8,
+        children: [
+          TextButton(
+            onPressed: () {
+              if (!identical(pendingShare, share)) return;
+              setState(() => pendingShare = null);
+              unawaited(_releaseShare(share));
+            },
+            child: Text(t.cancelShare),
+          ),
+          FilledButton(
+            key: const ValueKey('choose-share-device'),
+            onPressed: peers.isEmpty || _sendUnavailable
+                ? null
+                : () async {
+                    final id = await _choosePeer(_sharedContentName(share));
+                    if (mounted &&
+                        id != null &&
+                        identical(pendingShare, share)) {
+                      await _sendShare(id, share);
+                    }
+                  },
+            child: Text(
+              peers.length == 1
+                  ? t.sendToDevice(peerState.displayName(peers.keys.single))
+                  : t.chooseDevice,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
 
   Widget _buildSendRetryNotice() {
     final failed = _failedSend!;

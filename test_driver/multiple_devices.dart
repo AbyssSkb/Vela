@@ -25,6 +25,13 @@ Future<void> main(List<String> args) async {
           await Future<void>.delayed(const Duration(seconds: 2));
           await pair.addPeer(a, c, idC, nameA, nameC);
           await Future<void>.delayed(const Duration(seconds: 2));
+          await a.requestData(
+            jsonEncode({
+              'action': 'set-clipboard',
+              'kind': 'text',
+              'content': 'Choose a recipient for this text',
+            }),
+          );
           await a.tap(find.byValueKey('send-clipboard'));
           await a.waitFor(
             find.text('选择设备'),

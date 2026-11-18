@@ -116,10 +116,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelShare => 'Cancel share';
 
   @override
-  String get selectedFile => 'File selected. Choose a device to send.';
+  String pendingContent(String content) {
+    return 'Ready to send: $content';
+  }
 
   @override
-  String get selectedText => 'Text selected. Choose a device to send.';
+  String sendToDevice(String name) {
+    return 'Send to $name';
+  }
 
   @override
   String get connectDevices => 'Connect your devices';
@@ -546,7 +550,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String filesCount(int count) {
-    return '$count files';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
   }
 
   @override

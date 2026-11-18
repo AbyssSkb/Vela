@@ -126,10 +126,11 @@ void main() {
           final dynamic state = tester.state(find.byType(HomePage));
           expect(state.pendingShare.text, text);
           expect(state.pendingShare.stage, stage);
+          expect(find.text('Ready to send: Text'), findsOneWidget);
           if (send) {
-            await tester.tap(find.byKey(const ValueKey('peer-$peerId')));
+            await tester.tap(find.byKey(const ValueKey('choose-share-device')));
           } else {
-            await tester.tap(find.byTooltip('Cancel share'));
+            await tester.tap(find.text('Cancel share'));
           }
           await waitUntil(
             () => cleaned.isNotEmpty && !state.contentOperationActive,

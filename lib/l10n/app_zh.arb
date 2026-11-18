@@ -35,8 +35,18 @@
   "chooseDevice": "选择设备",
   "sendSelected": "发送已选内容",
   "cancelShare": "取消分享",
-  "selectedFile": "已选择文件，点击设备发送",
-  "selectedText": "已选择文字，点击设备发送",
+  "pendingContent": "待发送：{content}",
+  "@pendingContent": {
+    "placeholders": {
+      "content": { "type": "String" }
+    }
+  },
+  "sendToDevice": "发送给 {name}",
+  "@sendToDevice": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
   "connectDevices": "连接你的设备",
   "emptyDevices": "在两台设备上打开 Vela。一台出示设备码，另一台添加。",
   "showMyCode": "出示本机二维码",

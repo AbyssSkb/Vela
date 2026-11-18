@@ -22,9 +22,7 @@ Future<void> main(List<String> args) async {
     return result.stdout as String;
   }
 
-  Future<void> send(String kind) async {
-    await android.waitFor(find.text('已选择$kind，点击设备发送'));
-    await android.tap(find.text(macName));
+  Future<void> acceptShare() async {
     await mac.waitFor(
       find.byValueKey('accept-offer'),
       timeout: const Duration(seconds: 60),
@@ -50,7 +48,7 @@ Future<void> main(List<String> args) async {
       '-n',
       'com.example.vela/.MainActivity',
     ]);
-    await send('文字');
+    await acceptShare();
     await mac.waitFor(find.text('剪贴板内容已接收'));
     final text = await mac.requestData(
       jsonEncode({'action': 'get-clipboard', 'kind': 'text'}),
@@ -88,7 +86,7 @@ Future<void> main(List<String> args) async {
       '-n',
       'com.example.vela/.MainActivity',
     ]);
-    await send('文件');
+    await acceptShare();
     await mac.waitFor(find.text('已接收 $name'));
     stdout.writeln('ANDROID_SHARE_TEST_OK');
   } finally {

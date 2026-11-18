@@ -36,7 +36,9 @@ Removing a device immediately revokes local trust and closes related connections
 | System share menu | Choose Vela from another app on Android or macOS |
 | Desktop drag and drop | Drop files into Vela on macOS, Windows, or Linux |
 
-Choose a sharing action and follow the prompts to select content and a receiving device. If only one device is paired, Vela selects it automatically. Incoming transfers request approval by default; settings include optional automatic acceptance. Transfers show progress and speed and can be cancelled.
+Choose a sharing action and select the content. If several devices are paired, Vela shows what will be sent and each device's current connection status before you choose a recipient. With one paired device, Vela selects it automatically. Going back from the recipient picker keeps typed text in the editor. If a transfer fails, retry with the same prepared content or discard it from the home screen.
+
+Incoming transfers request approval by default; settings include optional automatic acceptance. Transfers show progress and speed and can be cancelled.
 
 Received files and images are offered to the system clipboard, although paste support depends on the destination app. Received HTTP(S) links can be opened in a browser.
 

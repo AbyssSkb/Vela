@@ -5,16 +5,7 @@ import 'package:flutter_driver/flutter_driver.dart';
 Future<void> main(List<String> args) async {
   final mac = await FlutterDriver.connect(dartVmServiceUrl: args[0]);
   final android = await FlutterDriver.connect(dartVmServiceUrl: args[1]);
-  final macName =
-      (jsonDecode(await mac.requestData(jsonEncode({'action': 'device'})))
-              as Map)['name']
-          as String;
   try {
-    await android.waitFor(
-      find.text('已选择文字，点击设备发送'),
-      timeout: const Duration(seconds: 30),
-    );
-    await android.tap(find.text(macName));
     await mac.waitFor(
       find.byValueKey('accept-offer'),
       timeout: const Duration(seconds: 60),

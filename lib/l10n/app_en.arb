@@ -35,8 +35,18 @@
   "chooseDevice": "Choose a device",
   "sendSelected": "Send selected item",
   "cancelShare": "Cancel share",
-  "selectedFile": "File selected. Choose a device to send.",
-  "selectedText": "Text selected. Choose a device to send.",
+  "pendingContent": "Ready to send: {content}",
+  "@pendingContent": {
+    "placeholders": {
+      "content": { "type": "String" }
+    }
+  },
+  "sendToDevice": "Send to {name}",
+  "@sendToDevice": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
   "connectDevices": "Connect your devices",
   "emptyDevices": "Open Vela on both devices. Show the code on one, then add it on the other.",
   "showMyCode": "Show my QR code",
@@ -271,7 +281,7 @@
   "historyCopy": "Copy",
   "historyCopied": "Copied",
   "historySaveFailed": "Transferred, but could not save history",
-  "filesCount": "{count} files",
+  "filesCount": "{count, plural, one{1 file} other{{count} files}}",
   "@filesCount": {
     "placeholders": {
       "count": {
