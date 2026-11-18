@@ -84,38 +84,10 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
   String? text;
   String? preview;
   String? link;
-  var clipboardFailed = false;
   if (kind.isText) {
     text = await File(files.first.reference).readAsString();
     preview = String.fromCharCodes(text.trim().runes.take(120));
     link = detectHttpLink(text);
-    if (kind.copiesTextToClipboard) {
-      if (Platform.isAndroid) {
-        await clipboardChannel.invokeMethod<void>('writeText', {'text': text});
-      } else {
-        await Clipboard.setData(ClipboardData(text: text));
-      }
-    }
-  } else {
-    try {
-      if (kind == TransferKind.image) {
-        await DesktopPlatform.writeClipboardImage(
-          await File(files.first.reference).readAsBytes(),
-        );
-      } else {
-        final references = files.map((file) => file.reference).toList();
-        if (Platform.isAndroid) {
-          await clipboardChannel.invokeMethod<void>('writeFiles', {
-            'paths': references,
-          });
-        } else if (!await Pasteboard.writeFiles(references)) {
-          throw StateError('Clipboard rejected received files');
-        }
-      }
-    } catch (error) {
-      clipboardFailed = true;
-      debugPrint('Could not copy received content: $error');
-    }
   }
 
   var historySaved = true;
@@ -138,6 +110,34 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
     historySaved = false;
     debugPrint('Could not save history: $error');
   }
+
+  var clipboardFailed = false;
+  try {
+    if (kind.copiesTextToClipboard) {
+      if (Platform.isAndroid) {
+        await clipboardChannel.invokeMethod<void>('writeText', {'text': text});
+      } else {
+        await Clipboard.setData(ClipboardData(text: text!));
+      }
+    } else if (kind == TransferKind.image) {
+      await DesktopPlatform.writeClipboardImage(
+        await File(files.first.reference).readAsBytes(),
+      );
+    } else if (kind.isFile) {
+      final references = files.map((file) => file.reference).toList();
+      if (Platform.isAndroid) {
+        await clipboardChannel.invokeMethod<void>('writeFiles', {
+          'paths': references,
+        });
+      } else if (!await Pasteboard.writeFiles(references)) {
+        throw StateError('Clipboard rejected received files');
+      }
+    }
+  } catch (error) {
+    clipboardFailed = true;
+    debugPrint('Could not copy received content: $error');
+  }
+
   return (
     text: text,
     link: link,

@@ -647,7 +647,7 @@ abstract class AppLocalizations {
   /// No description provided for @writeClipboardFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not write to the clipboard.'**
+  /// **'Received, but couldn\'t copy to the clipboard.'**
   String get writeClipboardFailed;
 
   /// No description provided for @startupFailed.

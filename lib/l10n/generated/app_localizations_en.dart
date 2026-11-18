@@ -311,7 +311,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t read the clipboard. Copy the content again and retry.';
 
   @override
-  String get writeClipboardFailed => 'Could not write to the clipboard.';
+  String get writeClipboardFailed =>
+      'Received, but couldn\'t copy to the clipboard.';
 
   @override
   String get startupFailed => 'Could not start. Restart the app.';

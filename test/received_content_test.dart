@@ -123,6 +123,7 @@ void testReceiving(
   Future<void> Function(WidgetTester, ReceiveEffects) verify, {
   bool macOnly = false,
   bool failClipboardFiles = false,
+  bool failClipboardText = false,
 }) {
   testWidgets(description, (tester) async {
     final dir = Directory.systemTemp.createTempSync('vela-received-content-');
@@ -179,6 +180,7 @@ void testReceiving(
       },
       SystemChannels.platform: (call) async {
         if (call.method == 'Clipboard.setData') {
+          if (failClipboardText) throw PlatformException(code: 'clipboard');
           effects.copiedTexts.add((call.arguments as Map)['text'] as String);
         }
         return null;
@@ -204,7 +206,7 @@ void testReceiving(
           ),
         ),
       );
-      await waitFor(tester, find.text('View'));
+      await waitFor(tester, find.byType(SnackBar));
       await verify(tester, effects);
     } finally {
       tester.view.resetPhysicalSize();
@@ -303,6 +305,25 @@ void main() {
   );
 
   testReceiving(
+    'received clipboard text stays accessible when copying fails',
+    ContentOffer('text', {'clipboard.txt': utf8.encode('Still received')}),
+    (tester, effects) async {
+      expect(effects.copiedTexts, isEmpty);
+      expect(
+        find.text("Received, but couldn't copy to the clipboard."),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('transfer-history')));
+      final preview = find.text('Still received');
+      await waitFor(tester, preview);
+      await tester.tap(preview);
+      await waitFor(tester, find.text('Copy'));
+    },
+    failClipboardText: true,
+    macOnly: true,
+  );
+
+  testReceiving(
     'clipboard images are copied and offered for viewing',
     ContentOffer('image', {
       'clipboard.png': [1, 2, 3, 4],
@@ -338,7 +359,10 @@ void main() {
     'clipboard failure leaves every file of the received batch intact',
     batch,
     (tester, effects) async {
-      expect(find.text('Could not write to the clipboard.'), findsOneWidget);
+      expect(
+        find.text("Received, but couldn't copy to the clipboard."),
+        findsOneWidget,
+      );
       expect(
         effects.fileCopyAttempts.single.map(
           (path) => File(path).readAsStringSync(),

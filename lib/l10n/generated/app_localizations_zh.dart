@@ -289,7 +289,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get readClipboardFailed => '无法读取剪贴板，请重新复制后重试';
 
   @override
-  String get writeClipboardFailed => '无法写入剪贴板';
+  String get writeClipboardFailed => '已接收，但未能复制到剪贴板';
 
   @override
   String get startupFailed => '无法启动，请重新打开应用';
