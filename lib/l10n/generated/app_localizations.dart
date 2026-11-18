@@ -1208,6 +1208,66 @@ abstract class AppLocalizations {
   /// **'Waiting for devices'**
   String get backgroundReady;
 
+  /// No description provided for @backgroundStartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off · Turn on to receive while Vela is in the background.'**
+  String get backgroundStartHint;
+
+  /// No description provided for @backgroundMacMaySleep.
+  ///
+  /// In en, this message translates to:
+  /// **'Receives with the window closed while the Mac is awake.'**
+  String get backgroundMacMaySleep;
+
+  /// No description provided for @backgroundMacAwake.
+  ///
+  /// In en, this message translates to:
+  /// **'Receives with the window closed. Idle sleep is prevented.'**
+  String get backgroundMacAwake;
+
+  /// No description provided for @backgroundTrayUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No system tray available. Leave the window open to receive.'**
+  String get backgroundTrayUnavailable;
+
+  /// No description provided for @backgroundTrayReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Receives from the tray while the computer is awake.'**
+  String get backgroundTrayReady;
+
+  /// No description provided for @backgroundServiceStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Not ready · Check the receiving service and node below.'**
+  String get backgroundServiceStopped;
+
+  /// No description provided for @backgroundAllowRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow incoming request notifications to accept in the background.'**
+  String get backgroundAllowRequests;
+
+  /// No description provided for @backgroundCheckBattery.
+  ///
+  /// In en, this message translates to:
+  /// **'Check battery settings to keep background receiving available.'**
+  String get backgroundCheckBattery;
+
+  /// No description provided for @backgroundServiceReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Receiving service is running.'**
+  String get backgroundServiceReady;
+
+  /// No description provided for @settingsTroubleshooting.
+  ///
+  /// In en, this message translates to:
+  /// **'Troubleshooting'**
+  String get settingsTroubleshooting;
+
   /// No description provided for @backgroundUnavailable.
   ///
   /// In en, this message translates to:

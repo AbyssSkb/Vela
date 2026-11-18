@@ -1,5 +1,6 @@
 import 'package:vela/background_settings.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
+import 'package:vela/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,88 @@ class FailingFirstWriteStore extends InMemorySharedPreferencesStore {
 
 void main() {
   const channel = MethodChannel('vela/background');
+
+  test(
+    'background summaries do not equate configuration with availability',
+    () {
+      final t = lookupAppLocalizations(const Locale('en'));
+      final android = BackgroundReceiving.androidService;
+      const notificationBlocked = {
+        'running': true,
+        'nodeReady': true,
+        'notifications': false,
+        'batteryExempt': true,
+      };
+      expect(
+        android.statusText(t, true, notificationBlocked, autoAccept: false),
+        'Allow incoming request notifications to accept in the background.',
+      );
+      expect(
+        android.statusText(t, true, notificationBlocked, autoAccept: true),
+        'Receiving service is running.',
+      );
+      expect(
+        BackgroundReceiving.desktopTray.statusText(t, true, {
+          'running': true,
+          'trayAvailable': false,
+        }, autoAccept: false),
+        'No system tray available. Leave the window open to receive.',
+      );
+    },
+  );
+
+  testWidgets(
+    'settings show unknown status and refresh after toggling background receiving',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'background_receive_test': true});
+      final messenger = tester.binding.defaultBinaryMessenger;
+      var statusUnavailable = true;
+      var running = true;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'status') {
+          if (statusUnavailable) throw PlatformException(code: 'unavailable');
+          return {'running': running, 'nodeReady': true, 'notifications': true};
+        }
+        if (call.method == 'stop') running = false;
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SettingsPage(
+            profile: 'test',
+            language: 'en',
+            appearance: 'light',
+            deviceName: 'Phone',
+            systemDeviceName: 'Phone',
+            changeSetting: (_, _) async {},
+            rename: (_) async {},
+            relaySettings: () async {},
+            diagnostics: () async {},
+            backgroundChanged: () async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Status unknown'), findsOneWidget);
+      statusUnavailable = false;
+      await tester.tap(find.text('Background receiving'));
+      await tester.pumpAndSettle();
+      expect(find.text('Receiving service is running.'), findsOneWidget);
+      await tester.tap(find.byType(SwitchListTile).first);
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Off · Turn on to receive while Vela is in the background.'),
+        findsOneWidget,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
 
   Future<void> showPage(
     WidgetTester tester,

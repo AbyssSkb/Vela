@@ -605,6 +605,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundReady => '正在等待设备发送';
 
   @override
+  String get backgroundStartHint => '未开启 · 开启后可在后台接收。';
+
+  @override
+  String get backgroundMacMaySleep => '关闭窗口后仍可接收，Mac 睡眠时会中断。';
+
+  @override
+  String get backgroundMacAwake => '关闭窗口后仍可接收，已阻止空闲睡眠。';
+
+  @override
+  String get backgroundTrayUnavailable => '系统托盘不可用，请保持窗口打开以接收。';
+
+  @override
+  String get backgroundTrayReady => '电脑未睡眠时可在托盘中接收。';
+
+  @override
+  String get backgroundServiceStopped => '未就绪 · 请检查下方的接收服务和节点状态。';
+
+  @override
+  String get backgroundAllowRequests => '请允许接收请求通知，以便在后台确认接收。';
+
+  @override
+  String get backgroundCheckBattery => '请检查电池设置，以便在后台接收。';
+
+  @override
+  String get backgroundServiceReady => '接收服务正在运行。';
+
+  @override
+  String get settingsTroubleshooting => '故障排查';
+
+  @override
   String get backgroundUnavailable => '无法更改后台接收，请检查系统设置。';
 
   @override

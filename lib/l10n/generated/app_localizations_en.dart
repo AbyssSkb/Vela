@@ -648,6 +648,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundReady => 'Waiting for devices';
 
   @override
+  String get backgroundStartHint =>
+      'Off · Turn on to receive while Vela is in the background.';
+
+  @override
+  String get backgroundMacMaySleep =>
+      'Receives with the window closed while the Mac is awake.';
+
+  @override
+  String get backgroundMacAwake =>
+      'Receives with the window closed. Idle sleep is prevented.';
+
+  @override
+  String get backgroundTrayUnavailable =>
+      'No system tray available. Leave the window open to receive.';
+
+  @override
+  String get backgroundTrayReady =>
+      'Receives from the tray while the computer is awake.';
+
+  @override
+  String get backgroundServiceStopped =>
+      'Not ready · Check the receiving service and node below.';
+
+  @override
+  String get backgroundAllowRequests =>
+      'Allow incoming request notifications to accept in the background.';
+
+  @override
+  String get backgroundCheckBattery =>
+      'Check battery settings to keep background receiving available.';
+
+  @override
+  String get backgroundServiceReady => 'Receiving service is running.';
+
+  @override
+  String get settingsTroubleshooting => 'Troubleshooting';
+
+  @override
   String get backgroundUnavailable =>
       'Could not change background receiving. Check system settings.';
 

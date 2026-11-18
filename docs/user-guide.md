@@ -46,6 +46,8 @@ Folder archives support at most 16 GiB of uncompressed content, 10,000 entries, 
 
 ## Receive in the background
 
+**Settings → Receiving** shows the current background status and what to check next. Connection diagnostics and custom relays are under **Troubleshooting**.
+
 ### Android
 
 Enable background reception in settings. Vela runs a foreground service with a persistent notification and holds a CPU wake lock. The background settings page shows notification permissions, battery restrictions, autostart controls where available, and node initialization status.

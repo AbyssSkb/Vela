@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -88,7 +89,8 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage>
+    with WidgetsBindingObserver {
   late String language = widget.language;
   late String appearance = widget.appearance;
   late String name = widget.deviceName;
@@ -96,10 +98,16 @@ class _SettingsPageState extends State<SettingsPage> {
   bool macFocus = true, autoAccept = false;
   bool defaultSaveLocation = true, saveLocationAvailable = true;
   String? saveLocationLabel;
+  BackgroundReceiving? get background =>
+      BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase());
+  bool? backgroundEnabled;
+  Map<Object?, Object?> backgroundStatus = {};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_refreshBackground());
     SharedPreferences.getInstance().then((prefs) {
       if (mounted) {
         setState(() {
@@ -114,6 +122,52 @@ class _SettingsPageState extends State<SettingsPage> {
         DesktopPlatform.isWindowsOrLinux) {
       unawaited(_loadSaveLocation());
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_refreshBackground());
+  }
+
+  Future<void> _refreshBackground() async {
+    final setting = background;
+    if (setting == null) return;
+    bool? enabled;
+    Map<Object?, Object?> status = {};
+    try {
+      enabled = setting.enabled(
+        await SharedPreferences.getInstance(),
+        widget.profile,
+      );
+      status = await setting.readStatus();
+    } catch (error) {
+      debugPrint('Could not read background status: $error');
+    }
+    if (mounted) {
+      setState(() {
+        backgroundEnabled = enabled;
+        backgroundStatus = status;
+      });
+    }
+  }
+
+  Future<void> _showBackgroundSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => BackgroundSettingsPage(
+          profile: widget.profile,
+          onChanged: widget.backgroundChanged,
+        ),
+      ),
+    );
+    if (mounted) await _refreshBackground();
   }
 
   Future<void> _loadSaveLocation() async {
@@ -227,6 +281,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
+    final background = this.background;
     final languages = {
       'system': t.systemDefault,
       'zh': t.simplifiedChinese,
@@ -243,6 +298,7 @@ class _SettingsPageState extends State<SettingsPage> {
       String value,
       VoidCallback onTap, {
       Widget? trailing,
+      int? maxLines = 1,
     }) => ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       leading: Icon(icon, color: colors.primary, size: 22),
@@ -251,8 +307,8 @@ class _SettingsPageState extends State<SettingsPage> {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(
         value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        maxLines: maxLines,
+        overflow: maxLines == null ? null : TextOverflow.ellipsis,
         style: TextStyle(color: colors.onSurfaceVariant),
       ),
       trailing:
@@ -340,26 +396,23 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 16),
                   section(t.settingsDevice, [
                     row(Icons.devices_outlined, t.deviceName, name, _rename),
-                    divider(),
-                    row(
-                      Icons.dns_outlined,
-                      t.relaySettings,
-                      t.relaySettingsHint,
-                      widget.relaySettings,
-                    ),
-                    divider(),
-                    row(
-                      Icons.monitor_heart_outlined,
-                      Localizations.localeOf(context).languageCode == 'zh'
-                          ? '诊断'
-                          : 'Diagnostics',
-                      Localizations.localeOf(context).languageCode == 'zh'
-                          ? '查看连接状态与事件'
-                          : 'Connection status and events',
-                      widget.diagnostics,
-                    ),
                   ]),
                   section(t.settingsReceiving, [
+                    if (background != null) ...[
+                      row(
+                        Icons.notifications_active_outlined,
+                        t.backgroundReceiving,
+                        background.statusText(
+                          t,
+                          backgroundEnabled,
+                          backgroundStatus,
+                          autoAccept: autoAccept,
+                        ),
+                        _showBackgroundSettings,
+                        maxLines: null,
+                      ),
+                      divider(),
+                    ],
                     if (Platform.isAndroid ||
                         Platform.isMacOS ||
                         DesktopPlatform.isWindowsOrLinux) ...[
@@ -432,25 +485,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                     ],
-                    if (Platform.isAndroid ||
-                        Platform.isMacOS ||
-                        DesktopPlatform.isWindowsOrLinux) ...[
-                      divider(),
-                      row(
-                        Icons.notifications_active_outlined,
-                        t.backgroundReceiving,
-                        t.backgroundDiagnostic,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => BackgroundSettingsPage(
-                              profile: widget.profile,
-                              onChanged: widget.backgroundChanged,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ]),
                   section(t.settingsDisplay, [
                     row(
@@ -465,6 +499,25 @@ class _SettingsPageState extends State<SettingsPage> {
                       t.appearance,
                       appearances[appearance] ?? t.systemDefault,
                       () => _choose('appearance', appearance, appearances),
+                    ),
+                  ]),
+                  section(t.settingsTroubleshooting, [
+                    row(
+                      Icons.dns_outlined,
+                      t.relaySettings,
+                      t.relaySettingsHint,
+                      widget.relaySettings,
+                    ),
+                    divider(),
+                    row(
+                      Icons.monitor_heart_outlined,
+                      Localizations.localeOf(context).languageCode == 'zh'
+                          ? '诊断'
+                          : 'Diagnostics',
+                      Localizations.localeOf(context).languageCode == 'zh'
+                          ? '查看连接状态与事件'
+                          : 'Connection status and events',
+                      widget.diagnostics,
                     ),
                   ]),
                   if (widget.updates != null) ...[

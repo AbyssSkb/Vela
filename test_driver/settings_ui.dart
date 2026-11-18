@@ -12,6 +12,7 @@ Future<void> main(List<String> args) async {
       );
       await d.tap(find.byTooltip('设置'));
       await d.waitFor(find.text('设备名称'));
+      await d.scrollIntoView(find.text('外观'), alignment: 0.5);
       await d.tap(find.text('外观'));
       await d.waitFor(find.text('深色'), timeout: const Duration(seconds: 10));
       if (args.length > 1) {
@@ -23,6 +24,7 @@ Future<void> main(List<String> args) async {
       if (args.length > 2) {
         await File(args[2]).writeAsBytes(await d.screenshot());
       }
+      await d.scrollIntoView(find.text('语言'), alignment: 0.5);
       await d.tap(find.text('语言'));
       await d.waitFor(
         find.text('English'),
@@ -34,6 +36,7 @@ Future<void> main(List<String> args) async {
         timeout: const Duration(seconds: 10),
       );
       await d.waitFor(find.text('Device name'));
+      await d.scrollIntoView(find.text('Language'), alignment: 0.5);
       await d.tap(find.text('Language'));
       await d.waitFor(
         find.text('Simplified Chinese'),
@@ -41,6 +44,7 @@ Future<void> main(List<String> args) async {
       );
       await d.tap(find.text('Simplified Chinese'));
       await d.waitFor(find.text('设置'), timeout: const Duration(seconds: 10));
+      await d.scrollIntoView(find.text('设备名称'), alignment: 0.5);
       await d.tap(find.text('设备名称'));
       await d.waitFor(find.text('保存'), timeout: const Duration(seconds: 10));
       await d.tap(find.byType('TextField'));

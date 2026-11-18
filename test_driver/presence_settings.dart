@@ -74,6 +74,7 @@ Future<void> main(List<String> args) async {
         );
         await b.waitFor(find.text('Local alias'));
         stdout.writeln("step await a.tap(find.text('语言'))");
+        await a.scrollIntoView(find.text('语言'), alignment: 0.5);
         await a.tap(find.text('语言'));
         await a.tap(find.text('English'));
         await a.waitFor(find.text('Settings'));

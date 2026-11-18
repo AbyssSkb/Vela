@@ -233,6 +233,7 @@ void main() {
       expect(api.starts, 1);
       await tester.tap(find.byKey(const ValueKey('home-settings')));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Relay servers'));
       await tester.tap(find.text('Relay servers'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('relay-enabled')));
@@ -295,6 +296,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('home-settings')));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Relay servers'));
       await tester.tap(find.text('Relay servers'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('relay-enabled')));

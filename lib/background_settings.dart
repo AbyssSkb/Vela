@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -36,6 +37,44 @@ enum BackgroundReceiving {
   bool enabled(SharedPreferences? prefs, String profile) =>
       prefs?.getBool(preferenceKey(profile)) ?? defaultEnabled;
 
+  Future<Map<Object?, Object?>> readStatus() async =>
+      await channel.invokeMapMethod<Object?, Object?>(statusMethod) ?? {};
+
+  String statusText(
+    AppLocalizations t,
+    bool? enabled,
+    Map<Object?, Object?> status, {
+    required bool autoAccept,
+  }) => switch ((this, enabled)) {
+    (_, null) => t.unknown,
+    (macKeepAwake, false) => t.backgroundMacMaySleep,
+    (macKeepAwake, true) => switch (status['active']) {
+      true => t.backgroundMacAwake,
+      false => t.backgroundNeedsAttention,
+      _ => t.unknown,
+    },
+    (_, false) => t.backgroundStartHint,
+    (desktopTray, true) => switch (status['trayAvailable']) {
+      false => t.backgroundTrayUnavailable,
+      true when status['running'] == true => t.backgroundTrayReady,
+      _ => t.unknown,
+    },
+    (androidService, true) => switch (status) {
+      {'running': false} || {'nodeReady': false} => t.backgroundServiceStopped,
+      {'notifications': false} when !autoAccept => t.backgroundAllowRequests,
+      {'restricted': true} ||
+      {'batteryExempt': false} ||
+      {
+        'lowPowerStandbyEnabled': true,
+        'lowPowerStandbyExempt': false,
+      } => t.backgroundCheckBattery,
+      {'running': true, 'nodeReady': true}
+          when status['notifications'] == true || autoAccept =>
+        t.backgroundServiceReady,
+      _ => t.unknown,
+    },
+  };
+
   Future<void> setEnabled(bool value, {String? readyMessage}) async {
     switch (this) {
       case macKeepAwake:
@@ -71,7 +110,8 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     with WidgetsBindingObserver {
   static const channel = BackgroundReceiving.channel;
   Map<Object?, Object?> status = {};
-  bool enabled = false, changing = false;
+  bool? enabled;
+  bool autoAccept = false, changing = false;
   BackgroundReceiving get setting =>
       BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase()) ??
       BackgroundReceiving.androidService;
@@ -81,7 +121,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _refresh();
+    unawaited(_refresh());
   }
 
   @override
@@ -92,17 +132,23 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh();
+    if (state == AppLifecycleState.resumed) unawaited(_refresh());
   }
 
-  Future<void> _refresh() async {
-    final prefs = await SharedPreferences.getInstance();
-    final current =
-        await channel.invokeMapMethod<Object?, Object?>(setting.statusMethod) ??
-        {};
+  Future<void> _refresh({bool strict = false}) async {
+    Map<Object?, Object?> current = {};
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+      current = await setting.readStatus();
+    } catch (error) {
+      if (strict) rethrow;
+      debugPrint('Could not read background status: $error');
+    }
     if (mounted) {
       setState(() {
-        enabled = setting.enabled(prefs, widget.profile);
+        enabled = prefs == null ? null : setting.enabled(prefs, widget.profile);
+        autoAccept = prefs?.getBool('auto_accept_${widget.profile}') ?? false;
         status = current;
       });
     }
@@ -126,7 +172,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       await setting.setEnabled(value, readyMessage: readyMessage);
       notified = widget.onChanged != null;
       await widget.onChanged?.call();
-      await _refresh();
+      await _refresh(strict: true);
     } catch (_) {
       if (saved && prefs != null) {
         try {
@@ -151,9 +197,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
         } catch (_) {}
       }
       if (mounted) {
-        try {
-          await _refresh();
-        } catch (_) {}
+        await _refresh();
         if (mounted) {
           showNotice(
             context,
@@ -171,12 +215,10 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     setState(() => changing = true);
     try {
       await channel.invokeMethod<String>('setLaunchAtLogin', value);
-      await _refresh();
+      await _refresh(strict: true);
     } catch (_) {
       if (mounted) {
-        try {
-          await _refresh();
-        } catch (_) {}
+        await _refresh();
         if (mounted) {
           showNotice(
             context,
@@ -197,6 +239,12 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     final manufacturer = (status['manufacturer'] as String? ?? '')
         .toLowerCase();
     final isOplus = ['oneplus', 'oppo', 'realme'].contains(manufacturer);
+    final summary = setting.statusText(
+      t,
+      enabled,
+      status,
+      autoAccept: autoAccept,
+    );
     Widget check(String title, bool? ok, String? section) => ListTile(
       leading: Icon(
         ok == true
@@ -251,15 +299,9 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                   borderRadius: BorderRadius.circular(20),
                   child: SwitchListTile(
                     title: Text(isMac ? t.macKeepAwake : t.backgroundReceiving),
-                    subtitle: Text(
-                      isMac
-                          ? t.macKeepAwakeHint
-                          : usesTray
-                          ? t.desktopBackgroundHint
-                          : t.backgroundDescription,
-                    ),
-                    value: enabled,
-                    onChanged: changing ? null : _toggle,
+                    subtitle: Text(summary),
+                    value: enabled ?? false,
+                    onChanged: changing || enabled == null ? null : _toggle,
                   ),
                 ),
                 if (isMac || usesTray) ...[
@@ -391,10 +433,10 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     isMac
-                        ? t.macKeepAwakeLimits
+                        ? '${t.macKeepAwakeHint}\n\n${t.macKeepAwakeLimits}'
                         : usesTray
-                        ? t.desktopBackgroundLimits
-                        : '${t.backgroundBatteryHint}\n\n${t.backgroundLimits}',
+                        ? '${t.desktopBackgroundHint}\n\n${t.desktopBackgroundLimits}'
+                        : '${t.backgroundDescription}\n\n${t.backgroundLimits}',
                     style: TextStyle(color: colors.onSurfaceVariant),
                   ),
                 ),
