@@ -61,7 +61,8 @@ class HomeToolbar extends StatelessWidget {
       final buttonWidth = math.min(44.0, math.max(0.0, (width - 8) / 3));
       // Add gets the first available slot, at the right end of the toolbar.
       final priority = [if (addDevice != null) addDevice!, ...actions];
-      final slotCount = ((width - 112 - 44) / 44).floor().clamp(
+      final titleWidth = MediaQuery.textScalerOf(context).scale(112);
+      final slotCount = ((width - titleWidth - 44) / 44).floor().clamp(
         0,
         priority.length,
       );
@@ -91,8 +92,8 @@ class HomeToolbar extends StatelessWidget {
                 Expanded(
                   child: Text(
                     t.devices,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: titleWidth > 112 ? null : 1,
+                    overflow: titleWidth > 112 ? null : TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
@@ -129,11 +130,10 @@ class HomeToolbar extends StatelessWidget {
                             value: action.id,
                             enabled: action.onPressed != null,
                             child: Row(
-                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(action.icon, size: 20),
                                 const SizedBox(width: 12),
-                                Text(action.label),
+                                Flexible(child: Text(action.label)),
                               ],
                             ),
                           ),

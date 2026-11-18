@@ -123,35 +123,46 @@ class HomeSendButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
     ),
     child: LayoutBuilder(
-      builder: (context, constraints) => constraints.maxWidth < 90
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: math.min(18, constraints.maxWidth)),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11),
-                  ),
+      builder: (context, constraints) {
+        final largeText = usesLargeLabels(context);
+        if (largeText) {
+          return Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13),
+          );
+        }
+        if (constraints.maxWidth < 90) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: math.min(18, constraints.maxWidth)),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11),
                 ),
-              ],
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 20),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          );
+        }
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
+          ],
+        );
+      },
     ),
   );
+
+  static bool usesLargeLabels(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(14) > 17;
 }

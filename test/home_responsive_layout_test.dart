@@ -642,7 +642,45 @@ void main() {
         );
         expect(tester.takeException(), isNull);
         await capture('ui-short-wide-scrolled');
-        await tester.pumpWidget(home(scale: 1.5));
+        if (find.byType(DeviceGraph).evaluate().isNotEmpty) {
+          await resize(const Size(1200, 760));
+          await tester.tap(find.byKey(const ValueKey('toggle-device-view')));
+          await tester.pump();
+        }
+        await tester.pumpWidget(home(scale: 2));
+        await resize(const Size(320, 640));
+        for (final text in [
+          'Devices',
+          'Files',
+          'Folder',
+          'Text',
+          'Clipboard',
+        ]) {
+          final label = find.text(text);
+          expect(label.hitTestable(), findsOneWidget, reason: text);
+          final paragraph = tester.renderObject<RenderParagraph>(label);
+          expect(
+            paragraph.didExceedMaxLines,
+            isFalse,
+            reason: '$text should remain readable at 2× text size',
+          );
+          if (text != 'Devices') {
+            final end = paragraph
+                .getBoxesForSelection(
+                  TextSelection(
+                    baseOffset: text.length - 1,
+                    extentOffset: text.length,
+                  ),
+                )
+                .single;
+            expect(
+              end.bottom,
+              lessThanOrEqualTo(paragraph.size.height + 0.01),
+              reason: '$text should not be clipped vertically',
+            );
+          }
+        }
+        await capture('ui-large-text');
         await tester.pump();
         expect(
           tester.takeException(),

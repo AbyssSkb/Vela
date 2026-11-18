@@ -8,10 +8,33 @@ class HomeResponsiveLayout extends StatefulWidget {
     required this.wide,
     required this.actions,
     required this.devices,
+    this.largeText = false,
   });
   final bool wide;
   final List<Widget> actions;
   final Widget devices;
+  final bool largeText;
+
+  static const _largeButtonHeight = 64.0;
+  static const _gap = 8.0;
+  static const _railRowGap = 6.0;
+
+  static double minimumHeight({
+    required bool wide,
+    required int count,
+    required bool largeText,
+    required double width,
+  }) {
+    if (!largeText)
+      return wide ? count * 40.0 + (count - 1) * _railRowGap : 220.0;
+    final columns = _largeColumns(width);
+    final rows = (count + columns - 1) ~/ columns;
+    return wide
+        ? count * _largeButtonHeight + (count - 1) * _railRowGap
+        : rows * _largeButtonHeight + (rows - 1) * _gap + 120;
+  }
+
+  static int _largeColumns(double width) => width < 280 ? 1 : 2;
 
   @override
   State<HomeResponsiveLayout> createState() => _HomeLayoutState();
@@ -57,7 +80,11 @@ class _HomeLayoutState extends State<HomeResponsiveLayout>
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: transition,
     builder: (context, _) => CustomMultiChildLayout(
-      delegate: _HomeLayoutDelegate(transition.value, widget.actions.length),
+      delegate: _HomeLayoutDelegate(
+        transition.value,
+        widget.actions.length,
+        widget.largeText,
+      ),
       children: [
         for (final (index, action) in widget.actions.indexed)
           LayoutId(id: index, child: action),
@@ -68,23 +95,28 @@ class _HomeLayoutState extends State<HomeResponsiveLayout>
 }
 
 class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
-  _HomeLayoutDelegate(this.progress, this.count);
+  _HomeLayoutDelegate(this.progress, this.count, this.largeText);
   final double progress;
   final int count;
+  final bool largeText;
 
   @override
   void performLayout(Size size) {
-    const gap = 8.0,
-        buttonHeight = 48.0,
-        railWidth = 144.0,
+    const gap = HomeResponsiveLayout._gap,
         railGap = 24.0,
-        railRowGap = 6.0;
+        railRowGap = HomeResponsiveLayout._railRowGap;
+    final buttonHeight = largeText
+        ? HomeResponsiveLayout._largeButtonHeight
+        : 48.0;
+    final railWidth = largeText ? 208.0 : 144.0;
     final movingDown = (progress * 3).clamp(0.0, 1.0);
     final movingSide = ((progress - 1 / 3) * 3).clamp(0.0, 1.0);
     final movingUp = ((progress - 2 / 3) * 3).clamp(0.0, 1.0);
-    final columns = count > 4 ? 3 : count;
+    final columns = largeText
+        ? math.min(HomeResponsiveLayout._largeColumns(size.width), count)
+        : (count > 4 ? 3 : count);
     final railHeight = ((size.height - (count - 1) * railRowGap) / count).clamp(
-      40.0,
+      largeText ? buttonHeight : 40.0,
       buttonHeight,
     );
     final railTop = math.max(
@@ -123,5 +155,7 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_HomeLayoutDelegate oldDelegate) =>
-      progress != oldDelegate.progress || count != oldDelegate.count;
+      progress != oldDelegate.progress ||
+      count != oldDelegate.count ||
+      largeText != oldDelegate.largeText;
 }

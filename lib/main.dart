@@ -3382,7 +3382,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  List<Widget> _deviceSlivers(bool showingGraph) {
+  List<Widget> _deviceSlivers(bool showingGraph, {required bool largeText}) {
     final colors = Theme.of(context).colorScheme;
     return [
       if (showingGraph)
@@ -3449,8 +3449,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     leading: Icon(_deviceIcon(id), color: colors.primary),
                     title: Text(
                       peerState.displayName(id),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: largeText ? null : 1,
+                      overflow: largeText ? null : TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle:
@@ -3497,6 +3497,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildDeviceViewport(BuildContext context, BoxConstraints viewport) {
     final colors = Theme.of(context).colorScheme;
     final wide = viewport.maxWidth >= 700;
+    final largeText = HomeSendButton.usesLargeLabels(context);
+    final roomyActions = largeText || viewport.maxWidth < 340;
     final compactHeader = wide && viewport.maxHeight < 500 && !Platform.isMacOS;
     final headerTop = Platform.isMacOS
         ? 44.0
@@ -3510,7 +3512,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final showingGraph =
         deviceView == 'graph' ||
-        (deviceView == null && (automaticGraph ?? false));
+        (deviceView == null && !largeText && (automaticGraph ?? false));
 
     final actions = _sendButtons();
     return CustomScrollView(
@@ -3575,18 +3577,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           SliverToBoxAdapter(
             child: SizedBox(
               height: math.max(
-                wide ? actions.length * 40.0 + (actions.length - 1) * 6 : 220.0,
+                HomeResponsiveLayout.minimumHeight(
+                  wide: wide,
+                  count: actions.length,
+                  largeText: roomyActions,
+                  width: viewport.maxWidth - 48,
+                ),
                 deviceHeight,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: HomeResponsiveLayout(
                   wide: wide,
+                  largeText: roomyActions,
                   actions: actions,
                   devices: CustomScrollView(
                     key: const ValueKey('home-devices'),
                     physics: const ClampingScrollPhysics(),
-                    slivers: _deviceSlivers(showingGraph),
+                    slivers: _deviceSlivers(showingGraph, largeText: largeText),
                   ),
                 ),
               ),
