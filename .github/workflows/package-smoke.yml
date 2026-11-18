@@ -136,8 +136,18 @@ jobs:
           sleep 15
           kill -0 "$app_pid"
           xwininfo -root -tree | tee "$VELA_SMOKE_ROOT/windows.log"
-          xwininfo -name Vela -stats | tee "$VELA_SMOKE_ROOT/window.log"
-          grep -q 'Map State: IsViewable' "$VELA_SMOKE_ROOT/window.log"
+          # GTK also creates an unmapped input window with the same title.
+          mapfile -t window_ids < <(awk '$2 == "\"Vela\":" {print $1}' "$VELA_SMOKE_ROOT/windows.log")
+          visible=false
+          for window_id in "${window_ids[@]}"; do
+            xwininfo -id "$window_id" -stats | tee "$VELA_SMOKE_ROOT/window.log"
+            if grep -q 'Class: InputOutput' "$VELA_SMOKE_ROOT/window.log" &&
+                grep -q 'Map State: IsViewable' "$VELA_SMOKE_ROOT/window.log"; then
+              visible=true
+              break
+            fi
+          done
+          [[ "$visible" == true ]]
           echo 'Extracted Linux package remained alive with a window for 15 seconds.'
           SMOKE
       - name: Record scope
