@@ -521,7 +521,7 @@ abstract class AppLocalizations {
   /// No description provided for @removeRecordsOnly.
   ///
   /// In en, this message translates to:
-  /// **'Records only'**
+  /// **'Remove records only'**
   String get removeRecordsOnly;
 
   /// No description provided for @removeRecordsAndFiles.
@@ -533,13 +533,13 @@ abstract class AppLocalizations {
   /// No description provided for @removeRecordAndFile.
   ///
   /// In en, this message translates to:
-  /// **'Delete record and file'**
+  /// **'Delete records and files'**
   String get removeRecordAndFile;
 
   /// No description provided for @deleteFilesWarning.
   ///
   /// In en, this message translates to:
-  /// **'The file will be permanently deleted and cannot be recovered.'**
+  /// **'Deleted files cannot be recovered.'**
   String get deleteFilesWarning;
 
   /// No description provided for @deleteFilesFailed.

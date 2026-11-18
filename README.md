@@ -71,6 +71,8 @@ For limited local disk space, use the GitHub workflows for full builds and tests
 3. Choose a file, folder, text, or clipboard sharing action, then confirm the receiving device.
 4. Approve the incoming transfer on the receiver. Received files go to Downloads by default; change the destination in settings.
 
+When searching received history, select the entries you want to remove.
+
 Both apps need to be running and reachable. The latest successful send stays visible on the home screen during the session, until dismissed or the next send starts. For background controls and troubleshooting, see the [user guide](docs/user-guide.md).
 
 ## Connections and privacy

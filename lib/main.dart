@@ -1607,6 +1607,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(t.removeDeviceQuestion),
         content: Text(t.removeDeviceBody(name)),
         actions: [
@@ -2095,6 +2096,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!peers.containsKey(id)) return;
     final action = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       constraints: const BoxConstraints(maxWidth: 560),
       builder: (context) => SafeArea(
@@ -2102,16 +2105,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           contentPadding: const EdgeInsets.symmetric(horizontal: 24),
           minLeadingWidth: 24,
           horizontalTitleGap: 16,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: ListView(
+            shrinkWrap: true,
             children: [
               ListTile(
                 leading: Icon(_deviceIcon(id)),
-                title: Text(
-                  peerState.displayName(id),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                title: Text(peerState.displayName(id)),
                 subtitle: Text(switch (peerTypes[id]) {
                   'mobile' => t.mobile,
                   'tablet' => t.tablet,
@@ -2128,11 +2127,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ListTile(
                   leading: const Icon(Icons.devices_outlined),
                   title: Text(t.systemDeviceName),
-                  subtitle: Text(
-                    peers[id]!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  subtitle: Text(peers[id]!),
                 ),
               ListTile(
                 leading: const Icon(Icons.fingerprint_rounded),
