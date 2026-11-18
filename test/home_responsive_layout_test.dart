@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart' as fakes;
 import 'support/home_environment.dart';
@@ -453,7 +454,7 @@ void main() {
         expect(
           find.byType(DeviceGraph),
           findsNothing,
-          reason: 'Explicit list preference survives rotation',
+          reason: 'The default list survives rotation',
         );
         await capture('ui-landscape');
         await resize(const Size(699, 250));
@@ -480,7 +481,7 @@ void main() {
         expect(
           find.byType(DeviceGraph),
           findsNothing,
-          reason: 'Automatic view stays stable across the breakpoint',
+          reason: 'The list stays selected across the breakpoint',
         );
         expect(
           node.closed,
@@ -786,4 +787,44 @@ void main() {
       );
     },
   );
+
+  for (final savedView in [null, 'graph']) {
+    testWidgets('wide home opens with ${savedView ?? 'the default list'}', (
+      tester,
+    ) async {
+      await withHomeTestEnvironment(
+        tester,
+        devices: PeerState(peers: {fakes.peerId: 'Phone'}),
+        api: fakes.FakeRustApi(fakes.FakeNode()),
+        run: (_) async {
+          if (savedView != null) {
+            SharedPreferences.setMockInitialValues({
+              'device_view_test': savedView,
+            });
+          }
+          tester.view.physicalSize = const Size(1100, 690);
+          await tester.pumpWidget(
+            const VelaApp(
+              profile: 'test',
+              initialLanguage: 'en',
+              initialAppearance: 'light',
+              initialDiagnosticsEnabled: false,
+            ),
+          );
+          final toggle = find.byKey(const ValueKey('toggle-device-view'));
+          await waitForHome(tester, () => toggle.evaluate().isNotEmpty);
+          final graph = find.byType(DeviceGraph);
+          expect(graph, savedView == null ? findsNothing : findsOneWidget);
+          await tester.tap(toggle);
+          await tester.pump();
+          expect(graph, savedView == null ? findsOneWidget : findsNothing);
+          final prefs = await SharedPreferences.getInstance();
+          expect(
+            prefs.getString('device_view_test'),
+            savedView == null ? 'graph' : 'list',
+          );
+        },
+      );
+    });
+  }
 }

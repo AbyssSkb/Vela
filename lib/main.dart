@@ -315,8 +315,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final List<_DiagnosticEntry> diagnosticEvents = [];
   final Set<String> selectedPeers = {};
   bool selectingPeers = false;
-  String? deviceView;
-  bool? automaticGraph;
+  String deviceView = 'list';
   String deviceName = '设备';
   String systemDeviceName = '设备';
   String deviceType = 'other';
@@ -1011,7 +1010,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         deviceName = ready.deviceName;
         systemDeviceName = ready.systemDeviceName;
         deviceType = ready.deviceType;
-        deviceView = ['graph', 'list'].contains(storedView) ? storedView : null;
+        deviceView = storedView == 'graph' ? 'graph' : 'list';
       });
       presenceController.attach(pairedDevices!);
       _recordDiagnostic('startup_complete_done');
@@ -3531,12 +3530,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         : 24.0;
     final headerBottom = compactHeader ? 4.0 : 12.0;
     final deviceHeight = viewport.maxHeight - headerTop - 48 - headerBottom;
-    if (node != null && automaticGraph == null) {
-      automaticGraph = viewport.maxWidth >= 640 && deviceHeight >= 360;
-    }
-    final showingGraph =
-        deviceView == 'graph' ||
-        (deviceView == null && !largeText && (automaticGraph ?? false));
+    final showingGraph = deviceView == 'graph';
 
     final actions = _sendButtons();
     return CustomScrollView(

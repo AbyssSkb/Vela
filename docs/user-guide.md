@@ -20,7 +20,7 @@ An Android debug/preview install and the signed public install use different key
 2. Choose **Add device** on the other device and enter that code. Android can also scan the QR code.
 3. Verify the code through a trusted channel and approve the request on the device displaying its code.
 
-Paired devices retain their names and types. The device area adapts to available space and can display a list or a graph. Use the desktop selection button, or long-press a device on mobile, to enter multi-selection.
+Paired devices retain their names and types. The device area opens as a list by default. Use the toolbar to switch to the graph or back to the list. Vela remembers the view you choose. Use the desktop selection button, or long-press a device on mobile, to enter multi-selection.
 
 Removing a device immediately revokes local trust and closes related connections. When the peer reconnects with online monitoring enabled, it can learn that trust was revoked; an unreachable peer is shown as offline. Versions using the previous pairing protocol must pair again after upgrading, while retaining device identity, received files, and history.
 
