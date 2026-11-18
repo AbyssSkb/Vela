@@ -49,6 +49,62 @@ void main() {
     );
   });
 
+  testWidgets('device details can be scrolled in a small window', (
+    tester,
+  ) async {
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(
+        peers: {fakes.peerId: 'Phone'},
+        aliases: {fakes.peerId: 'Personal phone with a longer alias'},
+      ),
+      api: fakes.FakeRustApi(fakes.FakeNode()),
+      run: (_) async {
+        tester.view.physicalSize = const Size(320, 480);
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'dark',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final device = find.byKey(const ValueKey('peer-${fakes.peerId}'));
+        await waitForHome(tester, () => device.evaluate().isNotEmpty);
+        await tester.ensureVisible(device);
+        await tester.tap(device);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(tester.takeException(), isNull);
+
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        final remove = find.text('Remove device');
+        await tester.scrollUntilVisible(
+          remove,
+          120,
+          scrollable: find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        await tester.pump();
+        expect(remove.hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.tap(remove);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(
+          find.widgetWithText(FilledButton, 'Remove').hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   testWidgets('five actions remain readable when the layout changes', (
     tester,
   ) async {
