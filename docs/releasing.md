@@ -62,7 +62,7 @@ Public betas continue to update the shared rolling `updates` feeds during the be
 
 ## Prepare and review the draft
 
-1. Commit the proposed version in `pubspec.yaml`. Obtain authorization to push the version commit or tag as required by [AGENTS.md](../AGENTS.md). An authorized `v*` tag push starts **Release** in draft mode. To prepare for an existing tag, run **Release** manually with `tag` set and `publish=false`.
+1. Commit the proposed version in `pubspec.yaml` and deliver it through the [PR workflow](../AGENTS.md). Push the matching `v*` candidate tag to start **Release** in draft mode. To prepare for an existing tag, run **Release** manually with `tag` set and `publish=false`.
 2. Confirm the package jobs pass and the draft targets the intended tag and commit. Check the uploaded installers, signed update feeds and payloads, and `SHA256SUMS`. Release packaging excludes the Android x86_64 test APK. Check a clean installation and an upgrade from a previous public version. Record the checks and their results for review.
 3. Write English release notes into the GitHub draft using the [release page layout](../AGENTS.md#github-releases). Link `README.zh-CN.md` at the release tag, the installers, and the checksums. Review the saved notes and metadata against the uploaded assets.
 4. From the checkout, use an authenticated `gh` session with access to the draft. Calculate its fingerprint once the draft is ready.

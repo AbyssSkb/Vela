@@ -20,17 +20,20 @@
    `git diff --cached --check`. Preserve unrelated staged work and leave the
    commit pending if you cannot safely isolate the task's changes.
 
-4. **Verify remotely when needed.** You may push task commits to a dedicated
-   `codex/*` branch on the configured GitHub remote and trigger ordinary CI.
-   Check that all outgoing commits, including any pre-existing local commits,
-   are authorized for that remote. Dispatch [CI](.github/workflows/ci.yml) for
-   full checks and [Installation packages](.github/workflows/build.yml) when
-   native compilation or an installer is needed. Verify the run covers the
-   intended commit and follow it to completion. Fix regressions in a follow-up
-   commit and rerun the affected checks. Pushes to `main`, force-pushes, PR
-   creation, merges, release tags, and publication require separate authorization.
+4. **Deliver implementation tasks through a PR.** Unless the user limits the
+   task, push only authorized commits to a dedicated `codex/*` branch and open
+   or update a PR to `main`. Verify the outgoing commit range before pushing.
+   Follow [CI](.github/workflows/ci.yml) and use
+   [Installation packages](.github/workflows/build.yml) when native compilation
+   or an installer is needed. Verify the checks cover the exact PR head, fix
+   regressions within scope, and follow the checks to completion. Merge once
+   required checks and verification pass and the PR remains in scope. Squash
+   a single logical change and preserve independently useful commits when
+   a PR contains several. Ask for input when a required check is blocked or a
+   decision changes the scope. Direct pushes to `main` and force-pushes require
+   explicit permission.
 
-5. **Report what was verified.** Include the commit hashes, local checks,
+5. **Report what was verified.** Include the PR, commit hashes, local checks,
    GitHub Actions links and outcomes when run, and any remaining device checks.
    Give the specific blocker for any required check that could not run.
 
@@ -43,9 +46,11 @@ Use Conventional Commits: `<type>[(<scope>)][!]: <description>`.
 - Use `feat` for a new feature, `fix` for a bug fix, `perf` for performance,
   and `refactor` for restructuring that preserves behavior. Use `docs`,
   `test`, `build`, `ci`, `chore`, `style`, or `revert` when applicable.
-- Add a body after a blank line when the reason or tradeoff needs explanation.
-  For breaking changes, use `!` and a `BREAKING CHANGE:` footer explaining
-  the impact and migration.
+- For substantive changes, add an English body after a blank line. Explain
+  why the change is needed, what changed, and the relevant verification and
+  its limits. Apply this rule to squash commits too.
+- For breaking changes, use `!` and a `BREAKING CHANGE:` footer explaining the
+  impact and migration.
 
 Examples:
 
@@ -56,10 +61,11 @@ Examples:
 ## GitHub releases
 
 Start release preparation only when the user asks to ship a batch of changes.
-Follow [docs/releasing.md](docs/releasing.md) to propose a version, build a signed
-GitHub draft, and verify it. Use tag `v<version>` and title `Vela <version>`,
-omitting the build number from both. Mark versions with a prerelease suffix as
-**Pre-release**.
+That request authorizes the version commit, candidate tag, and signed draft.
+Follow [docs/releasing.md](docs/releasing.md) to propose a version, build on
+GitHub Actions, and verify the draft. Use tag `v<version>` and title
+`Vela <version>`, omitting the build number from both. Mark versions with a
+prerelease suffix as **Pre-release**.
 
 Write the English release notes into the GitHub draft. Review the diff from
 the previous published version and describe what changes for users. Link the
