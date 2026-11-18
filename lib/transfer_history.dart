@@ -23,12 +23,14 @@ class TransferRecord {
     this.fileReference,
     this.size,
     this.preview,
+    this.batchId,
   });
   final String name, peer;
   final HistoryKind kind;
   final DateTime time;
   final bool received;
   final String? fileReference, preview;
+  final String? batchId;
   final int? size;
 
   Map<String, Object?> toJson() => {
@@ -40,6 +42,7 @@ class TransferRecord {
     'path': fileReference,
     'size': size,
     'preview': preview,
+    if (batchId != null) 'batchId': batchId,
   };
   static List<TransferRecord> decode(String? raw) {
     if (raw == null) return [];
@@ -58,6 +61,7 @@ class TransferRecord {
               fileReference: item['path'] as String?,
               size: item['size'] as int?,
               preview: item['preview'] as String?,
+              batchId: item['batchId'] as String?,
             ),
           );
         } catch (_) {
@@ -107,8 +111,10 @@ class TransferHistoryPage extends StatefulWidget {
     required this.openFolder,
     required this.reveal,
     required this.remove,
+    this.batchId,
   });
   final ValueListenable<List<TransferRecord>> records;
+  final String? batchId;
   final Future<void> Function(TransferRecord) open, export;
   final Future<void> Function() openFolder;
   final Future<void> Function(TransferRecord) reveal;
@@ -126,6 +132,10 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
   bool searching = false;
   String query = '';
   final Set<TransferRecord> selected = {};
+
+  bool _inScope(TransferRecord item) =>
+      item.received &&
+      (widget.batchId == null || item.batchId == widget.batchId);
   @override
   void dispose() {
     searchController.dispose();
@@ -353,7 +363,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                               () => selected.addAll(
                                 widget.records.value.where(
                                   (item) =>
-                                      item.received &&
+                                      _inScope(item) &&
                                       (query.isEmpty ||
                                           '${item.name} ${item.peer} ${item.preview ?? ''}'
                                               .toLowerCase()
@@ -391,7 +401,9 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                     ),
                                   )
                                 : Text(
-                                    t.transferHistory,
+                                    widget.batchId == null
+                                        ? t.transferHistory
+                                        : t.receivedBatch,
                                     style: Theme.of(context)
                                         .textTheme
                                         .headlineSmall
@@ -417,8 +429,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                           ),
                           ValueListenableBuilder<List<TransferRecord>>(
                             valueListenable: widget.records,
-                            builder: (context, items, _) =>
-                                !items.any((item) => item.received)
+                            builder: (context, items, _) => !items.any(_inScope)
                                 ? const SizedBox.shrink()
                                 : IconButton(
                                     tooltip: searching
@@ -436,7 +447,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                     }),
                                   ),
                           ),
-                          if (!searching)
+                          if (!searching && widget.batchId == null)
                             ValueListenableBuilder<List<TransferRecord>>(
                               valueListenable: widget.records,
                               builder: (context, items, _) =>
@@ -460,14 +471,33 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                     child: ValueListenableBuilder<List<TransferRecord>>(
                       valueListenable: widget.records,
                       builder: (context, allItems, _) {
-                        final received = allItems
-                            .where((item) => item.received)
-                            .toList();
+                        final received = allItems.where(_inScope).toList();
                         if (received.isEmpty) {
                           return Center(
-                            child: Text(
-                              t.noTransferHistory,
-                              style: TextStyle(color: colors.onSurfaceVariant),
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.batchId == null
+                                        ? t.noTransferHistory
+                                        : t.receivedBatchUnavailable,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
+                                  if (widget.batchId == null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Text(
+                                        t.transferHistoryEmptyHint,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           );
                         }

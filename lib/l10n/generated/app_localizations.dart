@@ -902,11 +902,35 @@ abstract class AppLocalizations {
   /// **'Received'**
   String get transferHistory;
 
-  /// No description provided for @openReceivedHistory.
+  /// No description provided for @viewReceivedBatch.
   ///
   /// In en, this message translates to:
-  /// **'View received items'**
-  String get openReceivedHistory;
+  /// **'View this batch'**
+  String get viewReceivedBatch;
+
+  /// No description provided for @receivedBatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Received batch'**
+  String get receivedBatch;
+
+  /// No description provided for @receivedBatchUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The records for this batch are unavailable.'**
+  String get receivedBatchUnavailable;
+
+  /// No description provided for @showAllOfferedFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all files'**
+  String get showAllOfferedFiles;
+
+  /// No description provided for @receivedSavedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to {folder}'**
+  String receivedSavedTo(String folder);
 
   /// No description provided for @openFile.
   ///
@@ -1003,6 +1027,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No received items yet'**
   String get noTransferHistory;
+
+  /// No description provided for @transferHistoryEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Files, text, and links you receive will appear here.'**
+  String get transferHistoryEmptyHint;
 
   /// No description provided for @clearHistory.
   ///

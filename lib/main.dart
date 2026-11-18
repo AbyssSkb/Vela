@@ -520,11 +520,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (Platform.isAndroid || Platform.isMacOS) {
       shareChannel.setMethodCallHandler((call) async {
         if (call.method == 'available') {
-          if (Platform.isAndroid) await _showPendingTextPreview();
+          if (Platform.isAndroid) await _showPendingReceipt();
           await _takePendingShare();
         }
       });
-      if (Platform.isAndroid) unawaited(_showPendingTextPreview());
+      if (Platform.isAndroid) unawaited(_showPendingReceipt());
       unawaited(_takePendingShare());
     }
     progressTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
@@ -742,6 +742,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String? name,
     String? url,
     String? previewTextPath,
+    String? batchId,
     String? openLabel,
     bool received = false,
   }) {
@@ -757,6 +758,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               'name': name,
               'url': url,
               'previewTextPath': previewTextPath,
+              'batchId': batchId,
               'open': openLabel ?? t.open,
               'received': received,
               'title': received ? t.notificationReceivedTitle : null,
@@ -857,18 +859,42 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _showPendingTextPreview() async {
+  Future<void> _showPendingReceipt() async {
     try {
-      final path = await shareChannel.invokeMethod<String>('takeTextPreview');
-      if (path == null || !mounted) return;
-      final text = await File(path).readAsString();
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) unawaited(_showTextContent(text));
-        });
-      }
+      final batchId = await shareChannel.invokeMethod<String>(
+        'takeReceivedBatch',
+      );
+      final path = batchId == null
+          ? await shareChannel.invokeMethod<String>('takeTextPreview')
+          : null;
+      if (!mounted || (batchId == null && path == null)) return;
+      final preferences = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      historyStore.load(preferences);
+      final text = path == null ? null : await File(path).readAsString();
+      final record = path == null
+          ? null
+          : historyStore.records.value
+                .where(
+                  (item) =>
+                      item.received &&
+                      item.kind.isText &&
+                      item.fileReference == path,
+                )
+                .firstOrNull;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (batchId != null) {
+          _showHistory(batchId: batchId);
+        } else if (text != null) {
+          unawaited(
+            _showTextContent(text, kind: record?.kind, sender: record?.peer),
+          );
+        }
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
     } catch (e) {
-      debugPrint('Could not view received text: $e');
+      debugPrint('Could not view received content: $e');
       if (mounted) _message(t.historyMissing, kind: NoticeKind.error);
     }
   }
@@ -1358,6 +1384,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         contentName: contentName,
         peerType: peerTypes[sender],
       );
+      final batchId = kind == TransferKind.batch
+          ? notificationTransferId
+          : null;
       job = receivingJob;
       setState(() {
         contentOperationActive = true;
@@ -1372,6 +1401,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         offeredName: info.name,
         contentName: contentName,
         senderName: senderName,
+        batchId: batchId,
         history: historyStore,
         storage: receivedStorage,
         stillAuthorized: stillAuthorized,
@@ -1397,6 +1427,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           info.name,
           received.files,
           received.content,
+          sender: senderName(),
+          batchId: batchId,
           savedPrivately: received.savedPrivately,
         );
         await prompt.completed(message, foreground: foreground);
@@ -1432,6 +1464,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String offeredName,
     List<SavedReceivedFile> files,
     ReceivedContent content, {
+    required String sender,
+    required String? batchId,
     required bool savedPrivately,
   }) {
     final first = files.first;
@@ -1453,12 +1487,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         kind == TransferKind.file ||
         kind == TransferKind.clipboardFile ||
         kind == TransferKind.image;
-    final openLabel = content.link != null
+    final openLabel = batchId != null
+        ? t.viewReceivedBatch
+        : content.link != null
         ? t.openLink
         : content.text != null
         ? t.viewText
         : t.openFile;
-    final restoreFolder = kind.historyKind(offeredName).canRestoreFolder;
+    final historyKind = kind.historyKind(offeredName);
+    final restoreFolder = historyKind.canRestoreFolder;
+    final folder = !kind.isFile || savedPrivately || restoreFolder
+        ? null
+        : Platform.isAndroid
+        ? (first.folderLabel ?? t.downloadsFolder)
+        : File(first.reference).parent.path;
     setState(() {
       activity = message;
       receivedPath = openable ? first.reference : null;
@@ -1471,27 +1513,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       previewTextPath: content.text != null && content.link == null
           ? first.reference
           : null,
+      batchId: content.historySaved ? batchId : null,
       openLabel: openLabel,
       received: true,
     );
     _message(
       message,
+      detail: folder == null ? null : t.receivedSavedTo(folder),
       kind: content.historySaved && !savedPrivately && !content.clipboardFailed
           ? NoticeKind.success
           : NoticeKind.info,
-      actionLabel: restoreFolder
-          ? t.restoreFolder
-          : kind == TransferKind.batch
-          ? t.openReceivedHistory
-          : openLabel,
+      actionLabel: restoreFolder ? t.restoreFolder : openLabel,
       onAction: restoreFolder
           ? () => _restoreFolder(first.reference)
-          : kind == TransferKind.batch
-          ? _showHistory
+          : batchId != null
+          ? () => _showHistory(batchId: batchId)
           : content.link != null
           ? () => _openLink(content.link!)
           : content.text != null
-          ? () => _showTextContent(content.text!)
+          ? () => _showTextContent(
+              content.text!,
+              kind: historyKind,
+              sender: sender,
+            )
           : () => _openReceived(first.reference),
     );
     return message;
@@ -3042,14 +3086,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _showTextContent(String text) async {
+  Future<void> _showTextContent(
+    String text, {
+    HistoryKind? kind,
+    String? sender,
+  }) async {
     final link = detectHttpLink(text);
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Expanded(child: Text(t.historyText)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    kind == HistoryKind.text ? t.historyText : t.textContent,
+                  ),
+                  if (sender != null)
+                    Text(
+                      t.historyReceivedFrom(sender),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                ],
+              ),
+            ),
             IconButton(
               tooltip: t.close,
               onPressed: () => Navigator.pop(context),
@@ -3125,7 +3190,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final text = await File(reference).readAsString();
       if (!mounted) return;
-      await _showTextContent(text);
+      await _showTextContent(text, kind: record.kind, sender: record.peer);
     } catch (_) {
       if (mounted) _message(t.openFailed, kind: NoticeKind.error);
     }
@@ -3147,13 +3212,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  void _showHistory() {
+  void _showHistory({String? batchId}) {
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (_) => TransferHistoryPage(
           records: historyStore.records,
+          batchId: batchId,
           open: _openHistory,
           export: _exportHistory,
           remove: _removeHistory,
@@ -3173,6 +3239,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _message(
     String message, {
     NoticeKind kind = NoticeKind.info,
+    String? detail,
     String? actionLabel,
     VoidCallback? onAction,
   }) {
@@ -3182,6 +3249,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         context,
         message,
         kind: kind,
+        detail: detail,
         actionLabel: actionLabel,
         onAction: onAction,
       );

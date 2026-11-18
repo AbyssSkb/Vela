@@ -41,6 +41,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
   BuildContext context,
   String message, {
   NoticeKind kind = NoticeKind.info,
+  String? detail,
   String? actionLabel,
   VoidCallback? onAction,
 }) {
@@ -75,15 +76,28 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       Icon(icon, color: foreground, size: 19),
       const SizedBox(width: 10),
       Expanded(
-        child: Text(
-          message,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: foreground,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (detail != null)
+              Text(
+                detail,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: foreground),
+              ),
+          ],
         ),
       ),
     ],

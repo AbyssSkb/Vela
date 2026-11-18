@@ -260,7 +260,16 @@
   "directConnection": "Direct",
   "relayConnection": "Relay",
   "transferHistory": "Received",
-  "openReceivedHistory": "View received items",
+  "viewReceivedBatch": "View this batch",
+  "receivedBatch": "Received batch",
+  "receivedBatchUnavailable": "The records for this batch are unavailable.",
+  "showAllOfferedFiles": "Show all files",
+  "receivedSavedTo": "Saved to {folder}",
+  "@receivedSavedTo": {
+    "placeholders": {
+      "folder": { "type": "String" }
+    }
+  },
   "openFile": "Open file",
   "openReceiveFolder": "Open receive folder",
   "showInFolder": "Open containing folder",
@@ -277,6 +286,7 @@
   "incomingShort": "Incoming",
   "transferNotificationTitle": "Transfer",
   "noTransferHistory": "No received items yet",
+  "transferHistoryEmptyHint": "Files, text, and links you receive will appear here.",
   "clearHistory": "Clear history",
   "clearHistoryConfirm": "Clear received history? Received files will not be deleted.",
   "historyReceivedFrom": "From {name}",

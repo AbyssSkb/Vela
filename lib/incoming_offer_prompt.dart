@@ -95,54 +95,64 @@ class IncomingOfferPrompt {
     if (autoAccept) return PeerDecision.accepted;
     if (!context.mounted) return PeerDecision.connectionClosed;
     openedDialog = true;
+    var showingAllFiles = false;
     return showPeerConfirmation(
       context,
       peerClosed: offer.waitForConnectionClose(),
-      builder: (context) => AlertDialog(
-        constraints: const BoxConstraints(maxWidth: 420),
-        title: Text(
-          t.shareFrom(senderName()),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              contentName,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (batchFiles.isNotEmpty) ...[
-              const SizedBox(height: 6),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          constraints: const BoxConstraints(maxWidth: 420),
+          scrollable: true,
+          title: Text(
+            t.shareFrom(senderName()),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                batchFiles.take(3).join('\n'),
+                contentName,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
+              const SizedBox(height: 6),
+              Text(
+                size,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (batchFiles.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  (showingAllFiles ? batchFiles : batchFiles.take(3)).join(
+                    '\n',
+                  ),
+                ),
+                if (batchFiles.length > 3 && !showingAllFiles)
+                  TextButton(
+                    onPressed: () =>
+                        setDialogState(() => showingAllFiles = true),
+                    child: Text(t.showAllOfferedFiles),
+                  ),
+              ],
             ],
-            const SizedBox(height: 6),
-            Text(
-              size,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(t.reject),
+            ),
+            FilledButton(
+              key: const ValueKey('accept-offer'),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(t.receive),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(t.reject),
-          ),
-          FilledButton(
-            key: const ValueKey('accept-offer'),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(t.receive),
-          ),
-        ],
       ),
     );
   }

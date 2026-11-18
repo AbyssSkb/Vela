@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,8 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:vela/incoming_offer_prompt.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/main.dart';
+import 'package:vela/peer_confirmation.dart';
 import 'package:vela/peer_state.dart';
 import 'package:vela/src/rust/api/folder.dart';
 import 'package:vela/src/rust/api/node.dart';
@@ -23,6 +26,9 @@ class ContentOffer implements IncomingRequest {
 
   final String kind;
   final Map<String, List<int>> files;
+
+  @override
+  Future<void> waitForConnectionClose() => Completer<void>().future;
 
   @override
   IncomingRequestInfo info() => IncomingRequestInfo(
@@ -225,6 +231,60 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
 
+  testWidgets('batch approval shows the complete scrollable file list', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final names = [for (var i = 1; i <= 20; i++) 'File $i.pdf'];
+    PeerDecision? decision;
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                decision =
+                    await IncomingOfferPrompt(
+                      const MethodChannel('vela/background'),
+                    ).confirm(
+                      context,
+                      offer: ContentOffer('batch', {
+                        for (final name in names) name: [0],
+                      }),
+                      senderName: () => 'Phone',
+                      contentName: '20 files',
+                      batchFiles: names,
+                      size: '20 B',
+                      inBackground: false,
+                      autoAccept: false,
+                      focusWindow: false,
+                    );
+              },
+              child: const Text('Offer'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Offer'));
+    await tester.pumpAndSettle();
+    final allNames = find.text(names.join('\n'));
+    expect(allNames, findsNothing);
+    await tester.tap(find.text('Show all files'));
+    await tester.pumpAndSettle();
+    expect(allNames, findsOneWidget);
+    expect(find.byType(Scrollable), findsOneWidget);
+    final accept = find.byKey(const ValueKey('accept-offer'));
+    expect(accept.hitTestable(), findsOneWidget);
+    await tester.tap(accept);
+    await tester.pumpAndSettle();
+    expect(decision, PeerDecision.accepted);
+  });
+
   final link = ContentOffer('text', {
     'link.txt': utf8.encode('https://example.com'),
   });
@@ -290,6 +350,15 @@ void main() {
       expect(effects.copiedTexts, isEmpty);
       await tester.tap(find.text('View text'));
       await waitFor(tester, find.text('A typed message'));
+      final dialog = find.byType(AlertDialog);
+      expect(
+        find.descendant(of: dialog, matching: find.text('Text')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: dialog, matching: find.text('From Phone')),
+        findsOneWidget,
+      );
     },
     macOnly: true,
   );
@@ -301,6 +370,7 @@ void main() {
       expect(effects.copiedTexts, ['Clipboard words']);
       await tester.tap(find.text('View text'));
       await waitFor(tester, find.text('Clipboard words'));
+      expect(find.text('Clipboard text'), findsOneWidget);
     },
     macOnly: true,
   );
@@ -355,9 +425,16 @@ void main() {
       ),
       ['one.txt', 'two.pdf'],
     );
-    await tester.tap(find.text('View received items'));
+    final saved = File(effects.fileCopyAttempts.single.first).parent.path;
+    expect(find.text('Saved to $saved'), findsOneWidget);
+    await tester.tap(find.text('View this batch'));
     await waitFor(tester, find.text('one.txt'));
     expect(find.text('two.pdf'), findsOneWidget);
+    expect(find.text('Received batch'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    final records = TransferRecord.decode(prefs.getString('history_test'));
+    final batchIds = records.map((record) => record.batchId).toSet();
+    expect(batchIds.single, isNotNull);
   }, macOnly: true);
 
   testReceiving(

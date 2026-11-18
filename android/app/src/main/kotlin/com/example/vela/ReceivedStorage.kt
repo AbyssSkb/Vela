@@ -64,18 +64,25 @@ class ReceivedStorage(private val context: Context) {
         val results = mutableListOf<Map<String, String>>()
         val selectedTree = tree
         try {
+            val parent =
+                selectedTree?.let {
+                    DocumentsContract.buildDocumentUriUsingTree(
+                        it,
+                        DocumentsContract.getTreeDocumentId(it),
+                    )
+                }
+            val folderLabel =
+                parent?.let {
+                    val id = DocumentsContract.getDocumentId(it)
+                    displayName(it, id.substringAfter(':', id))
+                }
             for (path in paths) {
                 if (cancelled.get()) error("save cancelled")
                 val source = File(path)
                 val name = source.name
                 val uri: Uri?
                 val file: File?
-                if (selectedTree != null) {
-                    val parent =
-                        DocumentsContract.buildDocumentUriUsingTree(
-                            selectedTree,
-                            DocumentsContract.getTreeDocumentId(selectedTree),
-                        )
+                if (parent != null) {
                     uri =
                         DocumentsContract.createDocument(resolver, parent, mime(name), name)
                             ?: error("Cannot create file")
@@ -130,10 +137,11 @@ class ReceivedStorage(private val context: Context) {
                 }
                 if (cancelled.get()) error("save cancelled")
                 results.add(
-                    mapOf(
-                        "path" to (uri?.toString() ?: file!!.absolutePath),
-                        "name" to (uri?.let { displayName(it, name) } ?: file!!.name),
-                    )
+                    buildMap {
+                        put("path", uri?.toString() ?: file!!.absolutePath)
+                        put("name", uri?.let { displayName(it, name) } ?: file!!.name)
+                        if (folderLabel != null) put("folderLabel", folderLabel)
+                    }
                 )
             }
             if (selectedTree == null && Build.VERSION.SDK_INT >= 29) {

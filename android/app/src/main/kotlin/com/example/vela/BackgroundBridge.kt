@@ -18,6 +18,8 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
+internal const val ACTION_VIEW_RECEIVED_BATCH = "com.example.vela.VIEW_RECEIVED_BATCH"
+
 class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
     private val context = context.applicationContext
 
@@ -195,16 +197,22 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                 }
                 NotificationChannels.ensure(context)
                 val notificationId = (System.currentTimeMillis() and 0x7fffffff).toInt()
+                val batchId = call.argument<String>("batchId")
+                val launch =
+                    Intent(context, MainActivity::class.java)
+                        .addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        )
+                if (batchId != null) {
+                    launch.setAction(ACTION_VIEW_RECEIVED_BATCH).putExtra("batchId", batchId)
+                }
                 val pending =
                     PendingIntent.getActivity(
                         context,
                         notificationId,
-                        Intent(context, MainActivity::class.java)
-                            .addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK or
-                                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                    Intent.FLAG_ACTIVITY_CLEAR_TOP
-                            ),
+                        launch,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                 val message = call.argument<String>("text") ?: ""
@@ -223,6 +231,9 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         .setShowWhen(false)
                         .setAutoCancel(true)
                         .setOnlyAlertOnce(true)
+                if (batchId != null) {
+                    builder.addAction(0, call.argument<String>("open") ?: "View batch", pending)
+                }
                 if (promote)
                     builder
                         .setOngoing(true)

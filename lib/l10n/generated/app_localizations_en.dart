@@ -477,7 +477,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get transferHistory => 'Received';
 
   @override
-  String get openReceivedHistory => 'View received items';
+  String get viewReceivedBatch => 'View this batch';
+
+  @override
+  String get receivedBatch => 'Received batch';
+
+  @override
+  String get receivedBatchUnavailable =>
+      'The records for this batch are unavailable.';
+
+  @override
+  String get showAllOfferedFiles => 'Show all files';
+
+  @override
+  String receivedSavedTo(String folder) {
+    return 'Saved to $folder';
+  }
 
   @override
   String get openFile => 'Open file';
@@ -526,6 +541,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noTransferHistory => 'No received items yet';
+
+  @override
+  String get transferHistoryEmptyHint =>
+      'Files, text, and links you receive will appear here.';
 
   @override
   String get clearHistory => 'Clear history';

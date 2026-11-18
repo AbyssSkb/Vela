@@ -50,8 +50,16 @@ void main() {
           expect(call.method, 'saveReceived');
           expect(call.arguments, {'paths': paths});
           return [
-            {'path': 'content://downloads/1', 'name': 'first (1)'},
-            {'path': 'content://downloads/2', 'name': 'second'},
+            {
+              'path': 'content://documents/1',
+              'name': 'first (1)',
+              'folderLabel': 'Incoming files',
+            },
+            {
+              'path': 'content://documents/2',
+              'name': 'second',
+              'folderLabel': 'Incoming files',
+            },
           ];
         });
         final result = await storage.finishReceive(
@@ -61,9 +69,12 @@ void main() {
         );
         expect(result.savedPrivately, isFalse);
         expect(result.files.map((f) => (f.reference, f.name, f.size)), [
-          ('content://downloads/1', 'first (1)', 5),
-          ('content://downloads/2', 'second', 6),
+          ('content://documents/1', 'first (1)', 5),
+          ('content://documents/2', 'second', 6),
         ]);
+        expect(result.files.map((file) => file.folderLabel).toSet(), {
+          'Incoming files',
+        });
         expect(await staging.list().toList(), isEmpty);
       },
     );

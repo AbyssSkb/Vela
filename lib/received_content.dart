@@ -34,6 +34,7 @@ receiveAcceptedContent({
   required String offeredName,
   required String contentName,
   required String Function() senderName,
+  required String? batchId,
   required TransferHistoryStore history,
   required ReceivedStorage storage,
   required bool Function() stillAuthorized,
@@ -63,6 +64,7 @@ receiveAcceptedContent({
     offeredName: offeredName,
     contentName: contentName,
     senderName: senderName,
+    batchId: batchId,
     history: history,
   );
   return (
@@ -78,6 +80,7 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
   required String offeredName,
   required String contentName,
   required String Function() senderName,
+  required String? batchId,
   required TransferHistoryStore history,
 }) async {
   const clipboardChannel = MethodChannel('vela/clipboard');
@@ -103,6 +106,7 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
           fileReference: file.reference,
           size: file.size,
           preview: preview,
+          batchId: batchId,
         ),
       );
     }

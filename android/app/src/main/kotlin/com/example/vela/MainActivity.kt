@@ -556,6 +556,19 @@ class MainActivity : FlutterActivity() {
     }
 
     fun handleShareCall(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method == "takeReceivedBatch") {
+            val batchIntent = intent
+            if (batchIntent?.action != ACTION_VIEW_RECEIVED_BATCH) {
+                result.success(null)
+                return
+            }
+            batchIntent.action = null
+            val batchId = batchIntent.getStringExtra("batchId")
+            result.success(
+                batchId?.takeIf { it.length in 1..20 && it.all { char -> char in '0'..'9' } }
+            )
+            return
+        }
         if (call.method == "takeTextPreview") {
             val previewIntent = intent
             if (previewIntent?.action != "com.example.vela.VIEW_TEXT") {
@@ -629,7 +642,8 @@ class MainActivity : FlutterActivity() {
         if (
             intent.action == Intent.ACTION_SEND ||
                 intent.action == Intent.ACTION_SEND_MULTIPLE ||
-                intent.action == "com.example.vela.VIEW_TEXT"
+                intent.action == "com.example.vela.VIEW_TEXT" ||
+                intent.action == ACTION_VIEW_RECEIVED_BATCH
         )
             app.channels.shareAvailable()
     }
@@ -639,7 +653,8 @@ class MainActivity : FlutterActivity() {
         if (
             intent?.action == Intent.ACTION_SEND ||
                 intent?.action == Intent.ACTION_SEND_MULTIPLE ||
-                intent?.action == "com.example.vela.VIEW_TEXT"
+                intent?.action == "com.example.vela.VIEW_TEXT" ||
+                intent?.action == ACTION_VIEW_RECEIVED_BATCH
         )
             app.channels.shareAvailable()
     }

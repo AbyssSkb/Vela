@@ -450,7 +450,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get transferHistory => '接收记录';
 
   @override
-  String get openReceivedHistory => '查看接收记录';
+  String get viewReceivedBatch => '查看本次接收';
+
+  @override
+  String get receivedBatch => '本次接收';
+
+  @override
+  String get receivedBatchUnavailable => '找不到本次接收的记录。';
+
+  @override
+  String get showAllOfferedFiles => '查看全部文件';
+
+  @override
+  String receivedSavedTo(String folder) {
+    return '已保存至 $folder';
+  }
 
   @override
   String get openFile => '打开文件';
@@ -499,6 +513,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noTransferHistory => '暂无接收记录';
+
+  @override
+  String get transferHistoryEmptyHint => '收到的文件、文字和链接会显示在这里。';
 
   @override
   String get clearHistory => '清空记录';
