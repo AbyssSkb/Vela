@@ -23,6 +23,9 @@ Future<void> main(List<String> args) async {
   }
 
   Future<void> acceptShare() async {
+    final recipient = find.byValueKey('choose-share-device');
+    await android.waitFor(recipient, timeout: const Duration(seconds: 60));
+    await android.tap(recipient);
     await mac.waitFor(
       find.byValueKey('accept-offer'),
       timeout: const Duration(seconds: 60),

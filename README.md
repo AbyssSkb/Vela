@@ -68,12 +68,12 @@ For limited local disk space, use the GitHub workflows for full builds and tests
 
 1. Open Vela on both devices. On one, choose **Show my QR code** on the empty home screen, or **This device** in the toolbar or menu.
 2. Choose **Add device** on the other device and enter that code, or scan the QR code on Android. Verify the code through a trusted channel and approve the pairing request.
-3. Choose a file, folder, text, or clipboard sharing action, then follow the prompts to select content and, if needed, a receiving device.
+3. Choose a file, folder, text, or clipboard sharing action, then confirm the receiving device.
 4. Approve the incoming transfer on the receiver. Received files go to Downloads by default; change the destination in settings.
 
 When searching received history, select the entries you want to remove.
 
-Both apps need to be running and reachable. For background controls and troubleshooting, see the [user guide](docs/user-guide.md).
+Both apps need to be running and reachable. The latest successful send stays visible on the home screen during the session, until dismissed or the next send starts. For background controls and troubleshooting, see the [user guide](docs/user-guide.md).
 
 In background receiving settings, Android shows a shortcut to the relevant system setting when a known restriction applies. On macOS, open Login Items from the page when login startup needs system approval.
 

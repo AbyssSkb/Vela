@@ -6,6 +6,9 @@ Future<void> main(List<String> args) async {
   final mac = await FlutterDriver.connect(dartVmServiceUrl: args[0]);
   final android = await FlutterDriver.connect(dartVmServiceUrl: args[1]);
   try {
+    final recipient = find.byValueKey('choose-share-device');
+    await android.waitFor(recipient, timeout: const Duration(seconds: 60));
+    await android.tap(recipient);
     await mac.waitFor(
       find.byValueKey('accept-offer'),
       timeout: const Duration(seconds: 60),

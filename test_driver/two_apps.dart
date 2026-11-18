@@ -114,6 +114,7 @@ Future<void> clipboardRoundTrip(
   );
   stdout.writeln('clipboard $kind: tap');
   await sender.tap(find.byValueKey('send-clipboard'));
+  await sender.tap(find.byValueKey('send-recipient-$peerId'));
   stdout.writeln('clipboard $kind: waiting for offer');
   try {
     await receiver.waitFor(

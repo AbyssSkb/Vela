@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -17,6 +18,7 @@ class RecordingNode extends fakes.FakeNode {
   String? sentKind;
   String? sentName;
   String? attemptedPath;
+  Completer<void>? sendGate;
   bool failNext = false;
   @override
   TransferJob newTransferJob() => RecordingTransferJob(this);
@@ -32,6 +34,7 @@ class RecordingTransferJob extends fakes.FakeTransferJob {
     required String kind,
   }) async {
     node.attemptedPath = path;
+    await node.sendGate?.future;
     if (node.failNext) {
       node.failNext = false;
       throw Exception('[vela:declined] Transfer declined');
@@ -144,7 +147,7 @@ Future<void> waitForSend(WidgetTester tester) async {
     tester,
     () => find
         .descendant(
-          of: find.byType(SnackBar),
+          of: find.byKey(const ValueKey('send-receipt')),
           matching: find.text('Sent to Phone'),
         )
         .evaluate()
@@ -157,6 +160,66 @@ void main() {
     peers: {fakes.peerId: 'Phone', 'c' * 64: 'Laptop'},
     types: {fakes.peerId: 'mobile', 'c' * 64: 'desktop'},
   );
+  final onlyPhone = PeerState(
+    peers: {fakes.peerId: 'Phone'},
+    types: {fakes.peerId: 'mobile'},
+  );
+
+  testWidgets('one recipient is named before sending and on its receipt', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final node = RecordingNode()..sendGate = gate;
+    await withHomeTestEnvironment(
+      tester,
+      devices: onlyPhone,
+      api: fakes.FakeRustApi(node),
+      run: (_) async {
+        try {
+          await openHome(tester);
+          await tester.tap(find.byKey(const ValueKey('send-text')));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.enterText(find.byType(TextField), 'Hello from Vela');
+          await tester.pump();
+          final send = find.widgetWithText(FilledButton, 'Send to Phone');
+          expect(send.hitTestable(), findsOneWidget);
+          expect(node.attemptedPath, isNull);
+          await tester.tap(send);
+          await waitForHome(tester, () => node.attemptedPath != null);
+          expect(find.text('Sending to Phone'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byType(ActivityNotice),
+              matching: find.text('Text'),
+            ),
+            findsOneWidget,
+          );
+          gate.complete();
+          await waitForSend(tester);
+          await tester.pump(const Duration(seconds: 6));
+          final receipt = find.byKey(const ValueKey('send-receipt'));
+          expect(
+            find.byKey(const ValueKey('peer-${fakes.peerId}')).hitTestable(),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: receipt, matching: find.text('Text')),
+            findsOneWidget,
+          );
+          expect(find.text('Sent to Phone'), findsOneWidget);
+          expect(node.sentText, 'Hello from Vela');
+          await tester.tap(
+            find.descendant(of: receipt, matching: find.byTooltip('Close')),
+          );
+          await tester.pump();
+          expect(receipt, findsNothing);
+        } finally {
+          if (!gate.isCompleted) gate.complete();
+        }
+      },
+    );
+  });
 
   testWidgets('going back from device selection keeps the draft for sending', (
     tester,
@@ -252,7 +315,7 @@ void main() {
     final node = RecordingNode();
     await withHomeTestEnvironment(
       tester,
-      devices: devices,
+      devices: onlyPhone,
       api: fakes.FakeRustApi(node),
       run: (directory) async {
         final originalPicker = FilePickerPlatform.instance;
@@ -265,6 +328,8 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
           expect(find.text('Ready to send: Report.txt'), findsOneWidget);
+          expect(find.text('Send to Phone'), findsOneWidget);
+          expect(node.attemptedPath, isNull);
           await tester.binding.handlePopRoute();
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
