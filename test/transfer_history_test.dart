@@ -14,12 +14,13 @@ void main() {
       time: DateTime(2026, 1, 2),
       kind: HistoryKind.file,
       received: true,
-      path: '/image.png',
+      fileReference: '/image.png',
       size: 42,
     );
     final restored = TransferRecord.decode(jsonEncode([record.toJson()]))
         .single;
-    expect(restored.path, '/image.png');
+    expect(restored.fileReference, '/image.png');
+    expect(record.toJson()['path'], '/image.png');
     expect(restored.size, 42);
     expect(restored.received, isTrue);
     final legacy = record.toJson()..remove('size');
@@ -49,7 +50,7 @@ void main() {
         time: DateTime.now(),
         kind: HistoryKind.file,
         received: true,
-        path: path,
+        fileReference: path,
       );
       final existing = record('received.txt', file.path);
       final invalid = record('not-a-file', folder.path);
@@ -80,7 +81,7 @@ void main() {
         time: DateTime.now(),
         kind: HistoryKind.file,
         received: true,
-        path: 'content://downloads/1',
+        fileReference: 'content://downloads/1',
       );
       var calls = 0;
       final keep = await deleteFilesAndSelectRemovableRecords(
@@ -129,7 +130,7 @@ void main() {
       time: DateTime.now(),
       kind: HistoryKind.file,
       received: true,
-      path: '/file.pdf',
+      fileReference: '/file.pdf',
       size: 1024,
     );
     final records = ValueNotifier([record]);
@@ -164,7 +165,7 @@ void main() {
         time: DateTime(2026, 1, 2, 10, 30),
         kind: HistoryKind.text,
         received: true,
-        path: '/clip.txt',
+        fileReference: '/clip.txt',
         size: 1024,
         preview: 'https://example.com',
       ),
@@ -174,7 +175,7 @@ void main() {
         time: DateTime(2026, 1, 2, 10, 31),
         kind: HistoryKind.file,
         received: true,
-        path: '/report.pdf',
+        fileReference: '/report.pdf',
         size: 2048,
       ),
     ]);
@@ -213,7 +214,7 @@ void main() {
       time: DateTime.now(),
       kind: HistoryKind.text,
       received: true,
-      path: '/clip.txt',
+      fileReference: '/clip.txt',
       preview: 'A useful link',
     );
     final records = ValueNotifier([record]);
@@ -254,7 +255,7 @@ void main() {
         time: DateTime.now(),
         kind: HistoryKind.file,
         received: true,
-        path: '/received.pdf',
+        fileReference: '/received.pdf',
       );
       final sent = TransferRecord(
         name: 'sent.pdf',
@@ -262,7 +263,7 @@ void main() {
         time: DateTime.now(),
         kind: HistoryKind.file,
         received: false,
-        path: '/sent.pdf',
+        fileReference: '/sent.pdf',
       );
       final records = ValueNotifier([received, sent]);
       await tester.pumpWidget(
@@ -305,7 +306,7 @@ void main() {
       time: DateTime.now(),
       kind: HistoryKind.file,
       received: true,
-      path: '/first.pdf',
+      fileReference: '/first.pdf',
     );
     final second = TransferRecord(
       name: 'second.pdf',
@@ -313,7 +314,7 @@ void main() {
       time: DateTime.now(),
       kind: HistoryKind.file,
       received: true,
-      path: '/second.pdf',
+      fileReference: '/second.pdf',
     );
     final sent = TransferRecord(
       name: 'sent.pdf',
@@ -321,7 +322,7 @@ void main() {
       time: DateTime.now(),
       kind: HistoryKind.file,
       received: false,
-      path: '/sent.pdf',
+      fileReference: '/sent.pdf',
     );
     final records = ValueNotifier([first, second, sent]);
     final removed = <TransferRecord>[];
@@ -377,7 +378,7 @@ void main() {
       time: DateTime.now(),
       kind: HistoryKind.file,
       received: true,
-      path: '/photo.png',
+      fileReference: '/photo.png',
     );
     final records = ValueNotifier([item]);
     bool? chosenDeleteFiles;
@@ -424,7 +425,7 @@ void main() {
       time: DateTime.now(),
       kind: HistoryKind.file,
       received: true,
-      path: '/one.pdf',
+      fileReference: '/one.pdf',
     );
     final records = ValueNotifier([item]);
     bool? chosenDeleteFiles;
@@ -468,7 +469,7 @@ void main() {
       time: DateTime(2026, 1, 2, 10, 30),
       kind: HistoryKind.file,
       received: true,
-      path: '/report.pdf',
+      fileReference: '/report.pdf',
       size: 1024,
     );
     var openedFolder = false;

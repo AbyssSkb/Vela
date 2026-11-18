@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +7,53 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+
+enum BackgroundReceiving {
+  androidService('status'),
+  macKeepAwake('macBackgroundStatus'),
+  desktopTray('desktopStatus');
+
+  const BackgroundReceiving(this.statusMethod);
+  final String statusMethod;
+  static const channel = MethodChannel('vela/background');
+
+  static BackgroundReceiving? forOS(String os) => switch (os) {
+    'android' => androidService,
+    'macos' => macKeepAwake,
+    'windows' || 'linux' => desktopTray,
+    _ => null,
+  };
+
+  static BackgroundReceiving? get current => forOS(Platform.operatingSystem);
+
+  String preferenceKey(String profile) => switch (this) {
+    androidService => 'background_receive_$profile',
+    macKeepAwake => 'mac_background_receiving',
+    desktopTray => 'desktop_background_receiving',
+  };
+
+  bool get defaultEnabled => this == desktopTray;
+  bool enabled(SharedPreferences? prefs, String profile) =>
+      prefs?.getBool(preferenceKey(profile)) ?? defaultEnabled;
+
+  Future<void> setEnabled(bool value, {String? readyMessage}) async {
+    switch (this) {
+      case macKeepAwake:
+        await channel.invokeMethod<void>('setMacBackground', value);
+      case desktopTray:
+        await channel.invokeMethod<void>('setDesktopBackground', value);
+      case androidService:
+        if (value) {
+          final started = await channel.invokeMethod<bool>('start', {
+            'message': readyMessage,
+          });
+          if (started != true) throw StateError('service start failed');
+        } else {
+          await channel.invokeMethod<void>('stop');
+        }
+    }
+  }
+}
 
 class BackgroundSettingsPage extends StatefulWidget {
   const BackgroundSettingsPage({
@@ -20,18 +69,14 @@ class BackgroundSettingsPage extends StatefulWidget {
 
 class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     with WidgetsBindingObserver {
-  static const channel = MethodChannel('vela/background');
+  static const channel = BackgroundReceiving.channel;
   Map<Object?, Object?> status = {};
   bool enabled = false, changing = false;
-  bool get isMac => defaultTargetPlatform == TargetPlatform.macOS;
-  bool get isDesktop =>
-      defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.linux;
-  String get preferenceKey => isMac
-      ? 'mac_background_receiving'
-      : isDesktop
-      ? 'desktop_background_receiving'
-      : 'background_receive_${widget.profile}';
+  BackgroundReceiving get setting =>
+      BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase()) ??
+      BackgroundReceiving.androidService;
+  bool get isMac => setting == BackgroundReceiving.macKeepAwake;
+  bool get usesTray => setting == BackgroundReceiving.desktopTray;
   @override
   void initState() {
     super.initState();
@@ -53,17 +98,11 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
   Future<void> _refresh() async {
     final prefs = await SharedPreferences.getInstance();
     final current =
-        await channel.invokeMapMethod<Object?, Object?>(
-          isMac
-              ? 'macBackgroundStatus'
-              : isDesktop
-              ? 'desktopStatus'
-              : 'status',
-        ) ??
+        await channel.invokeMapMethod<Object?, Object?>(setting.statusMethod) ??
         {};
     if (mounted) {
       setState(() {
-        enabled = prefs.getBool(preferenceKey) ?? isDesktop;
+        enabled = setting.enabled(prefs, widget.profile);
         status = current;
       });
     }
@@ -71,7 +110,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
 
   Future<void> _toggle(bool value) async {
     setState(() => changing = true);
-    final key = preferenceKey;
+    final key = setting.preferenceKey(widget.profile);
     SharedPreferences? prefs;
     bool? previous;
     var saved = false;
@@ -84,21 +123,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       saved = true;
       if (!await prefs.setBool(key, value)) throw StateError('settings failed');
       serviceAttempted = true;
-      var success = true;
-      if (isMac) {
-        await channel.invokeMethod<void>('setMacBackground', value);
-      } else if (isDesktop) {
-        await channel.invokeMethod<void>('setDesktopBackground', value);
-      } else if (value) {
-        success =
-            await channel.invokeMethod<bool>('start', {
-              'message': readyMessage,
-            }) ??
-            false;
-      } else {
-        await channel.invokeMethod<void>('stop');
-      }
-      if (!success) throw StateError('service start failed');
+      await setting.setEnabled(value, readyMessage: readyMessage);
       notified = widget.onChanged != null;
       await widget.onChanged?.call();
       await _refresh();
@@ -114,23 +139,10 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       }
       if (serviceAttempted) {
         try {
-          if (isMac) {
-            await channel.invokeMethod<void>(
-              'setMacBackground',
-              previous == true,
-            );
-          } else if (isDesktop) {
-            await channel.invokeMethod<void>(
-              'setDesktopBackground',
-              previous ?? true,
-            );
-          } else if (previous == true) {
-            await channel.invokeMethod<bool>('start', {
-              'message': readyMessage,
-            });
-          } else {
-            await channel.invokeMethod<void>('stop');
-          }
+          await setting.setEnabled(
+            previous ?? setting.defaultEnabled,
+            readyMessage: readyMessage,
+          );
         } catch (_) {}
       }
       if (notified) {
@@ -242,7 +254,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                     subtitle: Text(
                       isMac
                           ? t.macKeepAwakeHint
-                          : isDesktop
+                          : usesTray
                           ? t.desktopBackgroundHint
                           : t.backgroundDescription,
                     ),
@@ -250,7 +262,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                     onChanged: changing ? null : _toggle,
                   ),
                 ),
-                if (isMac || isDesktop) ...[
+                if (isMac || usesTray) ...[
                   const SizedBox(height: 12),
                   Material(
                     color: colors.surfaceContainerLow,
@@ -292,7 +304,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      if (isDesktop)
+                      if (usesTray)
                         check(
                           t.desktopTray,
                           status['trayAvailable'] as bool?,
@@ -380,7 +392,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                   child: Text(
                     isMac
                         ? t.macKeepAwakeLimits
-                        : isDesktop
+                        : usesTray
                         ? t.desktopBackgroundLimits
                         : '${t.backgroundBatteryHint}\n\n${t.backgroundLimits}',
                     style: TextStyle(color: colors.onSurfaceVariant),

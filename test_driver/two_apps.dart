@@ -139,11 +139,7 @@ Future<void> clipboardRoundTrip(
     find.text('剪贴板内容已接收'),
     timeout: const Duration(seconds: 75),
   );
-  if (kind == 'file') {
-    await receiver.waitFor(find.byValueKey('notice-action'));
-  } else {
-    await receiver.waitForAbsent(find.byValueKey('notice-action'));
-  }
+  await receiver.waitFor(find.byValueKey('notice-action'));
   stdout.writeln('clipboard $kind: received');
   await sender.waitFor(
     find.text('已发送给 $peerName'),

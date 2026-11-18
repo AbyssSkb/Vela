@@ -29,12 +29,14 @@ import 'presence_controller.dart';
 import 'content_kind.dart';
 import 'transfer_failure.dart';
 import 'received_storage.dart';
+import 'incoming_offer_prompt.dart';
+import 'received_content.dart';
 import 'send_session.dart';
 import 'paired_devices.dart';
 import 'pending_share.dart';
 import 'prepared_transfer.dart';
 import 'pairing_session.dart';
-import 'pairing_dialog.dart';
+import 'peer_confirmation.dart';
 import 'presence_probe.dart';
 import 'notice.dart';
 import 'transfer_rate.dart';
@@ -46,6 +48,8 @@ import 'notification_title.dart';
 import 'relay_settings.dart';
 import 'device_graph.dart';
 import 'home_responsive_layout.dart';
+import 'home_device_widgets.dart';
+import 'home_toolbar.dart';
 import 'device_pair_dialog.dart';
 import 'settings_page.dart';
 import 'app_update.dart';
@@ -84,7 +88,9 @@ Future<void> main(List<String> args) async {
           ?.substring('--device='.length) ??
       'default';
   final settings = await SharedPreferences.getInstance();
-  await DesktopPlatform.restoreBackgroundSettings(settings);
+  if (DesktopPlatform.isWindowsOrLinux) {
+    await _restoreDesktopTraySetting(settings, profile);
+  }
   final language =
       settings.getString('language_$profile') ??
       (kDebugMode && _driverMode ? 'zh' : 'system');
@@ -99,6 +105,26 @@ Future<void> main(List<String> args) async {
       initialDiagnosticsEnabled: diagnosticsEnabled,
     ),
   );
+}
+
+Future<void> _restoreDesktopTraySetting(
+  SharedPreferences settings,
+  String profile,
+) async {
+  const tray = BackgroundReceiving.desktopTray;
+  Future<bool> apply() async {
+    try {
+      await tray.setEnabled(tray.enabled(settings, profile));
+      return true;
+    } catch (error) {
+      debugPrint('Could not restore desktop tray setting: $error');
+      return false;
+    }
+  }
+
+  if (!await apply()) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => apply());
+  }
 }
 
 class VelaApp extends StatefulWidget {
@@ -242,8 +268,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     onStartupFailure: _showStartupFailure,
     onMembershipChanging: _invalidatePeerMembership,
     onStateChanged: _publishPeerState,
-    onRestore: _restorePeerSessions,
-    onMembershipSettled: _settlePeerMembership,
+    onMembershipSettled: presenceController.membershipSettled,
   );
   VelaNode? get node => runtime.node;
   TransferJob? activeTransfer;
@@ -262,9 +287,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool shuttingDown = false;
   bool closingForUpdate = false;
   AppUpdateState? lastUpdateState;
-  late final presenceController = PresenceController(
-    pairingActive: (id) =>
-        incomingPairings.containsKey(id) || outgoingPairings.containsKey(id),
+  late final PresenceController presenceController = PresenceController(
+    pairingActive: (id) => pairings.isActiveFor(id),
     canPersistInfo: () => !changingRelay,
     recordDiagnostic: _recordDiagnostic,
     removeUnpaired: _removeUnpaired,
@@ -282,14 +306,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool get monitorPresence => shouldMonitorPresence(
     presenceLifecycle,
     windowHidden: presenceWindowHidden,
-    isMacOS: Platform.isMacOS || DesktopPlatform.isWindowsOrLinux,
+    monitorWhileHidden: DesktopPlatform.isDesktop,
     androidBackgroundReceive:
         Platform.isAndroid &&
-        (prefs?.getBool('background_receive_${widget.profile}') ?? false),
+        BackgroundReceiving.androidService.enabled(prefs, widget.profile),
   );
-  Completer<void>? foregroundWaiter;
-  Completer<bool>? notificationDecision;
-  String? notificationOfferId;
+  IncomingOfferPrompt? incomingPrompt;
   final List<_DiagnosticEntry> diagnosticEvents = [];
   final Set<String> selectedPeers = {};
   bool selectingPeers = false;
@@ -300,16 +322,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String deviceType = 'other';
   String? error;
   bool contentOperationActive = false;
-  bool outgoingPairingUiActive = false;
-  final Map<String, OutgoingPairingSession> outgoingPairings = {};
-  final Map<String, Future<void>> pairingTransitions = {};
-  final Map<String, IncomingPairingSession> incomingPairings = {};
+  late final PairingSessions pairings = PairingSessions(
+    currentDevices: () => mounted ? pairedDevices : null,
+    localInfo: () => DeviceInfo(name: deviceName, deviceType: deviceType),
+    onPairingStarted: (id) => presenceController.pairingStarted(id),
+  );
   String? activePairingPeer;
-  bool awaitingOfferDecision = false;
+  bool get outgoingPairingUiActive => activePairingPeer != null;
+  bool get awaitingOfferDecision => incomingPrompt?.openedDialog ?? false;
   bool changingRelay = false;
   int incomingOffersPending = 0;
   int activeSendOperations = 0;
-  bool pairingDialogActive = false;
   String? activity;
   AppLocalizations get t => AppLocalizations.of(context)!;
   String? lastMessage;
@@ -328,7 +351,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ContentProcessing.savingReceived => t.savingFile,
     null => null,
   };
-  String transferPath = '';
+  String connectionRoute = '';
   bool hasTransferred = false;
   int transferredBytes = 0;
   int totalBytes = 0;
@@ -349,11 +372,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       startup != null ||
       folderOperation ||
       processingDrop ||
-      pairingDialogActive ||
       shuttingDown;
 
   Future<void> _prepareUpdateInstall() async {
-    if (_updateBusy) throw StateError('A transfer or pairing is in progress');
+    if (_updateBusy) throw PlatformException(code: 'busy');
     closingForUpdate = true;
     shuttingDown = true;
     startupRetry?.cancel();
@@ -409,12 +431,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             !cancelling) {
           _cancelTransfer();
         }
-        if (call.method == 'decision' &&
-            arguments is Map &&
-            arguments['id'] == notificationOfferId &&
-            arguments['accepted'] is bool &&
-            notificationDecision?.isCompleted == false) {
-          notificationDecision!.complete(arguments['accepted'] as bool);
+        if (call.method == 'decision' && arguments is Map) {
+          incomingPrompt?.notificationDecision(
+            arguments['id'],
+            arguments['accepted'],
+          );
         }
       });
     }
@@ -422,8 +443,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         Platform.isMacOS ||
         DesktopPlatform.isWindowsOrLinux) {
       backgroundChannel.setMethodCallHandler((call) async {
-        if (call.method == 'shutdown' &&
-            (Platform.isMacOS || DesktopPlatform.isWindowsOrLinux)) {
+        if (call.method == 'shutdown' && DesktopPlatform.isDesktop) {
           shuttingDown = true;
           startupRetry?.cancel();
           activeTransfer?.cancel();
@@ -472,9 +492,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           unawaited(_showLegacyPairingNotice());
           if (wasMonitoring != monitorPresence)
             presenceController.requestMonitoring(enabled: monitorPresence);
-          if (foregroundWaiter?.isCompleted == false) {
-            foregroundWaiter!.complete();
-          }
+          incomingPrompt?.becameVisible();
           if (shouldRefreshForVisibility(
             visible: presenceVisible,
             becameVisible: wasHidden,
@@ -508,8 +526,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return;
       }
       final p = job?.progress();
-      if (p != null && p.path != transferPath) {
-        setState(() => transferPath = p.path);
+      if (p != null && p.path != connectionRoute) {
+        setState(() => connectionRoute = p.path);
       }
       final done = p?.done.toInt() ?? 0;
       final total = p?.total.toInt() ?? 0;
@@ -598,12 +616,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         );
       }
     });
-    if (Platform.isMacOS || DesktopPlatform.isWindowsOrLinux) {
-      unawaited(_syncInitialWindowVisibility());
-    }
-    if (Platform.isMacOS || DesktopPlatform.isWindowsOrLinux) {
+    if (DesktopPlatform.isDesktop) unawaited(_syncInitialWindowVisibility());
+    if (Platform.isMacOS) {
       unawaited(
-        _applyMacBackground().catchError((Object e) {
+        _restoreMacKeepAwake().catchError((Object e) {
           debugPrint('Could not restore background receiving: $e');
         }),
       );
@@ -621,7 +637,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
       unawaited(_showLegacyPairingNotice());
-      if (foregroundWaiter?.isCompleted == false) foregroundWaiter!.complete();
+      incomingPrompt?.becameVisible();
       if (Platform.isAndroid ||
           Platform.isMacOS ||
           DesktopPlatform.isWindowsOrLinux) {
@@ -658,7 +674,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _setTransferring(true);
     cancelling = false;
     contentProcessing = null;
-    transferPath = '';
+    connectionRoute = '';
     hasTransferred = false;
     sendingTo = target;
     notificationContentName = contentName;
@@ -673,13 +689,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return job;
   }
 
-  void _setNodeStatus(String status) => _updateMacMenu('setNodeStatus', status);
+  void _setNodeStatus(String status) =>
+      _updateDesktopStatus('setNodeStatus', status);
 
   void _setTransferring(bool transferring) =>
-      _updateMacMenu('setTransferring', transferring);
+      _updateDesktopStatus('setTransferring', transferring);
 
-  void _updateMacMenu(String method, Object value) {
-    if (!Platform.isMacOS && !DesktopPlatform.isWindowsOrLinux) return;
+  void _updateDesktopStatus(String method, Object value) {
+    if (!DesktopPlatform.isDesktop) return;
     unawaited(
       backgroundChannel.invokeMethod<void>(method, value).catchError((
         Object e,
@@ -878,27 +895,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<bool> _backgroundReceivingEnabled() async {
-    final key = Platform.isAndroid
-        ? 'background_receive_${widget.profile}'
-        : Platform.isMacOS
-        ? 'mac_background_receiving'
-        : DesktopPlatform.isWindowsOrLinux
-        ? 'desktop_background_receiving'
-        : null;
-    if (key == null) return false;
-    return (await SharedPreferences.getInstance()).getBool(key) ??
-        DesktopPlatform.isWindowsOrLinux;
+    final setting = BackgroundReceiving.current;
+    if (setting == null) return false;
+    return setting.enabled(
+      await SharedPreferences.getInstance(),
+      widget.profile,
+    );
   }
 
   Future<void> _syncInitialWindowVisibility() async {
     final revision = windowVisibilityRevision;
     try {
-      final visible = await backgroundChannel.invokeMethod<bool>(
+      final windowShown = await backgroundChannel.invokeMethod<bool>(
         'getWindowVisible',
       );
       if (!mounted ||
           windowVisibilityRevision != revision ||
-          visible != false) {
+          windowShown != false) {
         return;
       }
       final wasMonitoring = monitorPresence;
@@ -911,16 +924,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _applyMacBackground() async {
-    if ((!Platform.isMacOS && !DesktopPlatform.isWindowsOrLinux) ||
-        shuttingDown)
-      return;
+  Future<void> _restoreMacKeepAwake() async {
     final enabled = await _backgroundReceivingEnabled();
     if (!mounted || shuttingDown) return;
-    await backgroundChannel.invokeMethod<void>(
-      Platform.isMacOS ? 'setMacBackground' : 'setDesktopBackground',
-      enabled,
-    );
+    await BackgroundReceiving.macKeepAwake.setEnabled(enabled);
   }
 
   Future<void> _retryStartup() async {
@@ -994,7 +1001,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         deviceType = ready.deviceType;
         deviceView = ['graph', 'list'].contains(storedView) ? storedView : null;
       });
-      presenceController.attach(n, pairedDevices!);
+      presenceController.attach(pairedDevices!);
       _recordDiagnostic('startup_complete_done');
       _recordDiagnostic('ready');
       startupFailures = 0;
@@ -1081,52 +1088,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
-  void _replacePeerSession(String id) => presenceController.replaceSession(id);
-
-  Future<T> _pairingTransition<T>(
-    String id,
-    Future<T> Function() action,
-  ) async {
-    final previous = pairingTransitions[id] ?? Future<void>.value();
-    final complete = Completer<void>();
-    final current = complete.future;
-    pairingTransitions[id] = current;
-    await previous;
-    try {
-      return await action();
-    } finally {
-      complete.complete();
-      if (identical(pairingTransitions[id], current)) {
-        pairingTransitions.remove(id);
-      }
-    }
-  }
-
-  Future<void> _syncTrustNow(VelaNode source) async {
-    if (mounted && identical(node, source)) await pairedDevices!.syncTrust();
-  }
-
-  Future<void> _finishPairing(VelaNode source, String id) =>
-      _pairingTransition(id, () async {
-        if (identical(node, source) &&
-            !outgoingPairings.containsKey(id) &&
-            !incomingPairings.containsKey(id)) {
-          try {
-            await _syncTrustNow(source);
-            await source.endPairing(peerId: id);
-            if (!peers.containsKey(id)) presenceController.forgetSession(id);
-          } catch (e) {
-            debugPrint('Could not finish pairing: $e');
-            if (mounted && identical(node, source)) {
-              Timer(
-                const Duration(seconds: 1),
-                () => unawaited(_finishPairing(source, id)),
-              );
-            }
-          }
-        }
-      });
-
   Future<void> _showLegacyPairingNotice() async {
     if (!legacyNoticePending ||
         legacyNoticeShowing ||
@@ -1161,58 +1122,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _handlePair(
-    VelaNode n,
+    VelaNode source,
     IncomingRequest offer,
     IncomingRequestInfo info,
   ) async {
-    final id = info.sender;
-    final device = info.pairing!;
-    if (!mounted || !identical(node, n) || shuttingDown || updates.installing) {
+    final devices = pairedDevices;
+    if (devices == null ||
+        !mounted ||
+        !identical(devices.node, source) ||
+        shuttingDown ||
+        updates.installing) {
       await offer.decline();
       return;
     }
-    if (incomingPairings.containsKey(id) || incomingPairings.length >= 8) {
-      await offer.declinePairConflict();
-      return;
-    }
-    final alreadyPairing = outgoingPairings.containsKey(id);
-    final incoming = IncomingPairingSession();
-    final cancelled = incoming.cancelled;
-    incomingPairings[id] = incoming;
-    if (!alreadyPairing) _replacePeerSession(id);
-    final session = presenceController.sessionFor(id);
+    final id = info.sender;
+    final device = info.pairing!;
     try {
-      await _pairingTransition(id, () => n.beginPairing(peerId: id));
-      final outgoing = outgoingPairings[id];
-      if (outgoing != null) {
-        final decision = await outgoing.arbitration.decideIncoming(
-          localId: n.id(),
-          incomingId: id,
-        );
-        if (!mounted || !identical(node, n) || cancelled.isCompleted) return;
-        if (decision == PairingCollision.duplicate) {
-          await offer.decline();
-          return;
-        }
-        if (decision == PairingCollision.busy) {
-          await offer.declinePairConflict();
-          return;
-        }
-      }
-      if (pairingDialogActive) {
-        await offer.declinePairConflict();
-        return;
-      }
-      if (!mounted || !identical(node, n)) return;
-      pairingDialogActive = true;
-      final PairingDialogResult accepted;
-      try {
-        accepted = await showPairingDialog(
+      final added = await pairings.receive(
+        devices,
+        offer,
+        id,
+        device,
+        confirm: (closed) => showPeerConfirmation(
           context,
-          peerClosed: Future.any([
-            offer.waitForConnectionClose(),
-            cancelled.future,
-          ]),
+          peerClosed: closed,
           builder: (context) => AlertDialog(
             constraints: const BoxConstraints(maxWidth: 420),
             title: Text(t.pairRequest),
@@ -1249,74 +1182,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ],
           ),
-        );
-      } finally {
-        pairingDialogActive = false;
-      }
-      if (!mounted ||
-          !identical(node, n) ||
-          cancelled.isCompleted ||
-          !identical(presenceController.sessionFor(id), session) ||
-          accepted == PairingDialogResult.connectionClosed) {
-        return;
-      }
-      if (accepted != PairingDialogResult.accepted) {
-        await offer.decline();
-        return;
-      }
-      var saved = false;
-      await pairedDevices!.update((state) {
-        if (!identical(node, n) ||
-            cancelled.isCompleted ||
-            !identical(presenceController.sessionFor(id), session)) {
-          return state;
-        }
-        saved = true;
-        return state.add(id, device.name, device.deviceType);
-      });
-      if (!saved) {
-        await offer.declinePairConflict();
-        return;
-      }
-      await _syncTrustNow(n);
-      if (!mounted ||
-          !identical(node, n) ||
-          cancelled.isCompleted ||
-          !identical(presenceController.sessionFor(id), session)) {
-        return;
-      }
-      try {
-        await offer.acceptPair(name: deviceName, deviceType: deviceType);
-        if (mounted) {
-          unawaited(presenceController.readSnapshot());
-          _message(t.addedPeer(device.name), kind: NoticeKind.success);
-        }
-      } catch (e) {
-        debugPrint('Could not send pairing reply: $e');
-        if (mounted) _message(t.pairFailed, kind: NoticeKind.error);
+        ),
+      );
+      if (added && mounted) {
+        unawaited(presenceController.readSnapshot());
+        _message(t.addedPeer(device.name), kind: NoticeKind.success);
       }
     } catch (e) {
-      debugPrint('Could not process pairing request: $e');
-    } finally {
-      if (identical(incomingPairings[id], incoming)) {
-        incomingPairings.remove(id);
-      }
-      try {
-        await _finishPairing(n, id);
-      } catch (e) {
-        debugPrint('Could not finish pairing: $e');
-      }
+      debugPrint('Could not send pairing reply: $e');
+      if (mounted) _message(t.pairFailed, kind: NoticeKind.error);
     }
   }
 
-  Future<void> _listenForIncomingRequests(VelaNode n) async {
-    final offers = StreamController<IncomingRequest>();
+  Future<void> _listenForIncomingRequests(VelaNode source) async {
+    final offers =
+        StreamController<({IncomingRequest offer, IncomingRequestInfo info})>();
     var queued = 0;
     unawaited(() async {
       try {
-        while (!disposed && identical(node, n)) {
-          final offer = await n.nextRequest();
-          if (!identical(node, n) ||
+        while (!disposed && identical(node, source)) {
+          final offer = await source.nextRequest();
+          if (!identical(node, source) ||
               changingRelay ||
               shuttingDown ||
               updates.installing) {
@@ -1325,11 +1211,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           }
           final info = offer.info();
           if (info.pairing != null) {
-            unawaited(_handlePair(n, offer, info));
+            unawaited(_handlePair(source, offer, info));
           } else if (queued < 16) {
             queued++;
             incomingOffersPending++;
-            offers.add(offer);
+            offers.add((offer: offer, info: info));
           } else {
             unawaited(offer.decline());
           }
@@ -1340,476 +1226,278 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await offers.close();
       }
     }());
-    final iterator = StreamIterator(offers.stream);
-    while (!disposed && identical(node, n)) {
-      var backgroundNotified = false;
-      var receivingStarted = false;
-      TransferJob? receivingJob;
-      var receiveCompleted = false;
-      var processingOffer = false;
-      String? diagnosticPeer;
+
+    await for (final request in offers.stream) {
+      queued--;
       try {
-        if (!await iterator.moveNext()) return;
-        processingOffer = true;
-        final offer = iterator.current;
-        queued--;
-        if (!mounted || !identical(node, n)) return;
-        final info = offer.info();
-        final kind = TransferKind.fromWire(info.kind);
-        String senderName() => peers.containsKey(info.sender)
-            ? peerState.displayName(info.sender)
-            : t.device;
-        diagnosticPeer = info.sender;
-        while (contentOperationActive && !disposed) {
-          await Future<void>.delayed(const Duration(milliseconds: 200));
-        }
-        if (!mounted) return;
-        if (!peers.containsKey(info.sender)) {
-          await offer.decline();
-          continue;
-        }
-        final session = presenceController.sessionFor(info.sender);
-        bool stillAuthorized() =>
-            session != null &&
-            peers.containsKey(info.sender) &&
-            identical(presenceController.sessionFor(info.sender), session);
-        unawaited(presenceController.readSnapshot());
-        final autoAccept =
-            prefs?.getBool('auto_accept_${widget.profile}') ?? false;
-        final typedText = kind == TransferKind.typedText;
-        final contentName = typedText
-            ? t.textContent
-            : switch (kind) {
-                TransferKind.text => t.clipboardText,
-                TransferKind.image => t.clipboardImage,
-                TransferKind.batch => t.filesCount(info.files.length),
-                _ => info.name,
-              };
-        final visible =
-            Platform.isMacOS ||
-                Platform.isAndroid ||
-                DesktopPlatform.isWindowsOrLinux
-            ? await backgroundChannel.invokeMethod<bool>('isVisible') ??
-                  foreground
-            : true;
-        final wasBackground = !visible;
-        var accept = autoAccept;
-        var decided = autoAccept;
-        if (wasBackground) {
-          foregroundWaiter ??= Completer<void>();
-          if (foregroundWaiter!.isCompleted) {
-            foregroundWaiter = Completer<void>();
-          }
-          if (Platform.isAndroid && !autoAccept) {
-            notificationOfferId = DateTime.now().microsecondsSinceEpoch
-                .toString();
-            notificationDecision = Completer<bool>();
-          }
-          try {
-            await backgroundChannel.invokeMethod<void>('offer', {
-              'title': Platform.isAndroid
-                  ? t.shareFrom(senderName())
-                  : (senderName()),
-              'message': Platform.isAndroid
-                  ? '$contentName · ${_size(info.size.toInt())}'
-                  : t.backgroundOffer,
-              'shortText': t.incomingShort,
-              'focus':
-                  Platform.isMacOS &&
-                  (prefs?.getBool('mac_focus_on_offer_${widget.profile}') ??
-                      true),
-              'id': notificationOfferId,
-              'accept': t.receive,
-              'reject': t.reject,
-            });
-            backgroundNotified = true;
-          } catch (e) {
-            debugPrint('Could not show incoming notification: $e');
-          }
-          if (!autoAccept) {
-            final result = await Future.any<Object>([
-              foregroundWaiter!.future.then((_) => 'visible'),
-              offer.waitForConnectionClose().then((_) => 'closed'),
-              if (notificationDecision != null) notificationDecision!.future,
-            ]);
-            notificationOfferId = null;
-            notificationDecision = null;
-            try {
-              await backgroundChannel.invokeMethod<void>('clearOffer');
-              backgroundNotified = false;
-            } catch (_) {}
-            if (result == 'closed' || !mounted) continue;
-            if (result is bool) {
-              accept = result;
-              decided = true;
-            }
-          }
-        }
-        if (!decided) {
-          if (!mounted) return;
-          final navigator = Navigator.of(context, rootNavigator: true);
-          var offerDisconnected = false;
-          final route = DialogRoute<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              constraints: const BoxConstraints(maxWidth: 420),
-              title: Text(
-                t.shareFrom(senderName()),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    contentName,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  if (kind == TransferKind.batch) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      info.files.take(3).join('\n'),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Text(
-                    _size(info.size.toInt()),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(t.reject),
-                ),
-                FilledButton(
-                  key: const ValueKey('accept-offer'),
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(t.receive),
-                ),
-              ],
-            ),
-          );
-          awaitingOfferDecision = true;
-          final decision = navigator.push(route);
-          unawaited(
-            offer.waitForConnectionClose().then((_) {
-              if (route.isActive) {
-                offerDisconnected = true;
-                navigator.removeRoute(route, false);
-              }
-            }),
-          );
-          accept = await decision == true;
-          awaitingOfferDecision = false;
-          if (offerDisconnected) {
-            if (mounted) _message(t.transferCancelled);
-            continue;
-          }
-        }
-        if (!accept) {
-          await offer.decline();
-          continue;
-        }
-        while (contentOperationActive && !disposed) {
-          await Future<void>.delayed(const Duration(milliseconds: 200));
-        }
-        if (!mounted) return;
-        if (!stillAuthorized()) {
-          await offer.decline();
-          continue;
-        }
-        receivingJob = _beginTransfer(
-          contentName: contentName,
-          peerType: peerTypes[info.sender],
-        );
-        setState(() {
-          contentOperationActive = true;
-          activity = t.receiving(contentName);
-          receivedPath = null;
-        });
-        receivingStarted = true;
-        final base = Platform.isAndroid
-            ? await getApplicationSupportDirectory()
-            : await getApplicationDocumentsDirectory();
-        final privateDir = await Directory(
-          '${base.path}/Vela/${widget.profile}',
-        ).create(recursive: true);
-        final isFile = kind.isFile;
-        var dir = privateDir;
-        var savedPrivately = false;
-        if ((Platform.isMacOS || DesktopPlatform.isWindowsOrLinux) && isFile) {
-          try {
-            dir = await receivedStorage.writableDirectory();
-          } catch (e) {
-            savedPrivately = true;
-            debugPrint('Save location unavailable: $e');
-          }
-        }
-        if (!stillAuthorized()) {
-          await offer.decline();
-          if (mounted) {
-            setState(() {
-              contentOperationActive = false;
-              activity = null;
-            });
-          }
-          _setTransferring(false);
-          receivingStarted = false;
-          continue;
-        }
-        final staged = kind == TransferKind.batch
-            ? await offer.receiveFiles(directory: dir.path, job: receivingJob)
-            : [await offer.receiveFile(directory: dir.path, job: receivingJob)];
-        receiveCompleted = true;
-        var paths = staged;
-        var names = staged
-            .map((path) => File(path).uri.pathSegments.last)
-            .toList();
-        final sizes = await Future.wait(
-          staged.map((path) => File(path).length()),
-        );
-        if (Platform.isAndroid && isFile) {
-          try {
-            if (cancelling) throw StateError('transfer cancelled');
-            setState(() {
-              contentProcessing = ContentProcessing.savingReceived;
-              activity = t.savingFile;
-              transferProgress = null;
-            });
-            final saved = await receivedStorage.saveReceived(staged);
-            paths = saved.map((entry) => entry.reference).toList();
-            names = saved.map((entry) => entry.name).toList();
-            for (final source in staged) {
-              try {
-                await File(source).delete();
-              } catch (e) {
-                debugPrint('Could not remove temporary file: $e');
-              }
-            }
-          } catch (e) {
-            if (cancelling ||
-                (e is PlatformException && e.code == 'cancelled')) {
-              for (final source in staged) {
-                try {
-                  await File(source).delete();
-                } catch (_) {}
-              }
-              rethrow;
-            }
-            savedPrivately = true;
-            debugPrint('Could not save to selected location: $e');
-          } finally {
-            contentProcessing = null;
-          }
-        }
-        final path = paths.first;
-        String? textPreview;
-        String? receivedLink;
-        String? receivedText;
-        if (kind == TransferKind.text || typedText) {
-          final text = await File(path).readAsString();
-          receivedText = text;
-          textPreview = String.fromCharCodes(text.trim().runes.take(120));
-          receivedLink = detectHttpLink(text);
-          if (!typedText) {
-            if (Platform.isAndroid) {
-              await clipboardChannel.invokeMethod<void>('writeText', {
-                'text': text,
-              });
-            } else {
-              await Clipboard.setData(ClipboardData(text: text));
-            }
-          }
-        }
-        var clipboardFailed = false;
-        if (kind == TransferKind.image || isFile) {
-          try {
-            if (kind == TransferKind.image) {
-              await DesktopPlatform.writeClipboardImage(
-                await File(path).readAsBytes(),
-              );
-            } else if (Platform.isAndroid) {
-              await clipboardChannel.invokeMethod<void>('writeFiles', {
-                'paths': paths,
-              });
-            } else if (!await Pasteboard.writeFiles(paths)) {
-              throw StateError(t.writeClipboardFailed);
-            }
-          } catch (e) {
-            clipboardFailed = true;
-            debugPrint('Could not copy received content: $e');
-          }
-        }
-        final folderArchive =
-            kind == TransferKind.file &&
-            info.name.endsWith(folderArchiveSuffix);
-        var historySaved = true;
-        try {
-          for (var i = 0; i < paths.length; i++) {
-            await _addHistory(
-              TransferRecord(
-                name: isFile ? names[i] : contentName,
-                peer: senderName(),
-                time: DateTime.now(),
-                kind: kind.historyKind(info.name),
-                received: true,
-                path: paths[i],
-                size: sizes[i],
-                preview: textPreview,
-              ),
-            );
-          }
-        } catch (e) {
-          historySaved = false;
-          debugPrint('Could not save history: $e');
-        }
-        _recordDiagnostic('received', info.sender);
-        if (mounted) {
-          final message = !historySaved
-              ? t.historySaveFailed
-              : savedPrivately && clipboardFailed
-              ? '${t.savedPrivately} ${t.writeClipboardFailed}'
-              : savedPrivately
-              ? t.savedPrivately
-              : clipboardFailed
-              ? t.writeClipboardFailed
-              : typedText
-              ? t.textReceived
-              : kind == TransferKind.batch
-              ? t.filesReceived(paths.length)
-              : kind == TransferKind.file
-              ? t.received(names.first)
-              : t.clipboardReceived;
-          final openable =
-              !typedText &&
-              (kind == TransferKind.file ||
-                  kind == TransferKind.clipboardFile ||
-                  kind == TransferKind.image);
-          setState(() {
-            contentOperationActive = false;
-            activity = message;
-            receivedPath = openable ? path : null;
-          });
-          _finishSystemTransfer(
-            message,
-            path: openable ? path : null,
-            name: names.first,
-            url: receivedLink,
-            previewTextPath: receivedText != null && receivedLink == null
-                ? path
-                : null,
-            received: true,
-          );
-          _message(
-            message,
-            kind: historySaved && !savedPrivately && !clipboardFailed
-                ? NoticeKind.success
-                : NoticeKind.error,
-            actionLabel: t.view,
-            onAction: folderArchive
-                ? () => _restoreFolder(path)
-                : kind == TransferKind.batch
-                ? _showHistory
-                : openable
-                ? () => _openReceived(path)
-                : receivedLink != null
-                ? () => _openLink(receivedLink!)
-                : receivedText != null
-                ? () => _showTextContent(receivedText!)
-                : () => _openReceived(path),
-          );
-          if (wasBackground &&
-              autoAccept &&
-              !foreground &&
-              !Platform.isAndroid) {
-            try {
-              await backgroundChannel.invokeMethod<void>('offer', {
-                'title': 'Vela',
-                'message': message,
-                'focus': false,
-              });
-            } catch (e) {
-              debugPrint('Could not show completion notification: $e');
-            }
-          } else if (backgroundNotified) {
-            try {
-              await backgroundChannel.invokeMethod<void>('clearOffer');
-            } catch (_) {}
-          }
-        }
-      } catch (e) {
-        if (!identical(node, n)) return;
-        if (backgroundNotified) {
-          try {
-            await backgroundChannel.invokeMethod<void>('clearOffer');
-          } catch (_) {}
-        }
-        if (!disposed && mounted) {
-          if (receivingStarted) {
-            setState(() {
-              contentOperationActive = false;
-              activity = null;
-            });
-          }
-          debugPrint('Receive failed: $e');
-          final cancelled =
-              cancelling ||
-              classifyTransferFailure(e) == TransferFailure.cancelled;
-          if (receivingStarted) {
-            _recordDiagnostic(
-              cancelled ? 'receiveCancelled' : 'receiveFailed',
-              diagnosticPeer,
-            );
-          }
-          final message = cancelled
-              ? t.transferCancelled
-              : transferErrorMessage(e, t);
-          if (receivingStarted) _finishSystemTransfer(message);
-          _message(
-            message,
-            kind: cancelled ? NoticeKind.info : NoticeKind.error,
-          );
-          await Future<void>.delayed(const Duration(seconds: 1));
+        if (mounted && !disposed && identical(node, source)) {
+          await _receiveOffer(source, request.offer, request.info);
         }
       } finally {
-        if (!receiveCompleted) receivingJob?.cancel();
-        if (identical(activeTransfer, receivingJob)) activeTransfer = null;
-        if (receivingStarted) _setTransferring(false);
-        if (processingOffer) incomingOffersPending--;
+        incomingOffersPending--;
       }
     }
   }
 
-  void _invalidatePeerMembership(
-    PeerState old,
-    PeerState updated,
-    Set<String> changed,
-  ) {
-    presenceController.membershipChanging(old, updated, changed);
-    for (final id in changed) {
-      if (updated.peers.containsKey(id)) continue;
+  Future<void> _receiveOffer(
+    VelaNode source,
+    IncomingRequest offer,
+    IncomingRequestInfo info,
+  ) async {
+    TransferJob? job;
+    IncomingOfferPrompt? prompt;
+    var receivedFromPeer = false;
+    void releaseJob() {
+      final ownedJob = job;
+      if (ownedJob == null) return;
+      job = null;
+      if (!receivedFromPeer) ownedJob.cancel();
+      if (!identical(activeTransfer, ownedJob)) return;
+      activeTransfer = null;
+      contentProcessing = null;
+      if (mounted) {
+        setState(() {
+          contentOperationActive = false;
+          activity = null;
+        });
+      }
+      _setTransferring(false);
+    }
+
+    bool currentNode() => mounted && !disposed && identical(node, source);
+    try {
+      while (contentOperationActive && currentNode()) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+      if (!currentNode()) return;
+      final devices = pairedDevices!;
+      final sender = info.sender;
+      final relationship = devices.relationshipFor(sender);
+      bool stillAuthorized() =>
+          identical(pairedDevices, devices) &&
+          devices.state.peers.containsKey(sender) &&
+          devices.isCurrentRelationship(sender, relationship);
+      if (!stillAuthorized()) {
+        await offer.decline();
+        return;
+      }
+      unawaited(presenceController.readSnapshot());
+      String senderName() => devices.state.peers.containsKey(sender)
+          ? devices.state.displayName(sender)
+          : t.device;
+      final kind = TransferKind.fromWire(info.kind);
+      final contentName = switch (kind) {
+        TransferKind.typedText => t.textContent,
+        TransferKind.text => t.clipboardText,
+        TransferKind.image => t.clipboardImage,
+        TransferKind.batch => t.filesCount(info.files.length),
+        _ => info.name,
+      };
+      final autoAccept =
+          prefs?.getBool('auto_accept_${widget.profile}') ?? false;
+      final appForeground = Platform.isAndroid || DesktopPlatform.isDesktop
+          ? await backgroundChannel.invokeMethod<bool>('isVisible') ??
+                foreground
+          : true;
+      if (!mounted || !identical(node, source)) return;
+      prompt = IncomingOfferPrompt(
+        backgroundChannel,
+        notificationId: !appForeground && !autoAccept && Platform.isAndroid
+            ? DateTime.now().microsecondsSinceEpoch.toString()
+            : null,
+      );
+      incomingPrompt = prompt;
+      final PeerDecision decision;
       try {
-        outgoingPairings[id]?.cancel();
-      } catch (e) {
-        debugPrint('Could not cancel pairing: $e');
+        decision = await prompt.confirm(
+          context,
+          offer: offer,
+          senderName: senderName,
+          contentName: contentName,
+          batchFiles: kind == TransferKind.batch ? info.files : const [],
+          size: _size(info.size.toInt()),
+          inBackground: !appForeground,
+          autoAccept: autoAccept,
+          focusWindow:
+              Platform.isMacOS &&
+              (prefs?.getBool('mac_focus_on_offer_${widget.profile}') ?? true),
+        );
+      } finally {
+        if (identical(incomingPrompt, prompt)) incomingPrompt = null;
       }
-      incomingPairings[id]?.cancel();
+      if (!mounted || !identical(node, source)) return;
+      if (decision == PeerDecision.connectionClosed) {
+        if (prompt.openedDialog) _message(t.transferCancelled);
+        return;
+      }
+      if (decision == PeerDecision.declined) {
+        await offer.decline();
+        return;
+      }
+      while (contentOperationActive && currentNode()) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+      if (!currentNode()) return;
+      if (!stillAuthorized()) {
+        await offer.decline();
+        return;
+      }
+      final receivingJob = _beginTransfer(
+        contentName: contentName,
+        peerType: peerTypes[sender],
+      );
+      job = receivingJob;
+      setState(() {
+        contentOperationActive = true;
+        activity = t.receiving(contentName);
+        receivedPath = null;
+      });
+      final destination = await receivedStorage.receiveDirectory(
+        widget.profile,
+        kind,
+      );
+      if (!stillAuthorized()) {
+        await offer.decline();
+        return;
+      }
+      final staged = kind == TransferKind.batch
+          ? await offer.receiveFiles(
+              directory: destination.path,
+              job: receivingJob,
+            )
+          : [
+              await offer.receiveFile(
+                directory: destination.path,
+                job: receivingJob,
+              ),
+            ];
+      receivedFromPeer = true;
+      final publish = Platform.isAndroid && kind.isFile;
+      if (publish && mounted) {
+        setState(() {
+          contentProcessing = ContentProcessing.savingReceived;
+          activity = t.savingFile;
+          transferProgress = null;
+        });
+      }
+      final finalized = await receivedStorage.finishReceive(
+        staged,
+        publishFromStaging: publish,
+        isCancelled: () => cancelling,
+      );
+      if (publish) contentProcessing = null;
+      final content = await copyAndRecordReceivedContent(
+        files: finalized.files,
+        kind: kind,
+        offeredName: info.name,
+        contentName: contentName,
+        senderName: senderName,
+        history: historyStore,
+      );
+      releaseJob();
+      _recordDiagnostic('received', sender);
+      if (mounted) {
+        final message = _showReceivedContent(
+          kind,
+          info.name,
+          finalized.files,
+          content,
+          savedPrivately:
+              destination.privateFallback || finalized.savedPrivately,
+        );
+        await prompt.completed(message, foreground: foreground);
+      }
+    } catch (error) {
+      if (!identical(node, source) || disposed || !mounted) return;
+      debugPrint('Receive failed: $error');
+      final cancelled =
+          cancelling ||
+          classifyTransferFailure(error) == TransferFailure.cancelled ||
+          (error is PlatformException && error.code == 'cancelled');
+      final message = cancelled
+          ? t.transferCancelled
+          : transferErrorMessage(error, t);
+      if (job != null) {
+        releaseJob();
+        _recordDiagnostic(
+          cancelled ? 'receiveCancelled' : 'receiveFailed',
+          info.sender,
+        );
+        _finishSystemTransfer(message);
+      }
+      _message(message, kind: cancelled ? NoticeKind.info : NoticeKind.error);
+      await Future<void>.delayed(const Duration(seconds: 1));
+    } finally {
+      releaseJob();
+      await prompt?.clearNotification();
     }
   }
 
-  void _restorePeerSessions(PeerState state) =>
-      presenceController.restoreSessions(state);
+  String _showReceivedContent(
+    TransferKind kind,
+    String offeredName,
+    List<SavedReceivedFile> files,
+    ReceivedContent content, {
+    required bool savedPrivately,
+  }) {
+    final first = files.first;
+    final message = !content.historySaved
+        ? t.historySaveFailed
+        : savedPrivately && content.clipboardFailed
+        ? '${t.savedPrivately} ${t.writeClipboardFailed}'
+        : savedPrivately
+        ? t.savedPrivately
+        : content.clipboardFailed
+        ? t.writeClipboardFailed
+        : switch (kind) {
+            TransferKind.typedText => t.textReceived,
+            TransferKind.batch => t.filesReceived(files.length),
+            TransferKind.file => t.received(first.name),
+            _ => t.clipboardReceived,
+          };
+    final openable =
+        kind == TransferKind.file ||
+        kind == TransferKind.clipboardFile ||
+        kind == TransferKind.image;
+    setState(() {
+      activity = message;
+      receivedPath = openable ? first.reference : null;
+    });
+    _finishSystemTransfer(
+      message,
+      path: openable ? first.reference : null,
+      name: first.name,
+      url: content.link,
+      previewTextPath: content.text != null && content.link == null
+          ? first.reference
+          : null,
+      received: true,
+    );
+    _message(
+      message,
+      kind: content.historySaved && !savedPrivately && !content.clipboardFailed
+          ? NoticeKind.success
+          : NoticeKind.error,
+      actionLabel: t.view,
+      onAction: kind.historyKind(offeredName).canRestoreFolder
+          ? () => _restoreFolder(first.reference)
+          : kind == TransferKind.batch
+          ? _showHistory
+          : content.link != null
+          ? () => _openLink(content.link!)
+          : content.text != null
+          ? () => _showTextContent(content.text!)
+          : () => _openReceived(first.reference),
+    );
+    return message;
+  }
+
+  void _invalidatePeerMembership(PeerState updated, Set<String> changed) {
+    presenceController.membershipChanging(changed);
+    for (final id in changed) {
+      if (!updated.peers.containsKey(id)) pairings.cancel(id);
+    }
+  }
 
   void _publishPeerState(PeerState state, Set<String> changed) {
     presenceController.membershipPublished(state, changed);
@@ -1818,9 +1506,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         () => selectedPeers.removeWhere((id) => !state.peers.containsKey(id)),
       );
   }
-
-  void _settlePeerMembership(Set<String> changed) =>
-      presenceController.membershipSettled(changed);
 
   void _recordDiagnostic(String kind, [String? peer]) {
     if (!widget.diagnosticsEnabled) return;
@@ -1840,137 +1525,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _removeUnpaired(VelaNode source, String id, Object session) =>
-      _pairingTransition(id, () async {
-        bool current() =>
-            mounted &&
-            identical(node, source) &&
-            identical(presenceController.sessionFor(id), session) &&
-            peers.containsKey(id) &&
-            !incomingPairings.containsKey(id) &&
-            !outgoingPairings.containsKey(id);
-        if (!current()) return;
-        var claimed = false;
-        try {
-          claimed = await source.revokeIfUnpaired(peerId: id);
-          if (!claimed) return;
-          var removed = false;
-          final name = peerState.displayName(id);
-          await pairedDevices!.update((state) {
-            if (!current()) return state;
-            removed = true;
-            return state.remove(id);
-          });
-          if (removed && mounted) {
-            _message(t.peerUnpaired(name));
-          } else if (mounted && identical(node, source)) {
-            await _syncTrustNow(source);
-          }
-        } catch (e) {
-          debugPrint('Could not update unpaired device: $e');
-          if (claimed && mounted && identical(node, source)) {
-            try {
-              await _syncTrustNow(source);
-            } catch (error) {
-              debugPrint('Could not restore trusted devices: $error');
-            }
-          }
-        }
-      });
-
-  Future<void> _requestPairing(String id) async {
-    if (shuttingDown || updates.installing) return;
-    final activeNode = node;
-    if (activeNode == null ||
-        changingRelay ||
-        outgoingPairings.containsKey(id)) {
-      return;
-    }
-    final attempt = OutgoingPairingSession(id);
-    outgoingPairings[id] = attempt;
-    final cancel = attempt.cancelled;
-    if (!incomingPairings.containsKey(id)) _replacePeerSession(id);
-    final session = presenceController.sessionFor(id);
-    var saved = false;
-    Future<DeviceInfo>? request;
-    OutgoingPairing? handle;
+  Future<void> _removeUnpaired(
+    VelaNode source,
+    String id,
+    Object relationship,
+  ) => pairings.serialize(id, () async {
+    final devices = pairedDevices;
+    if (!mounted || devices == null || !identical(devices.node, source)) return;
+    final name = devices.state.displayName(id);
     try {
-      await _pairingTransition(id, () => activeNode.beginPairing(peerId: id));
-      if (cancel.isCompleted || !identical(node, activeNode)) return;
-      handle = await activeNode.beginOutgoingPairing(peerId: id);
-      if (cancel.isCompleted || !identical(node, activeNode)) {
-        handle.cancel();
-        return;
-      }
-      attempt.handle = handle;
-      request = handle.request(name: deviceName, deviceType: deviceType);
-      final info = await Future.any<DeviceInfo?>([
-        request,
-        cancel.future.then((_) => null),
-      ]);
-      if (info == null ||
-          cancel.isCompleted ||
-          !identical(node, activeNode) ||
-          !identical(presenceController.sessionFor(id), session)) {
-        return;
-      }
-      await pairedDevices!.update((state) {
-        if (cancel.isCompleted ||
-            !identical(node, activeNode) ||
-            !identical(presenceController.sessionFor(id), session)) {
-          return state;
-        }
-        saved = true;
-        return state.add(id, info.name, info.deviceType);
-      });
-      if (saved) {
-        await _syncTrustNow(activeNode);
-        if (cancel.isCompleted ||
-            !identical(node, activeNode) ||
-            !identical(presenceController.sessionFor(id), session)) {
-          saved = false;
-          return;
-        }
-      }
-      if (saved && mounted) {
-        unawaited(presenceController.readSnapshot());
-        _message(t.addedPeer(info.name), kind: NoticeKind.success);
-      }
-    } catch (e) {
-      saved = false;
-      debugPrint('Pairing failed: $e');
-      if (mounted && !cancel.isCompleted) {
-        _message(
-          classifyTransferFailure(e) == TransferFailure.pairingDeclined
-              ? t.pairDeclined
-              : t.pairFailed,
-          kind: NoticeKind.error,
-        );
-      }
-    } finally {
-      attempt.arbitration.complete(saved);
-      if (!saved) {
-        try {
-          handle?.cancel();
-        } catch (e) {
-          debugPrint('Could not cancel pairing: $e');
-        }
-      }
-      if (request != null) {
-        try {
-          await request;
-        } catch (_) {}
-      }
-      if (identical(outgoingPairings[id], attempt)) {
-        outgoingPairings.remove(id);
-      }
-      try {
-        await _finishPairing(activeNode, id);
-      } catch (e) {
-        debugPrint('Could not finish pairing: $e');
-      }
+      final removed = await devices.removeIfUnpaired(
+        id,
+        relationship,
+        pairingActive: () => pairings.isActiveFor(id),
+      );
+      if (mounted && removed) _message(t.peerUnpaired(name));
+    } catch (error) {
+      debugPrint('Could not update unpaired device: $error');
     }
-  }
+  });
 
   Future<void> _addDevice() async {
     if (shuttingDown || updates.installing) return;
@@ -1986,27 +1559,40 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _message(t.cannotAddSelf, kind: NoticeKind.error);
       return;
     }
-    if (outgoingPairings.containsKey(id) || incomingPairings.containsKey(id)) {
+    if (pairings.isActiveFor(id)) {
       _message(t.pairConflict, kind: NoticeKind.error);
       return;
     }
-    setState(() => outgoingPairingUiActive = true);
-    activePairingPeer = id;
+    final devices = pairedDevices;
+    if (devices == null || shuttingDown || updates.installing) return;
+    setState(() => activePairingPeer = id);
     try {
-      await _requestPairing(id);
-    } finally {
-      activePairingPeer = null;
+      final peer = await pairings.request(devices, id);
+      if (peer != null && mounted) {
+        _message(t.addedPeer(peer.name), kind: NoticeKind.success);
+      }
+    } catch (e) {
+      debugPrint('Pairing failed: $e');
       if (mounted) {
-        setState(() => outgoingPairingUiActive = false);
+        _message(
+          classifyTransferFailure(e) == TransferFailure.pairingDeclined
+              ? t.pairDeclined
+              : t.pairFailed,
+          kind: NoticeKind.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => activePairingPeer = null);
         unawaited(presenceController.readSnapshot());
       }
     }
   }
 
-  Future<void> _cancelPairing() async {
+  void _cancelPairing() {
     final id = activePairingPeer;
     if (id == null) return;
-    outgoingPairings[id]?.cancel();
+    pairings.cancelOutgoing(id);
   }
 
   Future<void> _confirmAndRemovePeer(String id) async {
@@ -2728,8 +2314,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       !outgoingPairingUiActive &&
       !awaitingOfferDecision &&
       incomingOffersPending == 0 &&
-      incomingPairings.isEmpty &&
-      outgoingPairings.isEmpty;
+      !pairings.isActive;
 
   Future<T> _withRelayChange<T>(Future<T> Function() change) async {
     if (!canRestartNode || shuttingDown || updates.installing) {
@@ -3378,8 +2963,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _addHistory(TransferRecord record) => historyStore.add(record);
-
   Future<void> _removeHistory(
     Iterable<TransferRecord> records, {
     bool deleteFiles = false,
@@ -3468,20 +3051,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _openHistory(TransferRecord record) async {
-    if (record.path == null || !await _receivedExists(record.path!)) {
+    final reference = record.fileReference;
+    if (reference == null || !await _receivedExists(reference)) {
       _message(t.historyMissing, kind: NoticeKind.error);
       return;
     }
     if (record.kind.canRestoreFolder) {
-      await _restoreFolder(record.path!);
+      await _restoreFolder(reference);
       return;
     }
     if (!record.kind.isText) {
-      await _openReceived(record.path!);
+      await _openReceived(reference);
       return;
     }
     try {
-      final text = await File(record.path!).readAsString();
+      final text = await File(reference).readAsString();
       if (!mounted) return;
       await _showTextContent(text);
     } catch (_) {
@@ -3490,12 +3074,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _exportHistory(TransferRecord record) async {
-    if (record.path == null || !await _receivedExists(record.path!)) {
+    final reference = record.fileReference;
+    if (reference == null || !await _receivedExists(reference)) {
       _message(t.historyMissing, kind: NoticeKind.error);
       return;
     }
     try {
-      if (await receivedStorage.export(record.path!, record.name)) {
+      if (await receivedStorage.export(reference, record.name)) {
         _message(t.savedFile, kind: NoticeKind.success);
       }
     } catch (e) {
@@ -3515,10 +3100,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           remove: _removeHistory,
           openFolder: () => receivedStorage.openFolder(),
           reveal: (record) async {
-            if (record.path == null || !await _receivedExists(record.path!)) {
+            final reference = record.fileReference;
+            if (reference == null || !await _receivedExists(reference)) {
               throw StateError(t.historyMissing);
             }
-            await receivedStorage.openFolder(reference: record.path);
+            await receivedStorage.openFolder(reference: reference);
           },
         ),
       ),
@@ -3601,927 +3187,512 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  void _clearDeviceSelection() => setState(() {
+    selectedPeers.clear();
+    selectingPeers = false;
+  });
+
+  Widget _buildHomeToolbar(bool showingGraph) => HomeToolbar(
+    selection: selectingPeers
+        ? Row(
+            children: [
+              IconButton(
+                tooltip: t.cancel,
+                onPressed: _clearDeviceSelection,
+                icon: const Icon(Icons.close_rounded),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  t.selectedCount(selectedPeers.length),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              IconButton(
+                tooltip: t.selectAll,
+                onPressed: () =>
+                    setState(() => selectedPeers.addAll(peers.keys)),
+                icon: const Icon(Icons.select_all_rounded),
+              ),
+              IconButton(
+                tooltip: t.removeDevice,
+                onPressed: _deviceActionsBlocked || selectedPeers.isEmpty
+                    ? null
+                    : _removeSelectedPeers,
+                icon: const Icon(Icons.delete_outline_rounded),
+              ),
+            ],
+          )
+        : null,
+    addDevice: peers.isEmpty
+        ? null
+        : HomeToolbarAction(
+            'add',
+            t.addDevice,
+            Icons.add_rounded,
+            node == null || _deviceActionsBlocked ? null : _addDevice,
+            key: const ValueKey('add-device'),
+          ),
+    actions: [
+      if (peers.isNotEmpty) ...[
+        HomeToolbarAction(
+          'refresh',
+          checkingPeers ? t.checking : t.refreshDevices,
+          Icons.refresh_rounded,
+          checkingPeers
+              ? null
+              : () => presenceController.probePeers(userInitiated: true),
+          key: const ValueKey('refresh-devices'),
+          buttonIcon: checkingPeers
+              ? const SizedBox(
+                  key: ValueKey('manual-refresh-progress'),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : null,
+        ),
+        HomeToolbarAction(
+          'view',
+          showingGraph ? t.showList : t.showGraph,
+          showingGraph ? Icons.view_list_rounded : Icons.hub_outlined,
+          () => _toggleDeviceView(showingGraph),
+          key: const ValueKey('toggle-device-view'),
+        ),
+        HomeToolbarAction(
+          'select',
+          t.selectDevices,
+          Icons.checklist_rounded,
+          _deviceActionsBlocked
+              ? null
+              : () => setState(() => selectingPeers = true),
+          key: const ValueKey('select-devices'),
+        ),
+      ],
+      if (node != null) ...[
+        HomeToolbarAction(
+          'device',
+          t.myDevice,
+          Icons.qr_code_rounded,
+          _showMyDeviceDialog,
+        ),
+        HomeToolbarAction(
+          'history',
+          t.transferHistory,
+          Icons.history_rounded,
+          _showHistory,
+          key: const ValueKey('transfer-history'),
+        ),
+      ],
+    ],
+    onSettings: node == null ? null : _showSettings,
+  );
+
+  bool get _deviceActionsBlocked =>
+      contentOperationActive || outgoingPairingUiActive;
+
+  List<Widget> _sendButtons() {
+    final enabled = !_deviceActionsBlocked && !selectingPeers;
+    return [
+      HomeSendButton(
+        key: const ValueKey('send-file'),
+        label: t.files,
+        icon: Icons.insert_drive_file_outlined,
+        onPressed: enabled ? () => _chooseAndSend() : null,
+      ),
+      HomeSendButton(
+        key: const ValueKey('send-folder'),
+        label: t.folder,
+        icon: Icons.folder_outlined,
+        onPressed: enabled ? _chooseAndSendFolder : null,
+      ),
+      if (Platform.isAndroid)
+        HomeSendButton(
+          key: const ValueKey('send-media'),
+          label: t.media,
+          icon: Icons.photo_library_outlined,
+          onPressed: enabled ? () => _chooseAndSend(media: true) : null,
+        ),
+      HomeSendButton(
+        key: const ValueKey('send-text'),
+        label: t.textContent,
+        icon: Icons.edit_outlined,
+        onPressed: enabled ? _composeAndSendText : null,
+      ),
+      HomeSendButton(
+        key: const ValueKey('send-clipboard'),
+        label: t.clipboard,
+        icon: Icons.content_paste_go_rounded,
+        onPressed: enabled ? () => _chooseAndSend(clipboard: true) : null,
+      ),
+    ];
+  }
+
+  void _tapDevice(String id) {
+    if (selectingPeers) {
+      _togglePeerSelection(id);
+    } else if (pendingShare case final share?) {
+      _sendShare(id, peerState.displayName(id), share);
+    } else {
+      _showDeviceDetails(id);
+    }
+  }
+
+  List<Widget> _deviceSlivers(bool showingGraph) {
+    final colors = Theme.of(context).colorScheme;
+    return [
+      if (showingGraph)
+        SliverLayoutBuilder(
+          builder: (context, constraints) {
+            final height =
+                (constraints.viewportMainAxisExtent -
+                        constraints.precedingScrollExtent -
+                        32)
+                    .clamp(100.0, double.infinity);
+            return SliverToBoxAdapter(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      (constraints.viewportMainAxisExtent -
+                              constraints.precedingScrollExtent)
+                          .clamp(0.0, double.infinity),
+                ),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 32),
+                    child: DeviceGraph(
+                      availableHeight: height,
+                      minimumScale: .5,
+                      peers: peers.keys.toList(),
+                      selfName: deviceName,
+                      selfLabel: t.myDevice,
+                      selfIcon: _iconForType(deviceType),
+                      name: peerState.displayName,
+                      icon: _deviceIcon,
+                      presence: _presenceIcon,
+                      selected: selectedPeers,
+                      selecting: selectingPeers,
+                      onSelfTap: _showMyDeviceDialog,
+                      enabled: !_deviceActionsBlocked,
+                      onTap: _tapDevice,
+                      onLongPress: _togglePeerSelection,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        )
+      else
+        SliverPadding(
+          padding: EdgeInsets.zero,
+          sliver: SliverList.builder(
+            itemCount: peers.length,
+            itemBuilder: (context, index) {
+              final id = peers.keys.elementAt(index);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: selectedPeers.contains(id)
+                      ? colors.secondaryContainer
+                      : colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(18),
+                  child: ListTile(
+                    key: ValueKey('peer-$id'),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    leading: Icon(_deviceIcon(id), color: colors.primary),
+                    title: Text(
+                      peerState.displayName(id),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    trailing: selectingPeers
+                        ? Semantics(
+                            label: peerState.displayName(id),
+                            child: Checkbox(
+                              value: selectedPeers.contains(id),
+                              onChanged: _deviceActionsBlocked
+                                  ? null
+                                  : (_) => _togglePeerSelection(id),
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _presenceIcon(id),
+                              const SizedBox(width: 14),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                    onLongPress: _deviceActionsBlocked
+                        ? null
+                        : () => _togglePeerSelection(id),
+                    onTap: _deviceActionsBlocked ? null : () => _tapDevice(id),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      if (!showingGraph) const SliverToBoxAdapter(child: SizedBox(height: 32)),
+    ];
+  }
+
+  Widget _buildDeviceViewport(BuildContext context, BoxConstraints viewport) {
+    final colors = Theme.of(context).colorScheme;
+    final wide = viewport.maxWidth >= 700;
+    final compactHeader = wide && viewport.maxHeight < 500 && !Platform.isMacOS;
+    final headerTop = Platform.isMacOS
+        ? 44.0
+        : compactHeader
+        ? 4.0
+        : 24.0;
+    final headerBottom = compactHeader ? 4.0 : 12.0;
+    final deviceHeight = viewport.maxHeight - headerTop - 48 - headerBottom;
+    if (node != null && automaticGraph == null) {
+      automaticGraph = viewport.maxWidth >= 640 && deviceHeight >= 360;
+    }
+    final showingGraph =
+        deviceView == 'graph' ||
+        (deviceView == null && (automaticGraph ?? false));
+
+    final actions = _sendButtons();
+    return CustomScrollView(
+      physics: const ClampingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(24, headerTop, 24, headerBottom),
+          sliver: SliverToBoxAdapter(child: _buildHomeToolbar(showingGraph)),
+        ),
+        if (error != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t.startupFailed, style: TextStyle(color: colors.error)),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          setState(() => error = null);
+                          unawaited(_retryFromUI());
+                        },
+                        child: Text(t.retry),
+                      ),
+                      if (Platform.isAndroid ||
+                          Platform.isMacOS ||
+                          DesktopPlatform.isWindowsOrLinux)
+                        TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => BackgroundSettingsPage(
+                                profile: widget.profile,
+                                onChanged: _backgroundPresenceChanged,
+                              ),
+                            ),
+                          ),
+                          child: Text(t.backgroundReceiving),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (node == null)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          )
+        else if (peers.isEmpty)
+          EmptyDevicesSliver(
+            onAddDevice: _deviceActionsBlocked ? null : _addDevice,
+          )
+        else
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: math.max(
+                wide ? actions.length * 40.0 + (actions.length - 1) * 6 : 220.0,
+                deviceHeight,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: HomeResponsiveLayout(
+                  wide: wide,
+                  actions: actions,
+                  devices: CustomScrollView(
+                    key: const ValueKey('home-devices'),
+                    physics: const ClampingScrollPhysics(),
+                    slivers: _deviceSlivers(showingGraph),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget? _buildActivityNotice() {
+    final colors = Theme.of(context).colorScheme;
+    return outgoingPairingUiActive ||
+            (contentOperationActive && activity != null)
+        ? ActivityNotice(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        cancelling
+                            ? t.cancelling
+                            : contentOperationActive && activity != null
+                            ? activity!
+                            : t.connectingPair,
+                        key: const ValueKey('activity-status'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (contentOperationActive && connectionRoute.isNotEmpty)
+                      Tooltip(
+                        message: connectionRoute == 'direct'
+                            ? t.directConnection
+                            : t.relayConnection,
+                        child: Icon(
+                          connectionRoute == 'direct'
+                              ? Icons.link_rounded
+                              : Icons.cloud_outlined,
+                          key: const ValueKey('transfer-path'),
+                          size: 20,
+                        ),
+                      ),
+                    if (contentOperationActive)
+                      IconButton(
+                        key: const ValueKey('cancel-transfer'),
+                        tooltip: t.cancel,
+                        onPressed: cancelling ? null : _cancelTransfer,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    if (outgoingPairingUiActive)
+                      IconButton(
+                        key: const ValueKey('cancel-pairing'),
+                        tooltip: t.cancel,
+                        onPressed: _cancelPairing,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                  ],
+                ),
+                if (contentOperationActive && transferProgress != null) ...[
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(value: transferProgress),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${_size(transferredBytes)} / ${_size(totalBytes)} · ${(transferProgress! * 100).floor()}%',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSecondaryContainer.withValues(
+                              alpha: .75,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (hasTransferred &&
+                          transferRate?.bytesPerSecond != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_size(transferRate!.bytesPerSecond!.round())}/s',
+                          key: const ValueKey('transfer-speed'),
+                          style: TextStyle(
+                            color: colors.onSecondaryContainer.withValues(
+                              alpha: .75,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          )
+        : pendingShare != null
+        ? ActivityNotice(
+            child: Row(
+              children: [
+                const Icon(Icons.share_rounded, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    pendingShare!.hasFiles ? t.selectedFile : t.selectedText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  tooltip: t.cancelShare,
+                  onPressed: () {
+                    final share = pendingShare;
+                    setState(() => pendingShare = null);
+                    if (share != null) unawaited(_releaseShare(share));
+                  },
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          )
+        : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final page = Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, viewport) {
-            final headerButtonWidth = math.min(
-              44.0,
-              math.max(0.0, (viewport.maxWidth - 48 - 8) / 3),
-            );
-            final toolbarActions = <String>[
-              if (peers.isNotEmpty) ...['add', 'refresh', 'view', 'select'],
-              if (node != null) ...['device', 'history'],
-            ];
-            final toolbarSlots = ((viewport.maxWidth - 48 - 112 - 44) / 44)
-                .floor()
-                .clamp(0, toolbarActions.length);
-            final visibleActions = toolbarActions.take(toolbarSlots).toSet();
-            Widget toolbarSlot(String action, Widget button) {
-              if (!visibleActions.contains(action)) {
-                return const SizedBox.shrink();
-              }
-              if (MediaQuery.disableAnimationsOf(context)) return button;
-              return TweenAnimationBuilder<double>(
-                key: ValueKey('toolbar-fade-$action'),
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOut,
-                builder: (_, opacity, child) =>
-                    Opacity(opacity: opacity, child: child),
-                child: button,
-              );
-            }
-
-            final wide = viewport.maxWidth >= 700;
-            final compactHeader =
-                wide && viewport.maxHeight < 500 && !Platform.isMacOS;
-            final headerTop = Platform.isMacOS
-                ? 44.0
-                : compactHeader
-                ? 4.0
-                : 24.0;
-            final headerBottom = compactHeader ? 4.0 : 12.0;
-            final deviceHeight =
-                viewport.maxHeight - headerTop - 48 - headerBottom;
-            if (node != null && automaticGraph == null) {
-              automaticGraph = viewport.maxWidth >= 640 && deviceHeight >= 360;
-            }
-            final showingGraph =
-                deviceView == 'graph' ||
-                (deviceView == null && (automaticGraph ?? false));
-
-            final actions = <(String, String, IconData, VoidCallback)>[
-              (
-                'send-file',
-                t.files,
-                Icons.insert_drive_file_outlined,
-                () => _chooseAndSend(),
-              ),
-              (
-                'send-folder',
-                t.folder,
-                Icons.folder_outlined,
-                _chooseAndSendFolder,
-              ),
-              if (Platform.isAndroid)
-                (
-                  'send-media',
-                  t.media,
-                  Icons.photo_library_outlined,
-                  () => _chooseAndSend(media: true),
-                ),
-              (
-                'send-text',
-                t.textContent,
-                Icons.edit_outlined,
-                _composeAndSendText,
-              ),
-              (
-                'send-clipboard',
-                t.clipboard,
-                Icons.content_paste_go_rounded,
-                () => _chooseAndSend(clipboard: true),
-              ),
-            ];
-
-            List<Widget> devices() => [
-              if (showingGraph)
-                SliverLayoutBuilder(
-                  builder: (context, constraints) {
-                    final height =
-                        (constraints.viewportMainAxisExtent -
-                                constraints.precedingScrollExtent -
-                                32)
-                            .clamp(100.0, double.infinity);
-                    return SliverToBoxAdapter(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight:
-                              (constraints.viewportMainAxisExtent -
-                                      constraints.precedingScrollExtent)
-                                  .clamp(0.0, double.infinity),
-                        ),
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 32),
-                            child: DeviceGraph(
-                              availableHeight: height,
-                              minimumScale: .5,
-                              peers: peers.keys.toList(),
-                              selfName: deviceName,
-                              selfLabel: t.myDevice,
-                              selfIcon: _iconForType(deviceType),
-                              name: peerState.displayName,
-                              icon: _deviceIcon,
-                              presence: _presenceIcon,
-                              selected: selectedPeers,
-                              selecting: selectingPeers,
-                              onSelfTap: _showMyDeviceDialog,
-                              enabled:
-                                  !contentOperationActive &&
-                                  !outgoingPairingUiActive,
-                              onTap: (id) => selectingPeers
-                                  ? _togglePeerSelection(id)
-                                  : pendingShare == null
-                                  ? _showDeviceDetails(id)
-                                  : _sendShare(
-                                      id,
-                                      peerState.displayName(id),
-                                      pendingShare!,
-                                    ),
-                              onLongPress: _togglePeerSelection,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                )
-              else
-                SliverPadding(
-                  padding: EdgeInsets.zero,
-                  sliver: SliverList.builder(
-                    itemCount: peers.length,
-                    itemBuilder: (context, index) {
-                      final id = peers.keys.elementAt(index);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Material(
-                          color: selectedPeers.contains(id)
-                              ? colors.secondaryContainer
-                              : colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(18),
-                          child: ListTile(
-                            key: ValueKey('peer-$id'),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            leading: Icon(
-                              _deviceIcon(id),
-                              color: colors.primary,
-                            ),
-                            title: Text(
-                              peerState.displayName(id),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            trailing: selectingPeers
-                                ? Semantics(
-                                    label: peerState.displayName(id),
-                                    child: Checkbox(
-                                      value: selectedPeers.contains(id),
-                                      onChanged:
-                                          contentOperationActive ||
-                                              outgoingPairingUiActive
-                                          ? null
-                                          : (_) => _togglePeerSelection(id),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _presenceIcon(id),
-                                      const SizedBox(width: 14),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        color: colors.onSurfaceVariant,
-                                      ),
-                                    ],
-                                  ),
-                            onLongPress:
-                                contentOperationActive ||
-                                    outgoingPairingUiActive
-                                ? null
-                                : () => _togglePeerSelection(id),
-                            onTap:
-                                contentOperationActive ||
-                                    outgoingPairingUiActive
-                                ? null
-                                : () => selectingPeers
-                                      ? _togglePeerSelection(id)
-                                      : pendingShare == null
-                                      ? _showDeviceDetails(id)
-                                      : _sendShare(
-                                          id,
-                                          peerState.displayName(id),
-                                          pendingShare!,
-                                        ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              if (!showingGraph)
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            ];
-
-            return CustomScrollView(
-              physics: const ClampingScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(24, headerTop, 24, headerBottom),
-                  sliver: SliverToBoxAdapter(
-                    child: IconButtonTheme(
-                      data: IconButtonThemeData(
-                        style: IconButton.styleFrom(
-                          minimumSize: Size(headerButtonWidth, 48),
-                          fixedSize: Size(headerButtonWidth, 48),
-                          padding: EdgeInsets.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          if (selectingPeers) ...[
-                            IconButton(
-                              tooltip: t.cancel,
-                              onPressed: () => setState(() {
-                                selectedPeers.clear();
-                                selectingPeers = false;
-                              }),
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                t.selectedCount(selectedPeers.length),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: t.selectAll,
-                              onPressed: () => setState(
-                                () => selectedPeers.addAll(peers.keys),
-                              ),
-                              icon: const Icon(Icons.select_all_rounded),
-                            ),
-                            IconButton(
-                              tooltip: t.removeDevice,
-                              onPressed:
-                                  contentOperationActive ||
-                                      outgoingPairingUiActive ||
-                                      selectedPeers.isEmpty
-                                  ? null
-                                  : _removeSelectedPeers,
-                              icon: const Icon(Icons.delete_outline_rounded),
-                            ),
-                          ] else ...[
-                            Expanded(
-                              child: Text(
-                                t.devices,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.headlineSmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            SizedBox(
-                              width: math.min(
-                                16,
-                                math.max(0, viewport.maxWidth - 64),
-                              ),
-                            ),
-                            toolbarSlot(
-                              'refresh',
-                              IconButton(
-                                key: const ValueKey('refresh-devices'),
-                                tooltip: checkingPeers
-                                    ? t.checking
-                                    : t.refreshDevices,
-                                onPressed: checkingPeers
-                                    ? null
-                                    : () => presenceController.probePeers(
-                                        userInitiated: true,
-                                      ),
-                                icon: checkingPeers
-                                    ? const SizedBox(
-                                        key: ValueKey(
-                                          'manual-refresh-progress',
-                                        ),
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.refresh_rounded),
-                              ),
-                            ),
-                            toolbarSlot(
-                              'view',
-                              IconButton(
-                                key: const ValueKey('toggle-device-view'),
-                                tooltip: showingGraph
-                                    ? t.showList
-                                    : t.showGraph,
-                                onPressed: () =>
-                                    _toggleDeviceView(showingGraph),
-                                icon: Icon(
-                                  showingGraph
-                                      ? Icons.view_list_rounded
-                                      : Icons.hub_outlined,
-                                ),
-                              ),
-                            ),
-                            toolbarSlot(
-                              'select',
-                              IconButton(
-                                key: const ValueKey('select-devices'),
-                                tooltip: t.selectDevices,
-                                onPressed:
-                                    contentOperationActive ||
-                                        outgoingPairingUiActive
-                                    ? null
-                                    : () =>
-                                          setState(() => selectingPeers = true),
-                                icon: const Icon(Icons.checklist_rounded),
-                              ),
-                            ),
-                            toolbarSlot(
-                              'device',
-                              IconButton(
-                                tooltip: t.myDevice,
-                                onPressed: _showMyDeviceDialog,
-                                icon: const Icon(Icons.qr_code_rounded),
-                              ),
-                            ),
-                            toolbarSlot(
-                              'history',
-                              IconButton(
-                                key: const ValueKey('transfer-history'),
-                                tooltip: t.transferHistory,
-                                onPressed: _showHistory,
-                                icon: const Icon(Icons.history_rounded),
-                              ),
-                            ),
-                            toolbarSlot(
-                              'add',
-                              IconButton(
-                                key: const ValueKey('add-device'),
-                                tooltip: t.addDevice,
-                                onPressed:
-                                    node == null ||
-                                        outgoingPairingUiActive ||
-                                        contentOperationActive
-                                    ? null
-                                    : _addDevice,
-                                icon: const Icon(Icons.add_rounded),
-                              ),
-                            ),
-                            if (node != null &&
-                                visibleActions.length == toolbarActions.length)
-                              IconButton(
-                                key: const ValueKey('home-settings'),
-                                tooltip: t.settings,
-                                onPressed: _showSettings,
-                                icon: const Icon(Icons.settings_outlined),
-                              )
-                            else if (node != null)
-                              PopupMenuButton<String>(
-                                key: const ValueKey('home-more'),
-                                tooltip: MaterialLocalizations.of(context)
-                                    .showMenuTooltip,
-                                icon: const Icon(Icons.more_vert_rounded),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                onSelected: (value) {
-                                  switch (value) {
-                                    case 'add':
-                                      _addDevice();
-                                    case 'view':
-                                      _toggleDeviceView(showingGraph);
-                                    case 'select':
-                                      setState(() => selectingPeers = true);
-                                    case 'refresh':
-                                      presenceController.probePeers(
-                                        userInitiated: true,
-                                      );
-                                    case 'device':
-                                      _showMyDeviceDialog();
-                                    case 'history':
-                                      _showHistory();
-                                    case 'settings':
-                                      _showSettings();
-                                  }
-                                },
-                                itemBuilder: (_) => [
-                                  if (toolbarActions.contains('add') &&
-                                      !visibleActions.contains('add'))
-                                    PopupMenuItem(
-                                      value: 'add',
-                                      key: const ValueKey('add-device'),
-                                      enabled:
-                                          !outgoingPairingUiActive &&
-                                          !contentOperationActive,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.add_rounded,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(t.addDevice),
-                                        ],
-                                      ),
-                                    ),
-                                  if (toolbarActions.contains('refresh') &&
-                                      !visibleActions.contains('refresh'))
-                                    PopupMenuItem(
-                                      value: 'refresh',
-                                      key: const ValueKey('refresh-devices'),
-                                      enabled: !checkingPeers,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.refresh_rounded,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            checkingPeers
-                                                ? t.checking
-                                                : t.refreshDevices,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  if (toolbarActions.contains('view') &&
-                                      !visibleActions.contains('view'))
-                                    PopupMenuItem(
-                                      value: 'view',
-                                      key: const ValueKey('toggle-device-view'),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            showingGraph
-                                                ? Icons.view_list_rounded
-                                                : Icons.hub_outlined,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            showingGraph
-                                                ? t.showList
-                                                : t.showGraph,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  if (toolbarActions.contains('select') &&
-                                      !visibleActions.contains('select'))
-                                    PopupMenuItem(
-                                      value: 'select',
-                                      key: const ValueKey('select-devices'),
-                                      enabled:
-                                          !contentOperationActive &&
-                                          !outgoingPairingUiActive,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.checklist_rounded,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(t.selectDevices),
-                                        ],
-                                      ),
-                                    ),
-                                  if (toolbarActions.contains('device') &&
-                                      !visibleActions.contains('device'))
-                                    PopupMenuItem(
-                                      value: 'device',
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.qr_code_rounded,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(t.myDevice),
-                                        ],
-                                      ),
-                                    ),
-                                  if (toolbarActions.contains('history') &&
-                                      !visibleActions.contains('history'))
-                                    PopupMenuItem(
-                                      value: 'history',
-                                      child: Row(
-                                        key: const ValueKey('transfer-history'),
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.history_rounded,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(t.transferHistory),
-                                        ],
-                                      ),
-                                    ),
-                                  PopupMenuItem(
-                                    value: 'settings',
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.settings_outlined,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Text(t.settings),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                if (error != null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            t.startupFailed,
-                            style: TextStyle(color: colors.error),
-                          ),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              TextButton(
-                                onPressed: () {
-                                  setState(() => error = null);
-                                  unawaited(_retryFromUI());
-                                },
-                                child: Text(t.retry),
-                              ),
-                              if (Platform.isAndroid ||
-                                  Platform.isMacOS ||
-                                  DesktopPlatform.isWindowsOrLinux)
-                                TextButton(
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => BackgroundSettingsPage(
-                                        profile: widget.profile,
-                                        onChanged: _backgroundPresenceChanged,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Text(t.backgroundReceiving),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else if (node == null)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  )
-                else if (peers.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 72),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 152,
-                              height: 112,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Positioned(
-                                    left: 8,
-                                    top: 8,
-                                    child: Container(
-                                      width: 106,
-                                      height: 78,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xffe9ecfc),
-                                        borderRadius: BorderRadius.circular(24),
-                                      ),
-                                      child: Icon(
-                                        Icons.laptop_mac_rounded,
-                                        size: 46,
-                                        color: colors.primary,
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    right: 8,
-                                    bottom: 4,
-                                    child: Container(
-                                      width: 57,
-                                      height: 74,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(19),
-                                        border: Border.all(
-                                          color: const Color(0xffe5e8f4),
-                                        ),
-                                      ),
-                                      child: Icon(
-                                        Icons.phone_android_rounded,
-                                        size: 32,
-                                        color: colors.primary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              t.connectDevices,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              t.emptyDevices,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: colors.onSurfaceVariant),
-                            ),
-                            const SizedBox(height: 24),
-                            FilledButton.icon(
-                              key: const ValueKey('add-device'),
-                              onPressed:
-                                  outgoingPairingUiActive ||
-                                      contentOperationActive
-                                  ? null
-                                  : _addDevice,
-                              icon: const Icon(Icons.add_rounded),
-                              label: Text(t.addDevice),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: math.max(
-                        wide
-                            ? actions.length * 40.0 + (actions.length - 1) * 6
-                            : 220.0,
-                        deviceHeight,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: HomeResponsiveLayout(
-                          wide: wide,
-                          actions: [
-                            for (final (key, label, icon, action) in actions)
-                              FilledButton.tonal(
-                                key: ValueKey(key),
-                                onPressed:
-                                    contentOperationActive ||
-                                        outgoingPairingUiActive ||
-                                        selectingPeers
-                                    ? null
-                                    : action,
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                ),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) =>
-                                      constraints.maxWidth < 90
-                                      ? Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              icon,
-                                              size: math.min(
-                                                18,
-                                                constraints.maxWidth,
-                                              ),
-                                            ),
-                                            Flexible(
-                                              child: Text(
-                                                label,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(icon, size: 20),
-                                            const SizedBox(width: 6),
-                                            Flexible(
-                                              child: Text(
-                                                label,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              ),
-                          ],
-                          devices: CustomScrollView(
-                            key: const ValueKey('home-devices'),
-                            physics: const ClampingScrollPhysics(),
-                            slivers: devices(),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-      bottomNavigationBar:
-          outgoingPairingUiActive ||
-              (contentOperationActive && activity != null)
-          ? ActivityNotice(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colors.onSecondaryContainer,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          cancelling
-                              ? t.cancelling
-                              : contentOperationActive && activity != null
-                              ? activity!
-                              : t.connectingPair,
-                          key: const ValueKey('activity-status'),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (contentOperationActive && transferPath.isNotEmpty)
-                        Tooltip(
-                          message: transferPath == 'direct'
-                              ? t.directConnection
-                              : transferPath == 'mixed'
-                              ? t.mixedConnection
-                              : t.relayConnection,
-                          child: Icon(
-                            transferPath == 'direct'
-                                ? Icons.link_rounded
-                                : transferPath == 'mixed'
-                                ? Icons.swap_horiz_rounded
-                                : Icons.cloud_outlined,
-                            key: const ValueKey('transfer-path'),
-                            size: 20,
-                          ),
-                        ),
-                      if (contentOperationActive)
-                        IconButton(
-                          key: const ValueKey('cancel-transfer'),
-                          tooltip: t.cancel,
-                          onPressed: cancelling ? null : _cancelTransfer,
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      if (outgoingPairingUiActive)
-                        IconButton(
-                          key: const ValueKey('cancel-pairing'),
-                          tooltip: t.cancel,
-                          onPressed: activePairingPeer == null
-                              ? null
-                              : _cancelPairing,
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                    ],
-                  ),
-                  if (contentOperationActive && transferProgress != null) ...[
-                    const SizedBox(height: 14),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(value: transferProgress),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${_size(transferredBytes)} / ${_size(totalBytes)} · ${(transferProgress! * 100).floor()}%',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.onSecondaryContainer.withValues(
-                                alpha: .75,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (hasTransferred &&
-                            transferRate?.bytesPerSecond != null) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_size(transferRate!.bytesPerSecond!.round())}/s',
-                            key: const ValueKey('transfer-speed'),
-                            style: TextStyle(
-                              color: colors.onSecondaryContainer.withValues(
-                                alpha: .75,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            )
-          : pendingShare != null
-          ? ActivityNotice(
-              child: Row(
-                children: [
-                  const Icon(Icons.share_rounded, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      pendingShare!.hasFiles ? t.selectedFile : t.selectedText,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: t.cancelShare,
-                    onPressed: () {
-                      final share = pendingShare;
-                      setState(() => pendingShare = null);
-                      if (share != null) unawaited(_releaseShare(share));
-                    },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            )
-          : null,
+      body: SafeArea(child: LayoutBuilder(builder: _buildDeviceViewport)),
+      bottomNavigationBar: _buildActivityNotice(),
     );
     return PopScope(
       canPop: !selectingPeers,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && selectingPeers) {
-          setState(() {
-            selectedPeers.clear();
-            selectingPeers = false;
-          });
-        }
+        if (!didPop && selectingPeers) _clearDeviceSelection();
       },
       child: Platform.isMacOS || DesktopPlatform.isWindowsOrLinux
           ? DropTarget(
               enable:
                   node != null &&
-                  !contentOperationActive &&
-                  !outgoingPairingUiActive &&
+                  !_deviceActionsBlocked &&
                   (ModalRoute.of(context)?.isCurrent ?? true),
               onDragEntered: (_) => setState(() => dropHover = true),
               onDragExited: (_) => setState(() => dropHover = false),

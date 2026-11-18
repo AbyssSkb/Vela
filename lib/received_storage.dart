@@ -7,6 +7,9 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'content_kind.dart';
+import 'desktop_platform.dart';
+
 class ReceiveLocation {
   const ReceiveLocation({
     required this.isDefault,
@@ -36,14 +39,20 @@ class ReceiveLocation {
 }
 
 class SavedReceivedFile {
-  const SavedReceivedFile({required this.reference, required this.name});
+  const SavedReceivedFile({
+    required this.reference,
+    required this.name,
+    required this.size,
+  });
 
   // A local path or a platform document URI; use ReceivedStorage to access it.
   final String reference;
   final String name;
+  final int size;
 
-  factory SavedReceivedFile.fromMap(Map<dynamic, dynamic> value) {
-    if (value['path'] is! String ||
+  factory SavedReceivedFile._fromPlatform(Object? value, int size) {
+    if (value is! Map ||
+        value['path'] is! String ||
         value['path'] == '' ||
         value['name'] is! String ||
         value['name'] == '') {
@@ -52,6 +61,7 @@ class SavedReceivedFile {
     return SavedReceivedFile(
       reference: value['path'] as String,
       name: value['name'] as String,
+      size: size,
     );
   }
 }
@@ -87,6 +97,26 @@ class ReceivedStorage {
     final value = await _storage.invokeMapMethod<dynamic, dynamic>('location');
     if (value == null) throw const FormatException('Missing receive location');
     return ReceiveLocation.fromMap(value);
+  }
+
+  Future<({String path, bool privateFallback})> receiveDirectory(
+    String profile,
+    TransferKind kind,
+  ) async {
+    final base = Platform.isAndroid
+        ? await getApplicationSupportDirectory()
+        : await getApplicationDocumentsDirectory();
+    final privateDir = await Directory('${base.path}/Vela/$profile')
+        .create(recursive: true);
+    if (DesktopPlatform.isDesktop && kind.isFile) {
+      try {
+        return (path: (await writableDirectory()).path, privateFallback: false);
+      } catch (e) {
+        debugPrint('Save location unavailable: $e');
+        return (path: privateDir.path, privateFallback: true);
+      }
+    }
+    return (path: privateDir.path, privateFallback: false);
   }
 
   Future<Directory> writableDirectory() async {
@@ -137,17 +167,56 @@ class ReceivedStorage {
     await _storage.invokeMethod<void>('reset');
   }
 
-  Future<List<SavedReceivedFile>> saveReceived(List<String> paths) async {
-    final values = await _storage.invokeListMethod<dynamic>('saveReceived', {
-      'paths': paths,
-    });
-    if (values == null || values.length != paths.length) {
-      throw const FormatException('Save did not finish');
+  Future<({List<SavedReceivedFile> files, bool savedPrivately})> finishReceive(
+    List<String> paths, {
+    required bool publishFromStaging,
+    required bool Function() isCancelled,
+  }) async {
+    final local = await Future.wait(
+      paths.map((path) async {
+        final file = File(path);
+        return SavedReceivedFile(
+          reference: path,
+          name: file.uri.pathSegments.last,
+          size: await file.length(),
+        );
+      }),
+    );
+    if (!publishFromStaging) return (files: local, savedPrivately: false);
+
+    try {
+      if (isCancelled()) throw PlatformException(code: 'cancelled');
+      final values = await _storage.invokeListMethod<dynamic>('saveReceived', {
+        'paths': paths,
+      });
+      if (values == null || values.length != paths.length) {
+        throw const FormatException('Save did not finish');
+      }
+      final saved = [
+        for (var i = 0; i < values.length; i++)
+          SavedReceivedFile._fromPlatform(values[i], local[i].size),
+      ];
+      await _deleteStagedFiles(paths);
+      return (files: saved, savedPrivately: false);
+    } catch (error) {
+      if (isCancelled() ||
+          (error is PlatformException && error.code == 'cancelled')) {
+        await _deleteStagedFiles(paths);
+        rethrow;
+      }
+      debugPrint('Could not save to selected location: $error');
+      return (files: local, savedPrivately: true);
     }
-    return values.map((value) {
-      if (value is! Map) throw const FormatException('Invalid saved file');
-      return SavedReceivedFile.fromMap(value);
-    }).toList();
+  }
+
+  Future<void> _deleteStagedFiles(List<String> paths) async {
+    for (final path in paths) {
+      try {
+        await File(path).delete();
+      } on FileSystemException catch (error) {
+        debugPrint('Could not remove temporary file: $error');
+      }
+    }
   }
 
   Future<void> cancelSave() => _storage.invokeMethod<void>('cancelSave');

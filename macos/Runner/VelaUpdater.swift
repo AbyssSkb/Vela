@@ -31,18 +31,6 @@ final class VelaUpdater: NSObject, SPUUserDriver, SPUUpdaterDelegate {
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "info":
-      #if arch(arm64)
-        let arch = "arm64"
-      #else
-        let arch = "x64"
-      #endif
-      result([
-        "platform": "macos", "arch": arch,
-        "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-          ?? "0.0.0",
-        "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0",
-      ])
     case "getUpdateDirectory":
       do {
         let directory = try FileManager.default.url(
@@ -55,7 +43,7 @@ final class VelaUpdater: NSObject, SPUUserDriver, SPUUpdaterDelegate {
       }
     case "setBusy":
       guard let args = call.arguments as? [String: Any], let value = args["busy"] as? Bool else {
-        result(FlutterError(code: "update_busy", message: "Missing activity state", details: nil))
+        result(FlutterError(code: "invalid_arguments", message: "Missing activity state", details: nil))
         return
       }
       busy = value
@@ -75,7 +63,7 @@ final class VelaUpdater: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         return
       }
       guard !busy, !installing else {
-        result(FlutterError(code: "update_busy", message: "Wait for active tasks to finish", details: nil))
+        result(FlutterError(code: "busy", message: "Wait for active tasks to finish", details: nil))
         return
       }
       installing = true
@@ -83,7 +71,9 @@ final class VelaUpdater: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         guard let self else { return }
         guard response as? Bool == true, !self.busy else {
           self.installing = false
-          result(FlutterError(code: "update_busy", message: "Could not prepare to install", details: nil))
+          let busy = self.busy || (response as? FlutterError)?.code == "busy"
+          result(FlutterError(code: busy ? "busy" : "update_failed",
+                              message: "Could not prepare to install", details: nil))
           return
         }
         self.feedURL = feed

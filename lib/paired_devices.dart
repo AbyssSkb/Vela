@@ -13,16 +13,17 @@ class PairedDevices {
     required PeerState initialState,
     this.onMembershipChanging,
     this.onStateChanged,
-    this.onRestore,
     this.onMembershipSettled,
-  }) : _state = initialState;
+  }) : _state = initialState,
+       _relationships = {
+         for (final id in initialState.peers.keys) id: Object(),
+       };
 
   final VelaNode node;
   final PeerStore store;
-  final void Function(PeerState old, PeerState updated, Set<String> changed)?
+  final void Function(PeerState updated, Set<String> changed)?
   onMembershipChanging;
   final void Function(PeerState state, Set<String> changed)? onStateChanged;
-  final void Function(PeerState state)? onRestore;
   final void Function(Set<String> changed)? onMembershipSettled;
 
   PeerState _state;
@@ -33,19 +34,22 @@ class PairedDevices {
   bool _closed = false;
   Future<void>? _closing;
 
+  // An in-flight decision is valid only for the relationship it started under.
+  final Map<String, Object> _relationships;
+  Object? relationshipFor(String id) => _relationships[id];
+  bool isCurrentRelationship(String id, Object? relationship) =>
+      !_closed &&
+      relationship != null &&
+      identical(_relationships[id], relationship);
+
+  Object beginRelationship(String id) => _relationships[id] = Object();
+  void forgetRelationship(String id) => _relationships.remove(id);
+
   Future<T> _enqueue<T>(Future<T> Function() action) {
     if (_closed) return Future.error(StateError('Paired devices are closed'));
-    final previous = _tail;
-    final complete = Completer<void>();
-    _tail = complete.future;
-    return () async {
-      await previous;
-      try {
-        return await action();
-      } finally {
-        complete.complete();
-      }
-    }();
+    final result = _tail.then((_) => action());
+    _tail = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
   }
 
   Future<void> _setTrust(Iterable<String> ids) =>
@@ -68,68 +72,100 @@ class PairedDevices {
       unawaited(
         syncTrust().catchError((Object error) {
           debugPrint('Could not sync trusted devices: $error');
-          _scheduleTrustSync();
         }),
       );
     });
   }
 
-  Future<bool> update(PeerState Function(PeerState) change) => _enqueue(
-    () async {
-      final old = _state;
-      final updated = change(old);
-      if (identical(updated, old)) return false;
-      final retained = old.peers.keys.where(updated.peers.containsKey).toList();
-      final trustChanged =
-          retained.length != old.peers.length ||
-          retained.length != updated.peers.length;
-      final changed = <String>{...old.peers.keys, ...updated.peers.keys}
-        ..removeWhere(
-          (id) => old.peers.containsKey(id) == updated.peers.containsKey(id),
-        );
-      if (!_closed && changed.isNotEmpty) {
-        onMembershipChanging?.call(old, updated, changed);
-      }
-      var persisted = false;
-      try {
-        if (trustChanged) await _setTrust(retained);
+  Future<bool> update(PeerState Function(PeerState) change) =>
+      _enqueue(() async {
+        final old = _state;
+        final updated = change(old);
+        if (identical(updated, old)) return false;
+        final before = old.peers.keys.toSet();
+        final after = updated.peers.keys.toSet();
+        final removed = before.difference(after);
+        final added = after.difference(before);
+        final changed = {...removed, ...added};
+        final trustChanged = changed.isNotEmpty;
+        for (final id in removed) {
+          _relationships.remove(id);
+        }
+        if (!_closed && trustChanged)
+          onMembershipChanging?.call(updated, changed);
         try {
-          await store.save(updated.encode());
-          persisted = true;
-        } catch (_) {
-          if (trustChanged) {
-            if (!_closed) onRestore?.call(old);
-            await _setTrust(old.peers.keys);
-          }
-          rethrow;
-        }
-        _state = updated;
-        if (!_closed) onStateChanged?.call(updated, changed);
-        if (trustChanged) {
+          var trustRestricted = false;
           try {
-            await _setTrust(updated.peers.keys);
-          } catch (error) {
-            debugPrint('Could not sync trusted devices: $error');
-            _scheduleTrustSync();
+            if (trustChanged) {
+              await _setTrust(before.intersection(after));
+              trustRestricted = true;
+            }
+            await store.save(updated.encode());
+          } catch (_) {
+            if (trustChanged) {
+              for (final id in removed) {
+                _relationships.putIfAbsent(id, Object.new);
+              }
+              _scheduleTrustSync();
+              if (trustRestricted) await _setTrust(old.peers.keys);
+            }
+            rethrow;
           }
+          _state = updated;
+          for (final id in added) {
+            _relationships.putIfAbsent(id, Object.new);
+          }
+          if (!_closed) onStateChanged?.call(updated, changed);
+          if (trustChanged) {
+            try {
+              await _setTrust(updated.peers.keys);
+            } catch (error) {
+              debugPrint('Could not sync trusted devices: $error');
+              _scheduleTrustSync();
+            }
+          }
+          return true;
+        } finally {
+          if (!_closed && trustChanged) onMembershipSettled?.call(changed);
         }
-        return true;
-      } catch (_) {
-        if (!persisted && trustChanged) {
-          if (!_closed) onRestore?.call(old);
-          _scheduleTrustSync();
-        }
-        rethrow;
-      } finally {
-        if (!_closed && changed.isNotEmpty) onMembershipSettled?.call(changed);
-      }
-    },
+      });
+
+  Future<bool> pair(
+    String id,
+    String name,
+    String type, {
+    bool Function()? when,
+  }) => update(
+    (state) => when == null || when() ? state.add(id, name, type) : state,
   );
 
-  Future<bool> pair(String id, String name, String type) =>
-      update((state) => state.add(id, name, type));
-
   Future<bool> remove(String id) => update((state) => state.remove(id));
+
+  Future<bool> removeIfUnpaired(
+    String id,
+    Object relationship, {
+    required bool Function() pairingActive,
+  }) async {
+    bool current() =>
+        isCurrentRelationship(id, relationship) &&
+        state.peers.containsKey(id) &&
+        !pairingActive();
+    if (!current() || !await node.revokeIfUnpaired(peerId: id)) return false;
+    var removed = false;
+    try {
+      removed = await update((state) => current() ? state.remove(id) : state);
+      return removed;
+    } finally {
+      // A concurrent re-pair may supersede the Rust revocation before the write.
+      if (!removed && !_closed) {
+        try {
+          await syncTrust();
+        } catch (error) {
+          debugPrint('Could not restore trusted devices: $error');
+        }
+      }
+    }
+  }
 
   Future<bool> updateInfo(String id, String name, String type) =>
       update((state) => state.updateInfo(id, name, type));

@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/utsname.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -161,10 +160,16 @@ static void prepared(GObject* source, GAsyncResult* result, gpointer user_data) 
   g_autoptr(GError) failure = nullptr;
   g_autoptr(FlMethodResponse) response =
       fl_method_channel_invoke_method_finish(FL_METHOD_CHANNEL(source), result, &failure);
+  if (pending->state->busy ||
+      (FL_IS_METHOD_ERROR_RESPONSE(response) &&
+       g_strcmp0(fl_method_error_response_get_code(FL_METHOD_ERROR_RESPONSE(response)), "busy") == 0)) {
+    error(pending->call, "busy", "Finish transfers and pairing before installing an update");
+    return;
+  }
   FlValue* approved = response ? fl_method_response_get_result(response, &failure) : nullptr;
   if (!approved || fl_value_get_type(approved) != FL_VALUE_TYPE_BOOL ||
       !fl_value_get_bool(approved)) {
-    error(pending->call, "busy", "Update installation was not approved");
+    error(pending->call, "update_failed", "Update installation was not approved");
     return;
   }
   std::string pid = std::to_string(getpid());
@@ -190,11 +195,17 @@ static void staged(GObject*, GAsyncResult* result, gpointer user_data) {
   auto* pending = static_cast<PendingInstall*>(user_data);
   g_autoptr(GError) failure = nullptr;
   bool ok = g_task_propagate_boolean(G_TASK(result), &failure);
-  if (!ok || pending->state->busy) {
+  if (!ok) {
     pending->state->installing = false;
     error(pending->call, failure && failure->code == G_IO_ERROR_PERMISSION_DENIED
                              ? "read_only" : "invalid_update",
-          failure ? failure->message : "Finish transfers before installing the update");
+          failure ? failure->message : "Could not stage the downloaded update");
+    delete pending;
+    return;
+  }
+  if (pending->state->busy) {
+    pending->state->installing = false;
+    error(pending->call, "busy", "Finish transfers and pairing before installing an update");
     delete pending;
     return;
   }
@@ -210,16 +221,6 @@ static void handle(FlMethodChannel*, FlMethodCall* call, gpointer user_data) {
     state->busy = !value || fl_value_get_type(value) != FL_VALUE_TYPE_BOOL ||
                   fl_value_get_bool(value);
     fl_method_call_respond_success(call, nullptr, nullptr);
-  } else if (strcmp(method, "info") == 0) {
-    struct utsname system;
-    uname(&system);
-    const char* arch = strcmp(system.machine, "x86_64") == 0 ? "x64" :
-                       strcmp(system.machine, "aarch64") == 0 ? "arm64" : system.machine;
-    g_autoptr(FlValue) info = fl_value_new_map();
-    fl_value_set_string_take(info, "arch", fl_value_new_string(arch));
-    fl_method_call_respond_success(call, info, nullptr);
-  } else if (strcmp(method, "configure") == 0) {
-    fl_method_call_respond_success(call, nullptr, nullptr);
   } else if (strcmp(method, "getUpdateDirectory") == 0) {
     std::string directory = update_directory();
     if (directory.empty()) error(call, "read_only", "Cannot create Vela's update cache");
@@ -227,9 +228,6 @@ static void handle(FlMethodChannel*, FlMethodCall* call, gpointer user_data) {
       g_autoptr(FlValue) value = fl_value_new_string(directory.c_str());
       fl_method_call_respond_success(call, value, nullptr);
     }
-  } else if (strcmp(method, "canInstall") == 0) {
-    g_autoptr(FlValue) value = fl_value_new_bool(g_getenv("APPIMAGE") != nullptr);
-    fl_method_call_respond_success(call, value, nullptr);
   } else if (strcmp(method, "installDownloaded") == 0) {
     if (state->busy || state->installing) {
       error(call, "busy", "Finish transfers and pairing before installing an update");

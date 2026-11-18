@@ -227,7 +227,6 @@
   "cancelling": "Cancelling",
   "directConnection": "Direct",
   "relayConnection": "Relay",
-  "mixedConnection": "Direct and relay traffic",
   "transferHistory": "Received",
   "openReceiveFolder": "Open receive folder",
   "showInFolder": "Open containing folder",

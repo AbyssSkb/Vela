@@ -97,16 +97,6 @@ VelaUpdater::VelaUpdater(flutter::BinaryMessenger* messenger, HWND window)
           messenger, "vela/update", &flutter::StandardMethodCodec::GetInstance())) {
   channel_->SetMethodCallHandler(
       [this, window](const auto& call, auto result) {
-        if (call.method_name() == "info") {
-          result->Success(EncodableValue(EncodableMap{
-              {EncodableValue("platform"), EncodableValue("windows")},
-              {EncodableValue("arch"), EncodableValue("x64")},
-              {EncodableValue("version"), EncodableValue(FLUTTER_VERSION)},
-              {EncodableValue("build"),
-               EncodableValue(std::to_string(FLUTTER_VERSION_BUILD))},
-          }));
-          return;
-        }
         if (call.method_name() == "getUpdateDirectory") {
           const auto directory = UpdateDirectory();
           const auto path = directory ? ToUtf8(directory->wstring()) : std::nullopt;
@@ -142,7 +132,7 @@ VelaUpdater::VelaUpdater(flutter::BinaryMessenger* messenger, HWND window)
           return;
         }
         if (state_->busy || state_->installing.exchange(true)) {
-          result->Error("update_busy", "Wait for pairing and transfers to finish.");
+          result->Error("busy", "Wait for pairing and transfers to finish.");
           return;
         }
         // Lock the verified bytes until Windows has opened the installer.
@@ -169,7 +159,8 @@ VelaUpdater::VelaUpdater(flutter::BinaryMessenger* messenger, HWND window)
                   if (!state->alive || state->busy || !ready || !*ready ||
                       !IsWindow(window)) {
                     state->installing = false;
-                    reply->Error("update_busy", "Vela is not ready to restart.");
+                    reply->Error(state->busy ? "busy" : "update_failed",
+                                 "Vela is not ready to restart.");
                     return;
                   }
                   if (!LaunchHelper(installer, *final_path, hash)) {
@@ -180,13 +171,14 @@ VelaUpdater::VelaUpdater(flutter::BinaryMessenger* messenger, HWND window)
                   reply->Success();
                   PostMessageW(window, kShutdownMessage, 0, 0);
                 },
-                [state, reply](const auto&, const auto&, const auto*) {
+                [state, reply](const auto& code, const auto&, const auto*) {
                   state->installing = false;
-                  reply->Error("update_busy", "Vela could not prepare to restart.");
+                  reply->Error(code == "busy" ? "busy" : "update_failed",
+                               "Vela could not prepare to restart.");
                 },
                 [state, reply] {
                   state->installing = false;
-                  reply->Error("update_busy", "Restart coordination is unavailable.");
+                  reply->Error("update_failed", "Restart coordination is unavailable.");
                 }));
       });
 }

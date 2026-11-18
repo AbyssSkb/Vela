@@ -20,7 +20,7 @@ class TransferRecord {
     required this.time,
     required this.kind,
     required this.received,
-    this.path,
+    this.fileReference,
     this.size,
     this.preview,
   });
@@ -28,7 +28,7 @@ class TransferRecord {
   final HistoryKind kind;
   final DateTime time;
   final bool received;
-  final String? path, preview;
+  final String? fileReference, preview;
   final int? size;
 
   Map<String, Object?> toJson() => {
@@ -37,7 +37,7 @@ class TransferRecord {
     'time': time.toIso8601String(),
     'kind': kind.storageName,
     'received': received,
-    'path': path,
+    'path': fileReference,
     'size': size,
     'preview': preview,
   };
@@ -55,7 +55,7 @@ class TransferRecord {
               time: DateTime.parse(item['time'] as String),
               kind: HistoryKind.fromStorage(item['kind'] as String),
               received: item['received'] as bool,
-              path: item['path'] as String?,
+              fileReference: item['path'] as String?,
               size: item['size'] as int?,
               preview: item['preview'] as String?,
             ),
@@ -80,9 +80,11 @@ deleteFilesAndSelectRemovableRecords(
   final removed = <TransferRecord>[];
   var failed = false;
   for (final item in records) {
-    if (deleteFiles && item.path != null) {
+    if (deleteFiles && item.fileReference != null) {
       try {
-        await (deleteFile ?? const ReceivedStorage().delete)(item.path!);
+        await (deleteFile ?? const ReceivedStorage().delete)(
+          item.fileReference!,
+        );
       } on PathNotFoundException {
         /* The file is already gone. */
       } catch (e) {
@@ -146,7 +148,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(t.removeRecordsQuestion(items.length)),
-          content: items.any((item) => item.path != null)
+          content: items.any((item) => item.fileReference != null)
               ? CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
@@ -518,7 +520,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                     onLongPress: () => _toggleSelection(item),
                                     onTap: selected.isNotEmpty
                                         ? () => _toggleSelection(item)
-                                        : item.path == null
+                                        : item.fileReference == null
                                         ? null
                                         : () => widget.open(item),
                                     child: Padding(
@@ -649,7 +651,8 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                                 }
                                               },
                                               itemBuilder: (_) => [
-                                                if (item.path != null &&
+                                                if (item.fileReference !=
+                                                        null &&
                                                     item.kind.isFile &&
                                                     (Platform.isAndroid ||
                                                         Platform.isMacOS ||
@@ -692,7 +695,8 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                                     ],
                                                   ),
                                                 ),
-                                                if (item.path != null &&
+                                                if (item.fileReference !=
+                                                        null &&
                                                     !item.kind.isText &&
                                                     Platform.isAndroid)
                                                   PopupMenuItem(

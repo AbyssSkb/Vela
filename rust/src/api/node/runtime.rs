@@ -232,7 +232,7 @@ pub(super) fn start_node_with_endpoint(endpoint: Endpoint) -> VelaNode {
         }
     });
     VelaNode {
-        presence: Some(presence),
+        presence,
         endpoint,
         trust,
         network_changes,

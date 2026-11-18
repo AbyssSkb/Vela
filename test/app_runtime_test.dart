@@ -127,9 +127,8 @@ void main() {
       testIdentity: true,
       recordDiagnostic: (_) {},
       onStartupFailure: (_) {},
-      onMembershipChanging: (_, __, ___) {},
+      onMembershipChanging: (_, __) {},
       onStateChanged: (_, __) {},
-      onRestore: (_) {},
       onMembershipSettled: (_) {},
     );
   });

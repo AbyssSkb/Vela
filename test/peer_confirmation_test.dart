@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:vela/pairing_dialog.dart';
+import 'package:vela/peer_confirmation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,12 +9,12 @@ void main() {
     tester,
   ) async {
     final peerClosed = Completer<void>();
-    PairingDialogResult? result;
+    PeerDecision? result;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
           builder: (context) => TextButton(
-            onPressed: () async => result = await showPairingDialog(
+            onPressed: () async => result = await showPeerConfirmation(
               context,
               peerClosed: peerClosed.future,
               builder: (_) => const AlertDialog(title: Text('Pair request')),
@@ -30,17 +30,17 @@ void main() {
     peerClosed.complete();
     await tester.pumpAndSettle();
     expect(find.text('Pair request'), findsNothing);
-    expect(result, PairingDialogResult.connectionClosed);
+    expect(result, PeerDecision.connectionClosed);
   });
 
   testWidgets('explicit rejection remains a rejection', (tester) async {
     final peerClosed = Completer<void>();
-    PairingDialogResult? result;
+    PeerDecision? result;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
           builder: (context) => TextButton(
-            onPressed: () async => result = await showPairingDialog(
+            onPressed: () async => result = await showPeerConfirmation(
               context,
               peerClosed: peerClosed.future,
               builder: (context) => AlertDialog(
@@ -61,7 +61,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Reject'));
     await tester.pumpAndSettle();
-    expect(result, PairingDialogResult.declined);
+    expect(result, PeerDecision.declined);
     peerClosed.complete();
   });
 }

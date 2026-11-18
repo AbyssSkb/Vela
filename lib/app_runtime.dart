@@ -38,7 +38,6 @@ class AppRuntime {
     required this.onStartupFailure,
     required this.onMembershipChanging,
     required this.onStateChanged,
-    required this.onRestore,
     required this.onMembershipSettled,
   });
 
@@ -55,9 +54,8 @@ class AppRuntime {
   final void Function(String) recordDiagnostic;
   final void Function(Object) onStartupFailure;
   bool startupCleanupComplete = true;
-  final void Function(PeerState, PeerState, Set<String>) onMembershipChanging;
+  final void Function(PeerState, Set<String>) onMembershipChanging;
   final void Function(PeerState, Set<String>) onStateChanged;
-  final void Function(PeerState) onRestore;
   final void Function(Set<String>) onMembershipSettled;
 
   VelaNode? get node => _node;
@@ -202,7 +200,6 @@ class AppRuntime {
         initialState: state,
         onMembershipChanging: onMembershipChanging,
         onStateChanged: onStateChanged,
-        onRestore: onRestore,
         onMembershipSettled: onMembershipSettled,
       );
       openingNode = null;

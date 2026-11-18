@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:vela/peer_store.dart';
 import 'package:vela/src/rust/api/node.dart';
 import 'package:vela/src/rust/frb_generated.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -9,6 +10,21 @@ import 'package:sqflite_common/src/factory.dart';
 
 const peerId =
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+class MemoryPeerStore implements PeerStore {
+  String? saved;
+
+  @override
+  Future<void> save(String value) async {
+    saved = value;
+  }
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class GatedDatabaseFactory implements SqfliteDatabaseFactory {
   GatedDatabaseFactory(this.delegate);

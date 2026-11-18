@@ -101,7 +101,11 @@ class UpdateBridge(private val context: VelaApplication) {
 
     @Suppress("DEPRECATION")
     private fun launchInstaller(file: File, result: MethodChannel.Result) {
-        check(!busy) { "Finish transfers and pairing before installing an update" }
+        if (busy) {
+            preparing = false
+            result.error("busy", "Finish transfers and pairing before installing an update", null)
+            return
+        }
         val activity = context.currentActivity
         if (activity == null) {
             preparing = false
@@ -129,9 +133,13 @@ class UpdateBridge(private val context: VelaApplication) {
             null,
             object : MethodChannel.Result {
                 override fun success(approved: Any?) {
-                    if (approved != true) {
+                    if (approved != true || busy) {
                         preparing = false
-                        result.error("busy", "Update installation was not approved", null)
+                        result.error(
+                            if (busy) "busy" else "update_failed",
+                            "Update installation was not approved",
+                            null,
+                        )
                         return
                     }
                     try {
@@ -148,12 +156,12 @@ class UpdateBridge(private val context: VelaApplication) {
 
                 override fun error(code: String, message: String?, details: Any?) {
                     preparing = false
-                    result.error(code, message, details)
+                    result.error(if (code == "busy") "busy" else "update_failed", message, details)
                 }
 
                 override fun notImplemented() {
                     preparing = false
-                    result.error("install_failed", "Update shutdown handler is unavailable", null)
+                    result.error("update_failed", "Update shutdown handler is unavailable", null)
                 }
             },
         )
@@ -204,20 +212,7 @@ class UpdateBridge(private val context: VelaApplication) {
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
-                "configure" -> result.success(null)
-                "info" -> {
-                    val info = installed()
-                    val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-                    val arch = when (abi) {
-                        "arm64-v8a" -> "arm64"
-                        "x86_64" -> "x64"
-                        "armeabi-v7a" -> "arm"
-                        else -> abi
-                    }
-                    result.success(mapOf("arch" to arch, "version" to info.versionName, "build" to identity(info).version))
-                }
                 "getUpdateDirectory" -> result.success(directory().path)
-                "canInstall" -> result.success(Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls())
                 "setBusy" -> {
                     busy = call.argument<Boolean>("busy") != false
                     result.success(null)

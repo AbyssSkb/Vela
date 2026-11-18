@@ -1,22 +1,26 @@
 # 从哪里理解 Vela
 
-Vela 的一条主线是：选择内容 → 选择可信设备 → 对端确认 → 传输 → 保存与记录。Flutter 负责用户交互与编排，Rust 负责通信、信任会话和文件传输，原生代码负责系统能力。
+Vela 在配对设备之间收发文件和剪贴板内容。Flutter 协调用户选择、确认和保存，Rust 负责连接、信任和传输，各平台提供通知、后台运行和文件访问。
+
+第一次读代码，可以先看 [Rust 双节点收发用例](../rust/src/api/node_tests.rs)，搜索 `sends_between_two_local_iroh_nodes`。跟着发送方读取文件、接收方确认和保存，便能看到一条完整的通信路径。再看下方配对时序，以及 [设备写入测试](../test/paired_devices_test.dart) 中撤销、落盘、发布和授信的先后顺序。
 
 ## 先读这些文件
 
 | 你要理解什么 | 入口 | 它拥有的状态 |
 |---|---|---|
-| 应用入口、页面和用户确认 | `lib/main.dart` | 页面状态、当前传输任务、用户确认 |
+| 应用启动和主页 | `lib/main.dart`、`lib/home_toolbar.dart`、`lib/home_device_widgets.dart` | 首页选择、当前任务、设备视图和操作入口 |
+| 接收入站请求的决定 | `lib/incoming_offer_prompt.dart`、`lib/peer_confirmation.dart` | 本次通知的操作 ID、返回前台、对端断开和确认弹窗 |
 | 节点启动、身份和关闭 | `lib/app_runtime.dart` | 当前节点、设备存储、启动代次、资源接管与释放 |
-| 在线状态的展示与同步 | `lib/presence_controller.dart` | 快照订阅、设备会话身份、探测、重试和定时器 |
-| 可信设备的持久化与同步 | `lib/paired_devices.dart` | 设备快照、写入队列、信任同步重试 |
+| 在线状态的展示与同步 | `lib/presence_controller.dart` | 快照订阅、探测、重试和定时器 |
+| 可信设备的持久化与同步 | `lib/paired_devices.dart` | 当前设备关系的标记、设备快照、写入队列、信任同步重试 |
 | 设备数据及保存 | `lib/peer_state.dart`、`lib/peer_store.dart` | 不可变设备数据、SQLite 完整快照 |
-| 配对取消和同时发起的仲裁 | `lib/pairing_session.dart` | 每次配对的取消信号、网络 handle、方向仲裁 |
+| 配对 | `lib/pairing_session.dart` | `PairingSessions` 协调双向握手、同设备仲裁、取消和解除隔离 |
 | 分享来源、临时文件和重试 | `lib/pending_share.dart`、`lib/prepared_transfer.dart`、`lib/send_session.dart` | 来源、内容快照、临时文件、单次重试机会 |
 | 内容类型和错误结果 | `lib/content_kind.dart`、`lib/transfer_failure.dart` | 协议/历史类型转换、稳定错误码解析 |
-| 接收文件的系统访问 | `lib/received_storage.dart` | 本地路径与文档 URI 的访问规则、通道解码 |
+| 接收后的文件与记录 | `lib/received_storage.dart`、`lib/received_content.dart` | 暂存文件保存与清理、最终文件引用、剪贴板和历史 |
 | 更新检查、下载和安装编排 | `lib/app_update.dart` | 更新状态、版本与签名验证、下载缓存、安装前忙碌门禁 |
-| Windows/Linux 桌面基础能力 | `lib/desktop_platform.dart`、`lib/peer_store.dart` | 后台设置恢复、图片剪贴板入口、生产 SQLite FFI 后端 |
+| 平台后台策略 | `lib/background_settings.dart` | Android 后台服务、macOS 防休眠和 Windows/Linux 托盘各自的设置键、默认值和系统调用 |
+| Windows/Linux 桌面基础能力 | `lib/desktop_platform.dart`、`lib/peer_store.dart` | 图片剪贴板入口、SQLite FFI 后端 |
 | Rust 对 Flutter 的接口 | `rust/src/api/node.rs` | 节点、请求、配对与传输任务的公开类型 |
 | 连接建立和请求分派 | `rust/src/api/node/runtime.rs` | Iroh endpoint、监听任务、入站请求队列 |
 | 单次传输 | `rust/src/api/node/transfer.rs`、`outgoing_transfer.rs`、`incoming_request.rs` | 任务的取消、连接、进度和单次执行权 |
@@ -38,16 +42,18 @@ Android 文件位于 `android/app/src/main/kotlin/com/example/vela/`；macOS 主
 
 **启动：**`main` 初始化 Rust bridge，`AppRuntime.start` 加载身份、设备快照并启动节点，同步信任和设备信息，成功后接管节点与存储。页面接入入站请求，`PresenceController.attach` 接入在线快照。关闭时先使旧结果失效，排空设备事务，再关闭旧节点；启动中途被关闭的资源由启动流程自行释放。
 
-**配对：**用户发起或收到配对请求，进入配对状态并隔离旧会话；双方确认握手后，通过 `PairedDevices` 持久化设备并同步信任，最后结束配对状态。握手成功和设备已持久化是两个步骤。`OutgoingPairingSession` 成组持有仲裁、取消和网络 handle；`IncomingPairingSession` 持有入站取消信号。`pairingTransitions` 串行化同一设备的进入/退出操作，不是另一份配对状态。
+**配对。** 两端先隔离旧会话，分别执行以下步骤。同一设备的入站、出站尝试都结束后，才能解除隔离。
 
-| 阶段 | 操作 | 结束规则 |
-|---|---|---|
-| 隔离旧会话 | `beginPairing` | 此时尚未授予新信任 |
-| 可取消的网络握手 | `beginOutgoingPairing` / 接受入站请求 | 取消可以早于网络 handle 创建 |
-| 提交设备 | `PairedDevices.pair` | 持久化成功后同步新信任 |
-| 结束隔离 | `endPairing` | 同一设备的所有当前配对结束后执行 |
+| 方向 | 本机操作顺序 |
+|---|---|
+| 接收方 | 检查配对冲突 → 等待本机用户同意 → 在写入队列内复核本次设备关系 → 持久化设备并同步信任 → 复核后发送同意回复 |
+| 发起方 | 创建可取消的出站请求并发送 → 收到接收方的同意回复 → 在写入队列内复核本次设备关系 → 持久化设备并同步信任 |
 
-**发送与接收：**来源先转成 `PendingShare` 或准备好的 `PreparedTransfer`；每次通信创建一个 `TransferJob`。任务同时提供发送、取消和进度；接收请求也显式使用一个任务。`SendSession` 持有一次发送的内容和来源释放操作，成功后释放两者；失败后 `SendRetry` 只能领取一次，放弃时释放临时内容。旧提示关闭不能释放新重试的内容。Android 收到的文件先落在应用目录，再经 `ReceivedStorage` 保存到用户位置；结果中的 `reference` 可能是文档 URI，后续存在、打开、删除和导出均交给该模块。
+重新配对会为相同设备 ID 建立新的关系标记。配对、入站接收和异步撤销要复核自己先前取得的标记，才能继续操作。Rust 另行检查连接使用的信任会话。
+
+**发送与接收。** 来源转成 `PreparedTransfer` 后，每次通信创建一个 `TransferJob`。`SendSession` 持有内容快照和来源的释放操作。成功后释放两者，失败后可用同一快照重试。`SendRetry` 只能领取一次，关闭旧提示不会释放新重试占用的内容。
+
+接收方完成用户确认后复核设备关系，再交给 Rust。Rust 校验内容、刷新文件并发送传输回执。Android 随后将普通文件从应用目录保存到用户位置。保存成功就清理暂存，保存失败保留私有副本，用户取消保存则清理暂存。历史中的 `fileReference` 可以是本地路径或 Android 文档 URI，打开、删除和导出均通过 `ReceivedStorage`。
 
 **在线与后台：**Rust 接受经过验证的响应，更新带有效期的在线证据，`PresenceController` 根据快照和有效期维护展示状态。`readSnapshot` 只读取已有证据，`probePeers` 主动探测；系统网络变化通过 `networkChanged` 协调，恢复必须先使旧证据失效。Rust 的 `send_tracked_probe` 发送探测，`on_network_changed` 推进网络代次，`request_probe` 只请求探测；统计开关不控制这些业务动作。Android 的 Service 可以启动无 Activity 的同一个 FlutterEngine，仍运行普通 Dart `main`；通道由 Application 安装一次，Activity 只补充权限和选择器等交互能力。
 
@@ -86,8 +92,8 @@ Android 文件位于 `android/app/src/main/kotlin/com/example/vela/`；macOS 主
 |---|---|
 | 设备持久化、撤销信任、配对竞态 | `test/paired_devices_test.dart`、`test/pairing_*_test.dart`、`test/startup_*_test.dart` |
 | 节点与在线状态所有权 | `test/app_runtime_test.dart`、`test/presence_controller_test.dart` |
-| 来源解码、临时文件和重试 | `test/pending_share_test.dart`、`test/prepared_transfer_test.dart`、`test/home_responsive_layout_test.dart` |
-| 接收和剪贴板行为 | `test/link_receive_test.dart` |
+| 来源解码、临时文件和发送 | `test/pending_share_test.dart`、`test/prepared_transfer_test.dart`、`test/send_content_test.dart` |
+| 接收确认、剪贴板和历史 | `test/incoming_offer_prompt_test.dart`、`test/peer_confirmation_test.dart`、`test/received_content_test.dart` |
 | 存储通道及 URI 访问 | `test/received_storage_test.dart` |
 | Windows/Linux 保存目录与后台设置 | `test/received_storage_desktop_test.dart`、`test/background_settings_test.dart`、`test/peer_store_test.dart` |
 | 更新清单、下载、忙碌与安装门禁 | `test/app_update_test.dart` |

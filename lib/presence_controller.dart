@@ -38,7 +38,6 @@ class PresenceController extends ChangeNotifier {
   BigInt? _expiredRevision;
   BigInt _appliedRevision = BigInt.zero;
   Object _snapshotToken = Object();
-  final Map<String, Object> _sessions = {};
   bool _probing = false;
   bool _checkingPeers = false;
   _RefreshRequest? _queuedRefresh;
@@ -51,7 +50,7 @@ class PresenceController extends ChangeNotifier {
   final Map<String, Future<void>> _probes = {};
   final Set<String> _trustPending = {};
   final Set<String> _updatingInfo = {};
-  final Map<String, ({VelaNode node, Object session, DeviceInfo info})>
+  final Map<String, ({VelaNode node, Object relationship, DeviceInfo info})>
   _pendingInfo = {};
   final Map<String, Timer> _infoRetries = {};
 
@@ -64,7 +63,6 @@ class PresenceController extends ChangeNotifier {
   bool get probing => _probing;
   bool get monitorEnabled => _monitoringEnabled;
   int get pendingSystemWakes => _pendingSystemWakes;
-  Object? sessionFor(String id) => _sessions[id];
 
   bool _current(VelaNode source) => _alive && identical(_node, source);
 
@@ -74,60 +72,38 @@ class PresenceController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void attach(VelaNode node, PairedDevices devices) {
+  void attach(PairedDevices devices) {
     reset();
-    _node = node;
+    _node = devices.node;
     _devices = devices;
-    restoreSessions(devices.state);
     _visibleChecks.addAll(_peers.keys);
     _checkingPeers = _peers.isNotEmpty;
-    unawaited(_listen(node));
+    unawaited(_listen(devices.node));
     notifyListeners();
   }
 
-  Object replaceSession(String id) {
-    final session = Object();
-    _sessions[id] = session;
+  void pairingStarted(String id) {
     _snapshotToken = Object();
     _infoRetries.remove(id)?.cancel();
     _pendingInfo.remove(id);
-    return session;
   }
 
-  void forgetSession(String id) => _sessions.remove(id);
-
-  void restoreSessions(PeerState state) {
-    for (final id in state.peers.keys) {
-      _sessions.putIfAbsent(id, Object.new);
-    }
-  }
-
-  void membershipChanging(
-    PeerState old,
-    PeerState updated,
-    Set<String> changed,
-  ) {
-    invalidatePresenceForPeerMembershipChanges(
-      old,
-      updated,
-      _values,
-      _generations,
-      _probes,
-    );
+  void membershipChanging(Set<String> changed) {
     _snapshotToken = Object();
     _snapshotChecks.removeAll(changed);
     for (final id in changed) {
-      if (!updated.peers.containsKey(id)) _sessions.remove(id);
+      _values.remove(id);
+      _generations[id] = (_generations[id] ?? 0) + 1;
+      _probes.remove(id);
       _infoRetries.remove(id)?.cancel();
       _pendingInfo.remove(id);
     }
     _trustPending.addAll(changed);
-    _change(() => _visibleChecks.addAll(changed.where(old.peers.containsKey)));
+    _change(() => _visibleChecks.addAll(changed.where(_peers.containsKey)));
     if (_refreshInterrupt?.isCompleted == false) _refreshInterrupt!.complete();
   }
 
   void membershipPublished(PeerState state, Set<String> changed) {
-    restoreSessions(state);
     _change(() {
       _visibleChecks.removeWhere((id) => !state.peers.containsKey(id));
       _visibleChecks.addAll(changed.where(state.peers.containsKey));
@@ -173,7 +149,7 @@ class PresenceController extends ChangeNotifier {
     for (final entry in _pendingInfo.entries.toList()) {
       final next = entry.value;
       if (identical(next.node, source)) {
-        _queueInfo(source, entry.key, next.session, next.info);
+        _queueInfo(source, entry.key, next.relationship, next.info);
       }
     }
     unawaited(readSnapshot());
@@ -255,7 +231,6 @@ class PresenceController extends ChangeNotifier {
     _refreshInterrupt = null;
     _probes.clear();
     _generations.clear();
-    _sessions.clear();
     _values.clear();
     _visibleChecks.clear();
     _snapshotChecks.clear();
@@ -283,9 +258,14 @@ class PresenceController extends ChangeNotifier {
     );
   }
 
-  void _queueInfo(VelaNode source, String id, Object session, DeviceInfo info) {
+  void _queueInfo(
+    VelaNode source,
+    String id,
+    Object relationship,
+    DeviceInfo info,
+  ) {
     _infoRetries.remove(id)?.cancel();
-    _pendingInfo[id] = (node: source, session: session, info: info);
+    _pendingInfo[id] = (node: source, relationship: relationship, info: info);
     if (!_updatingInfo.add(id)) return;
     final lifetime = _lifetime;
     unawaited(() async {
@@ -294,37 +274,29 @@ class PresenceController extends ChangeNotifier {
             identical(lifetime, _lifetime) &&
             _pendingInfo.containsKey(id)) {
           final next = _pendingInfo.remove(id)!;
-          if (!_alive ||
-              !identical(_node, next.node) ||
-              !identical(_sessions[id], next.session)) {
-            continue;
-          }
+          bool current() =>
+              _current(next.node) &&
+              _devices!.isCurrentRelationship(id, next.relationship);
+          if (!current()) continue;
           if (!canPersistInfo()) {
             _pendingInfo.putIfAbsent(id, () => next);
             break;
           }
           try {
             await _devices!.update(
-              (state) =>
-                  _alive &&
-                      canPersistInfo() &&
-                      identical(_node, next.node) &&
-                      identical(_sessions[id], next.session)
+              (state) => current() && canPersistInfo()
                   ? state.updateInfo(id, next.info.name, next.info.deviceType)
                   : state,
             );
           } catch (e) {
             debugPrint('Could not save device information: $e');
-            if (_alive &&
-                canPersistInfo() &&
-                identical(_node, next.node) &&
-                identical(_sessions[id], next.session)) {
+            if (current() && canPersistInfo()) {
               _pendingInfo.putIfAbsent(id, () => next);
               _infoRetries[id] = Timer(const Duration(seconds: 1), () {
                 _infoRetries.remove(id);
                 final retry = _pendingInfo.remove(id);
                 if (retry != null) {
-                  _queueInfo(retry.node, id, retry.session, retry.info);
+                  _queueInfo(retry.node, id, retry.relationship, retry.info);
                 }
               });
               break;
@@ -353,21 +325,21 @@ class PresenceController extends ChangeNotifier {
     final changes = <String, PeerPresence>{};
     final checked = <String>{};
     final resolved = <String>{};
-    final metadata = <({String id, Object session, DeviceInfo info})>[];
-    final unpaired = <({String id, Object session})>[];
+    final metadata = <({String id, Object relationship, DeviceInfo info})>[];
+    final unpaired = <({String id, Object relationship})>[];
     final expired = <String>{};
     var retryClock = false;
     for (final peer in snapshot.peers) {
       final id = peer.peerId;
-      final session = _sessions[id];
+      final relationship = _devices!.relationshipFor(id);
       if (!_peers.containsKey(id) ||
           _trustPending.contains(id) ||
-          session == null ||
+          relationship == null ||
           pairingActive(id)) {
         continue;
       }
       if (peer.unpaired) {
-        unpaired.add((id: id, session: session));
+        unpaired.add((id: id, relationship: relationship));
         continue;
       }
       final info = peer.info;
@@ -395,7 +367,7 @@ class PresenceController extends ChangeNotifier {
               _infoRetries.containsKey(id) ||
               _peers[id] != info.name ||
               _peerTypes[id] != info.deviceType)) {
-        metadata.add((id: id, session: session, info: info));
+        metadata.add((id: id, relationship: relationship, info: info));
       }
     }
     if (changes.isNotEmpty ||
@@ -412,10 +384,10 @@ class PresenceController extends ChangeNotifier {
       });
     }
     for (final value in metadata) {
-      _queueInfo(source, value.id, value.session, value.info);
+      _queueInfo(source, value.id, value.relationship, value.info);
     }
     for (final value in unpaired) {
-      unawaited(removeUnpaired(source, value.id, value.session));
+      unawaited(removeUnpaired(source, value.id, value.relationship));
     }
     if (expired.isNotEmpty) {
       final retryImmediately = _expiredRevision != snapshot.revision;
@@ -568,14 +540,14 @@ class PresenceController extends ChangeNotifier {
     }
 
     Future<void> probe(String id) async {
-      final session = _sessions[id];
+      final relationship = _devices!.relationshipFor(id);
       final generation = (_generations[id] ?? 0) + 1;
       _generations[id] = generation;
       bool current() =>
           _alive &&
           identical(_node, activeNode) &&
           _peers.containsKey(id) &&
-          identical(_sessions[id], session) &&
+          _devices!.isCurrentRelationship(id, relationship) &&
           _generations[id] == generation;
       try {
         await activeNode.checkPeerFresh(peerId: id);

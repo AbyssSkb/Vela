@@ -42,10 +42,12 @@ void _registerDebugDriver() {
         return 'shown';
       }
       if (data['action'] == 'notification-offer-test' && Platform.isAndroid) {
-        state.notificationOfferId = 'preview-offer';
-        state.notificationDecision = Completer<bool>();
+        state.incomingPrompt = IncomingOfferPrompt(
+          _HomePageState.backgroundChannel,
+          notificationId: 'preview-offer',
+        );
         await _HomePageState.backgroundChannel.invokeMethod<void>('offer', {
-          'id': state.notificationOfferId,
+          'id': state.incomingPrompt!.notificationId,
           'title': 'MacBook 发来内容',
           'message': 'photo.jpg · 4 MB',
           'shortText': '待接收',
@@ -55,10 +57,11 @@ void _registerDebugDriver() {
         return 'shown';
       }
       if (data['action'] == 'notification-offer-result' && Platform.isAndroid) {
-        final decision = state.notificationDecision;
-        return decision?.isCompleted == true
-            ? (await decision!.future ? 'accepted' : 'declined')
-            : 'pending';
+        return switch (await state.incomingPrompt?.decidedAction) {
+          BackgroundOfferAction.accept => 'accepted',
+          BackgroundOfferAction.decline => 'declined',
+          _ => 'pending',
+        };
       }
       if (data['action'] == 'notification-clear-test' && Platform.isAndroid) {
         await _HomePageState.backgroundChannel.invokeMethod<void>(

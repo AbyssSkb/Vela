@@ -68,8 +68,9 @@ void main() {
       node: node,
       store: store,
       initialState: original,
-      onMembershipChanging: (old, updated, changed) {
-        expect(old, same(original));
+      onMembershipChanging: (updated, changed) {
+        expect(devices!.state, same(original));
+        expect(devices!.relationshipFor('old'), isNull);
         expect(changed, {'old', 'new'});
         node.events.add('changing');
       },
@@ -103,10 +104,10 @@ void main() {
       node: node,
       store: store,
       initialState: original,
-      onRestore: (_) => node.events.add('restore'),
       onStateChanged: (_, _) => node.events.add('published'),
       onMembershipSettled: (_) => node.events.add('settled'),
     );
+    final previous = devices!.relationshipFor('old');
     final database = await databaseFactoryFfi.openDatabase(databasePath);
     await database.execute('PRAGMA query_only = ON');
     try {
@@ -117,12 +118,47 @@ void main() {
 
     expect(devices!.state, same(original));
     expect(PeerState.decode((await store.load())!).peers, original.peers);
-    expect(node.events.take(3), ['trust:', 'restore', 'trust:old']);
+    expect(node.events.take(2), ['trust:', 'trust:old']);
+    expect(devices!.relationshipFor('old'), isNotNull);
+    expect(devices!.isCurrentRelationship('old', previous), isFalse);
     expect(node.events, isNot(contains('published')));
     expect(node.events.last, 'settled');
     await devices!.setAlias('old', 'Alias after failure');
     expect(devices!.state.displayName('old'), 'Alias after failure');
   });
+
+  test(
+    'a new pairing invalidates an older commit waiting in the queue',
+    () async {
+      devices = PairedDevices(
+        node: node,
+        store: store,
+        initialState: PeerState(),
+      );
+      final first = devices!.beginRelationship('new');
+      final gate = Completer<void>();
+      node.trustGate = gate;
+      final blockingSync = devices!.syncTrust();
+      await node.trustStarted.future;
+      final stalePair = devices!.pair(
+        'new',
+        'Stale name',
+        'desktop',
+        when: () => devices!.isCurrentRelationship('new', first),
+      );
+      final second = devices!.beginRelationship('new');
+      gate.complete();
+      await blockingSync;
+      expect(await stalePair, isFalse);
+      expect(await store.load(), isNull);
+      await devices!.pair('new', 'New name', 'desktop');
+      expect(devices!.isCurrentRelationship('new', second), isTrue);
+      await devices!.setAlias('new', 'Work');
+      expect(devices!.isCurrentRelationship('new', second), isTrue);
+      await devices!.close();
+      expect(devices!.isCurrentRelationship('new', second), isFalse);
+    },
+  );
 
   test('close drains queued changes and rejects new work', () async {
     final original = PeerState().add('old', 'Old device', 'desktop');

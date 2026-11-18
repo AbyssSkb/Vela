@@ -24,7 +24,6 @@ pub(crate) struct TrustState {
     pub(crate) sessions: HashMap<String, Arc<PeerSession>>,
     pub(crate) pairing: HashSet<String>,
     pub(crate) incoming_pairings: HashMap<String, usize>,
-    pub(crate) pairing_connections: HashMap<String, Vec<WeakConnectionHandle>>,
     pub(crate) outgoing_pairings: HashMap<String, std::sync::Weak<OutgoingAttempt>>,
 }
 
@@ -96,29 +95,16 @@ impl TrustState {
         Ok(attempt)
     }
 
-    fn begin_incoming_pairing(&mut self, peer: String, connection: &Connection) {
+    fn begin_incoming_pairing(&mut self, peer: String) {
         self.invalidate_session_for_pairing(&peer);
-        *self.incoming_pairings.entry(peer.clone()).or_default() += 1;
-        self.pairing_connections
-            .entry(peer)
-            .or_default()
-            .push(connection.weak_handle());
+        *self.incoming_pairings.entry(peer).or_default() += 1;
     }
 
-    fn end_incoming_pairing(&mut self, peer: &str, connection_id: usize) {
+    fn end_incoming_pairing(&mut self, peer: &str) {
         if let Some(count) = self.incoming_pairings.get_mut(peer) {
             *count -= 1;
             if *count == 0 {
                 self.incoming_pairings.remove(peer);
-            }
-        }
-        if let Some(connections) = self.pairing_connections.get_mut(peer) {
-            connections.retain(|weak| {
-                weak.upgrade()
-                    .is_some_and(|connection| connection.stable_id() != connection_id)
-            });
-            if connections.is_empty() {
-                self.pairing_connections.remove(peer);
             }
         }
     }
@@ -187,7 +173,6 @@ impl PeerSession {
 pub(crate) struct IncomingPairGuard {
     trust: SharedTrust,
     peer: String,
-    connection_id: usize,
     released: AtomicBool,
     presence: std::sync::Weak<crate::presence::PresenceManager>,
 }
@@ -199,7 +184,7 @@ impl IncomingPairGuard {
         }
         {
             let mut trust = self.trust.write().await;
-            trust.end_incoming_pairing(&self.peer, self.connection_id);
+            trust.end_incoming_pairing(&self.peer);
         }
         if let Some(presence) = self.presence.upgrade() {
             presence.reconcile_trusted_peers().await;
@@ -215,12 +200,11 @@ pub(crate) async fn begin_incoming_pair(
 ) -> Arc<IncomingPairGuard> {
     {
         let mut state = trust.write().await;
-        state.begin_incoming_pairing(peer.clone(), &connection);
+        state.begin_incoming_pairing(peer.clone());
     }
     let guard = Arc::new(IncomingPairGuard {
         trust,
         peer,
-        connection_id: connection.stable_id(),
         released: AtomicBool::new(false),
         presence,
     });
@@ -280,13 +264,13 @@ mod tests {
         assert!(old.is_revoked());
         assert!(!Arc::ptr_eq(&old, &current));
 
-        state.incoming_pairings.insert("peer".into(), 1);
+        state.begin_incoming_pairing("peer".into());
         state.begin_pairing("peer".into());
         assert!(Arc::ptr_eq(&current, &state.sessions["peer"]));
         assert!(!current.is_revoked());
         state.end_pairing("peer");
         assert_eq!(state.status("peer"), TrustStatus::Pending);
-        state.end_incoming_pairing("peer", 0);
+        state.end_incoming_pairing("peer");
         assert!(state.is_current("peer", &current));
         assert!(!state.is_current("peer", &old));
 

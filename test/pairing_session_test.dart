@@ -1,43 +1,103 @@
-import 'package:vela/pairing_session.dart';
-import 'package:vela/src/rust/api/node.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
 
-class TrackingPairingHandle implements OutgoingPairing {
-  int cancellations = 0;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:vela/paired_devices.dart';
+import 'package:vela/pairing_session.dart';
+import 'package:vela/peer_confirmation.dart';
+import 'package:vela/peer_state.dart';
+import 'package:vela/src/rust/api/node.dart';
+
+import 'support/fakes.dart' show FakeNode, MemoryPeerStore, peerId;
+
+class IncomingPairOffer implements IncomingRequest {
+  IncomingPairOffer(this.onAccept);
+  final void Function() onAccept;
+  final closed = Completer<void>();
 
   @override
-  void cancel() => cancellations++;
+  Future<void> waitForConnectionClose() => closed.future;
+
+  @override
+  Future<void> acceptPair({
+    required String name,
+    required String deviceType,
+  }) async {
+    onAccept();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
-  test('outgoing session owns its cancellation and network handle', () async {
-    final session = OutgoingPairingSession('b');
-    final handle = TrackingPairingHandle();
-    session.handle = handle;
-
-    session.cancel();
-
-    await session.cancelled.future;
-    expect(handle.cancellations, 1);
-    expect(session.cancelled.isCompleted, isTrue);
-    final decision = session.arbitration.decideIncoming(
-      localId: 'a',
-      incomingId: 'b',
+  const phone = DeviceInfo(name: 'Phone', deviceType: 'mobile');
+  late FakeNode node;
+  late MemoryPeerStore store;
+  late PairedDevices devices;
+  late PairingSessions sessions;
+  setUp(() {
+    node = FakeNode()..peerTrusted = false;
+    store = MemoryPeerStore();
+    devices = PairedDevices(
+      node: node,
+      store: store,
+      initialState: PeerState(),
     );
-    session.arbitration.complete(false);
-    expect(await decision, PairingCollision.proceed);
+    sessions = PairingSessions(
+      currentDevices: () => devices,
+      localInfo: () => const DeviceInfo(name: 'Laptop', deviceType: 'desktop'),
+      onPairingStarted: (_) {},
+    );
   });
+  tearDown(() => devices.close());
 
-  test('incoming session cancellation is idempotent', () async {
-    final session = IncomingPairingSession();
-    session.cancel();
-    session.cancel();
-    await session.cancelled.future;
-    expect(session.cancelled.isCompleted, isTrue);
-  });
+  test(
+    'incoming approval persists and trusts the peer before replying',
+    () async {
+      var replied = false;
+      final offer = IncomingPairOffer(() {
+        expect(PeerState.decode(store.saved!).peers[peerId], 'Phone');
+        expect(node.peerTrusted, isTrue);
+        replied = true;
+      });
+      final accepted = await sessions.receive(
+        devices,
+        offer,
+        peerId,
+        phone,
+        confirm: (_) async => PeerDecision.accepted,
+      );
+      expect(accepted, isTrue);
+      expect(replied, isTrue);
+      expect(sessions.isActive, isFalse);
+    },
+  );
+
+  test(
+    'cancelling a pending decision leaves no trusted relationship',
+    () async {
+      final prompting = Completer<void>();
+      final offer = IncomingPairOffer(() => fail('unexpected pairing reply'));
+      final result = sessions.receive(
+        devices,
+        offer,
+        peerId,
+        phone,
+        confirm: (closed) async {
+          prompting.complete();
+          await closed;
+          return PeerDecision.connectionClosed;
+        },
+      );
+      await prompting.future;
+      sessions.cancel(peerId);
+      sessions.cancel(peerId);
+      expect(await result, isFalse);
+      expect(store.saved, isNull);
+      expect(devices.relationshipFor(peerId), isNull);
+      expect(sessions.isActive, isFalse);
+    },
+  );
 
   test('crossed outgoing attempts choose one direction', () async {
     final a = PairingCollisionArbitration('b');

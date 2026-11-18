@@ -12,6 +12,7 @@ use std::{
 use crate::api::node::{
     valid_device_name, valid_device_type, DeviceInfo, PeerPresenceSnapshot, PresenceSnapshot,
 };
+use crate::diagnostics::{BackupOutcome, SessionOutcome};
 use crate::proof_clock::{self, ProofInstant, ProofTimer};
 use crate::trust::{PeerSession, SharedTrust, TrustStatus};
 use anyhow::{anyhow, Result};
@@ -184,7 +185,7 @@ impl ProbeStats {
         );
     }
 
-    fn proof_expired(&mut self, had_proof: bool) {
+    fn proof_expired(&mut self) {
         if !self.recording() {
             return;
         }
@@ -192,7 +193,7 @@ impl ProbeStats {
             self.trace,
             self.attempt,
             self.started.elapsed().as_millis() as u64,
-            had_proof,
+            true,
             self.generation,
         );
     }
@@ -982,7 +983,7 @@ async fn wait_for_candidate_dial<F: Future>(
     }
 }
 
-struct ReadyCandidate {
+struct PresenceConnection {
     connection: Connection,
     proof_sent: ProofInstant,
     attempt: u64,
@@ -1113,7 +1114,7 @@ async fn connect_candidate(
     network_epoch: u64,
     connected: Arc<AtomicBool>,
     progress: Arc<Notify>,
-) -> Option<ReadyCandidate> {
+) -> Option<PresenceConnection> {
     let started = Instant::now();
     let (enabled, generation) = crate::diagnostics::state();
     let before = if enabled {
@@ -1281,7 +1282,7 @@ async fn connect_candidate(
                     if !peer.stopped.load(Ordering::Relaxed) && candidate_is_current(sent, min_sent.network, proof_clock::now()) {
                         guard.completed = true;
                         guard.handed_off = true;
-                        return Some(ReadyCandidate { connection: conn, proof_sent: sent, attempt, stats });
+                        return Some(PresenceConnection { connection: conn, proof_sent: sent, attempt, stats });
                     }
                     let valid_until = sent + LEASE;
                     if !peer.stopped.load(Ordering::Relaxed) && sent >= min_sent.resume && valid_until > proof_until {
@@ -1293,7 +1294,7 @@ async fn connect_candidate(
     }
 }
 
-struct Dialer {
+struct PeerMonitor {
     endpoint: Endpoint,
     address: EndpointAddr,
     id: String,
@@ -1303,12 +1304,12 @@ struct Dialer {
     attempts: AtomicU64,
 }
 
-impl Dialer {
-    fn start(
+impl PeerMonitor {
+    fn start_candidate(
         self: &Arc<Self>,
         connected: Arc<AtomicBool>,
         progress: Arc<Notify>,
-    ) -> Option<CandidateFuture<ReadyCandidate>> {
+    ) -> Option<CandidateFuture<PresenceConnection>> {
         if self.peer.stopped.load(Ordering::Relaxed) || self.peer.inactive() {
             return None;
         }
@@ -1329,17 +1330,156 @@ impl Dialer {
         )))
     }
 
-    fn race(self: &Arc<Self>) -> CandidateFuture<ReadyCandidate> {
-        let dialer = self.clone();
+    fn dial_candidates(self: &Arc<Self>) -> CandidateFuture<PresenceConnection> {
+        let monitor = self.clone();
         Box::pin(async move {
             let connected = Arc::new(AtomicBool::new(false));
             let progress = Arc::new(Notify::new());
-            let first = dialer.start(connected.clone(), progress.clone())?;
+            let first = monitor.start_candidate(connected.clone(), progress.clone())?;
             race_candidates(first, connected, progress.clone(), |connected| {
-                dialer.start(connected, progress.clone())
+                monitor.start_candidate(connected, progress.clone())
             })
             .await
         })
+    }
+
+    async fn promote(
+        &self,
+        mut candidate: PresenceConnection,
+        replacing: Option<&mut PresenceConnection>,
+    ) -> Result<(PresenceConnection, u64), BackupOutcome> {
+        let trust = self.trust.read().await;
+        let min_sent = self.peer.min_sent.lock().unwrap();
+        if !trust.is_current(&self.id, &self.peer.session)
+            || self.peer.stopped.load(Ordering::Relaxed)
+        {
+            candidate.stats.candidate_end(BackupOutcome::Inactive);
+            return Err(BackupOutcome::Inactive);
+        }
+        if !candidate_is_current(candidate.proof_sent, min_sent.network, proof_clock::now()) {
+            candidate.stats.candidate_end(BackupOutcome::Stale);
+            return Err(BackupOutcome::Stale);
+        }
+        if let Some(old) = replacing {
+            old.stats.session_end(SessionOutcome::Replaced);
+            old.connection.close(0u32.into(), b"presence replaced");
+        }
+        candidate.stats.role = "active";
+        Ok((candidate, self.peer.network_epoch.load(Ordering::Relaxed)))
+    }
+
+    async fn monitor_connections(self: &Arc<Self>, mut active: PresenceConnection, mut epoch: u64) {
+        let peer = &self.peer;
+        let mut interval = tokio::time::interval(INTERVAL);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut proof_timer = ProofTimer::new();
+
+        'connections: loop {
+            let mut pending = HashMap::new();
+            let mut last_response = active.proof_sent;
+            let mut recovery_deadline = None;
+            let mut path = None;
+            let mut backup: Option<CandidateFuture<PresenceConnection>> = None;
+            let reason = loop {
+                let lease_deadline = last_response + LEASE;
+                let deadline = recovery_deadline.unwrap_or(lease_deadline);
+                let now = proof_clock::now();
+                if !proof_clock::is_valid(now) || now >= deadline {
+                    if recovery_deadline.is_none() {
+                        active.stats.proof_expired();
+                        let grace_end = lease_deadline + RECOVERY_GRACE;
+                        recovery_deadline = Some(grace_end);
+                        backup.get_or_insert_with(|| self.dial_candidates());
+                        if proof_clock::is_valid(now) && now < grace_end {
+                            continue;
+                        }
+                    }
+                    active.connection.close(0u32.into(), b"presence expired");
+                    break SessionOutcome::Expired;
+                }
+                if peer.stopped.load(Ordering::Relaxed) || peer.inactive() {
+                    active.connection.close(0u32.into(), b"presence inactive");
+                    break SessionOutcome::Inactive;
+                }
+                tokio::select! {
+                    scheduled = interval.tick() => {
+                        active.stats.tick(scheduled);
+                        if observe_path(&active.connection, peer.trace, active.attempt, &mut path) {
+                            active.stats.report("path_changed");
+                        }
+                        send_tracked_probe(&active.connection, &mut pending, &mut active.stats);
+                    }
+                    _ = proof_timer.wait_until(deadline) => {}
+                    _ = peer.wake.notified() => {
+                        let current_epoch = peer.network_epoch.load(Ordering::Relaxed);
+                        if epoch != current_epoch {
+                            epoch = current_epoch;
+                            backup.get_or_insert_with(|| self.dial_candidates());
+                        }
+                        send_tracked_probe(&active.connection, &mut pending, &mut active.stats);
+                    }
+                    result = async { match &mut backup { Some(future) => future.await, None => std::future::pending().await } } => {
+                        backup = None;
+                        if let Some(candidate) = result {
+                            match self.promote(candidate, Some(&mut active)).await {
+                                Ok(promoted) => {
+                                    (active, epoch) = promoted;
+                                    continue 'connections;
+                                }
+                                Err(BackupOutcome::Stale) => backup = Some(self.dial_candidates()),
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                    data = active.connection.read_datagram() => {
+                        let Ok(data) = data else { break SessionOutcome::Closed };
+                        let trust = self.trust.read().await;
+                        if !trust.is_current(&self.id, &peer.session) { break SessionOutcome::Revoked; }
+                        let Some(packet) = Packet::decode(&data) else { continue };
+                        let stats = &mut active.stats;
+                        if packet.kind == MessageKind::Probe {
+                            stats.record(|s| s.ping_received += 1);
+                            if reply_ping(&active.connection, &packet.nonce, &self.info, TrustStatus::Paired).await {
+                                stats.record(|s| s.pong_queued += 1);
+                            }
+                            continue;
+                        }
+                        let Some(sent) = pending.remove(&packet.nonce) else {
+                            stats.record(|s| s.pong_unmatched += 1);
+                            continue;
+                        };
+                        stats.record(|s| {
+                            if sent >= s.started { s.max_rtt_ms = s.max_rtt_ms.max(sent.elapsed().as_millis() as u64); }
+                        });
+                        let response = peer.accept_response(sent, &data);
+                        stats.record_response(&response);
+                        if response.is_err() { continue; }
+                        if packet.kind == MessageKind::Unpaired {
+                            active.connection.close(0u32.into(), b"unpaired");
+                            break SessionOutcome::Revoked;
+                        }
+                        if packet.kind != MessageKind::Paired { continue; }
+                        let min_sent = peer.min_sent.lock().unwrap();
+                        if !peer.stopped.load(Ordering::Relaxed) && sent >= min_sent.resume {
+                            if sent >= min_sent.network { backup = None; }
+                            stats.first_pong(sent);
+                            last_response = last_response.max(sent);
+                            recovery_deadline = None;
+                        }
+                    }
+                }
+            };
+            active.stats.session_end(reason);
+            let Some(future) = backup else { return };
+            let Some(candidate) = future.await else {
+                return;
+            };
+            let Ok(promoted) = self.promote(candidate, None).await else {
+                return;
+            };
+            (active, epoch) = promoted;
+            interval.reset();
+        }
     }
 }
 
@@ -1352,13 +1492,13 @@ async fn run_peer_presence(
     trust: SharedTrust,
     info: Arc<RwLock<Option<DeviceInfo>>>,
 ) {
-    let dialer = Arc::new(Dialer {
+    let monitor = Arc::new(PeerMonitor {
         endpoint,
         address,
         id: id.clone(),
         peer: peer.clone(),
         trust: trust.clone(),
-        info: info.clone(),
+        info,
         attempts: AtomicU64::new(0),
     });
     loop {
@@ -1366,164 +1506,11 @@ async fn run_peer_presence(
             if !trust.read().await.is_current(&id, &peer.session) {
                 break;
             }
-            if let Some(ReadyCandidate {
-                connection: mut conn,
-                proof_sent: initial_sent,
-                attempt: initial_attempt,
-                mut stats,
-            }) = dialer.race().await
-            {
-                let initial_epoch = {
-                    let allowed = trust.read().await;
-                    let min_sent = peer.min_sent.lock().unwrap();
-                    if !allowed.is_current(&id, &peer.session)
-                        || peer.stopped.load(Ordering::Relaxed)
-                    {
-                        stats.candidate_end(crate::diagnostics::BackupOutcome::Inactive);
-                        continue;
-                    }
-                    if !candidate_is_current(initial_sent, min_sent.network, proof_clock::now()) {
-                        stats.candidate_end(crate::diagnostics::BackupOutcome::Stale);
-                        continue;
-                    }
-                    peer.network_epoch.load(Ordering::Relaxed)
+            if let Some(candidate) = monitor.dial_candidates().await {
+                let Ok((active, epoch)) = monitor.promote(candidate, None).await else {
+                    continue;
                 };
-                let mut interval = tokio::time::interval(INTERVAL);
-                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-                let mut pending: HashMap<Nonce, ProofInstant> = HashMap::new();
-                let mut last_response: Option<ProofInstant> = Some(initial_sent);
-                let mut recovery_deadline: Option<ProofInstant> = None;
-                let mut proof_timer = ProofTimer::new();
-                let mut path = None;
-                let mut session_epoch = initial_epoch;
-                let mut session_attempt = initial_attempt;
-                stats.role = "active";
-                let mut candidate_race: Option<CandidateFuture<ReadyCandidate>> = None;
-                'sessions: loop {
-                    let reason = loop {
-                        let proof_deadline = last_response.unwrap_or(initial_sent) + LEASE;
-                        let deadline = recovery_deadline.unwrap_or(proof_deadline);
-                        let now = proof_clock::now();
-                        if !proof_clock::is_valid(now) || now >= deadline {
-                            if recovery_deadline.is_none() {
-                                stats.proof_expired(last_response.is_some());
-                                recovery_deadline = Some(proof_deadline + RECOVERY_GRACE);
-                                if candidate_race.is_none() {
-                                    candidate_race = Some(dialer.race());
-                                }
-                                if proof_clock::is_valid(now) && now < recovery_deadline.unwrap() {
-                                    continue;
-                                }
-                            }
-                            conn.close(0u32.into(), b"presence expired");
-                            break crate::diagnostics::SessionOutcome::Expired;
-                        }
-                        if peer.stopped.load(Ordering::Relaxed) || peer.inactive() {
-                            conn.close(0u32.into(), b"presence inactive");
-                            break crate::diagnostics::SessionOutcome::Inactive;
-                        }
-                        tokio::select! {
-                            scheduled = interval.tick() => { stats.tick(scheduled); if observe_path(&conn, peer.trace, session_attempt, &mut path) { stats.report("path_changed"); } send_tracked_probe(&conn, &mut pending, &mut stats); },
-                            _ = proof_timer.wait_until(deadline) => {},
-                            _ = peer.wake.notified() => {
-                                let epoch = peer.network_epoch.load(Ordering::Relaxed);
-                                if epoch != session_epoch {
-                                    session_epoch = epoch;
-                                    if candidate_race.is_none() {
-                                        candidate_race = Some(dialer.race());
-                                    }
-                                }
-                                send_tracked_probe(&conn, &mut pending, &mut stats);
-                            }
-                            result = async { match &mut candidate_race { Some(future) => future.await, None => std::future::pending().await } } => {
-                                candidate_race = None;
-                                if let Some(ReadyCandidate { connection: replacement, proof_sent: sent, attempt: replacement_attempt, stats: mut replacement_stats }) = result {
-                                    let allowed = trust.read().await;
-                                    let min_sent = peer.min_sent.lock().unwrap();
-                                    if !allowed.is_current(&id, &peer.session) || peer.stopped.load(Ordering::Relaxed) { replacement_stats.candidate_end(crate::diagnostics::BackupOutcome::Inactive); continue; }
-                                    if !candidate_is_current(sent, min_sent.network, proof_clock::now()) {
-                                        replacement_stats.candidate_end(crate::diagnostics::BackupOutcome::Stale);
-                                        candidate_race = Some(dialer.race());
-                                        continue;
-                                    }
-                                    stats.session_end(crate::diagnostics::SessionOutcome::Replaced);
-                                    conn.close(0u32.into(), b"presence replaced");
-                                    conn = replacement;
-                                    path = None;
-                                    last_response = Some(sent);
-                                    recovery_deadline = None;
-                                    session_attempt = replacement_attempt;
-                                    replacement_stats.role = "active";
-                                    stats = replacement_stats;
-                                    session_epoch = peer.network_epoch.load(Ordering::Relaxed);
-                                    pending.clear();
-                                }
-                            }
-                            data = conn.read_datagram() => {
-                                let Ok(data) = data else { break crate::diagnostics::SessionOutcome::Closed };
-                                let allowed = trust.read().await;
-                                if !allowed.is_current(&id, &peer.session) { break crate::diagnostics::SessionOutcome::Revoked; }
-                                let Some(packet) = Packet::decode(&data) else { continue };
-                                if packet.kind == MessageKind::Probe {
-                                    stats.record(|s| s.ping_received += 1); if reply_ping(&conn, &packet.nonce, &info, TrustStatus::Paired).await { stats.record(|s| s.pong_queued += 1); }
-                                    continue;
-                                }
-                                let Some(sent) = pending.remove(&packet.nonce) else { stats.record(|s| s.pong_unmatched += 1); continue };
-                                stats.record(|s| { if sent >= s.started { s.max_rtt_ms = s.max_rtt_ms.max(sent.elapsed().as_millis() as u64); } });
-                                let response = peer.accept_response(sent, &data);
-                                stats.record_response(&response);
-                                if response.is_ok() {
-                                    if packet.kind == MessageKind::Unpaired { conn.close(0u32.into(), b"unpaired"); break crate::diagnostics::SessionOutcome::Revoked; }
-                                    if packet.kind != MessageKind::Paired { continue; }
-                                    let min_sent = peer.min_sent.lock().unwrap();
-                                    if !peer.stopped.load(Ordering::Relaxed) && sent >= min_sent.resume {
-                                        if sent >= min_sent.network { candidate_race = None; }
-                                        stats.first_pong(sent);
-                                        last_response = Some(last_response.map_or(sent, |previous| previous.max(sent)));
-                                        recovery_deadline = None;
-                                    }
-                                }
-                            }
-                        }
-                    };
-                    stats.session_end(reason);
-                    if let Some(future) = candidate_race.take() {
-                        if let Some(ReadyCandidate {
-                            connection: replacement,
-                            proof_sent: sent,
-                            attempt: replacement_attempt,
-                            stats: mut replacement_stats,
-                        }) = future.await
-                        {
-                            let allowed = trust.read().await;
-                            let min_sent = peer.min_sent.lock().unwrap();
-                            if !allowed.is_current(&id, &peer.session)
-                                || peer.stopped.load(Ordering::Relaxed)
-                            {
-                                replacement_stats
-                                    .candidate_end(crate::diagnostics::BackupOutcome::Inactive);
-                                break 'sessions;
-                            }
-                            if !candidate_is_current(sent, min_sent.network, proof_clock::now()) {
-                                replacement_stats
-                                    .candidate_end(crate::diagnostics::BackupOutcome::Stale);
-                                break 'sessions;
-                            }
-                            conn = replacement;
-                            path = None;
-                            last_response = Some(sent);
-                            recovery_deadline = None;
-                            session_attempt = replacement_attempt;
-                            replacement_stats.role = "active";
-                            stats = replacement_stats;
-                            session_epoch = peer.network_epoch.load(Ordering::Relaxed);
-                            interval.reset();
-                            pending.clear();
-                            continue 'sessions;
-                        }
-                    }
-                    break 'sessions;
-                }
+                monitor.monitor_connections(active, epoch).await;
             }
             if peer.stopped.load(Ordering::Relaxed) || peer.inactive() {
                 break;
