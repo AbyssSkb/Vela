@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pub_semver/pub_semver.dart';
 
-import 'notice.dart';
+import 'mac_update_feed.dart';
 
 enum AppUpdateState {
   disabled,
@@ -451,52 +450,14 @@ class AppUpdateController extends ChangeNotifier {
       throw StateError('Updater disposed');
     }
     _localServer = server;
-    final random = Random.secure();
-    final nonce = List<int>.generate(
-      32,
-      (_) => random.nextInt(256),
-    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-    final base = 'http://127.0.0.1:${server.port}/$nonce';
-    final xml = '''<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><title>Vela</title><item><title>Vela ${manifest.version}</title><enclosure url="$base/payload.zip" sparkle:version="${manifest.build}" sparkle:shortVersionString="${manifest.version}" sparkle:edSignature="${manifest.edSignature}" length="${manifest.size}" type="application/octet-stream" /></item></channel></rss>''';
-    server.listen((request) async {
-      try {
-        request.response.headers.set(
-          HttpHeaders.cacheControlHeader,
-          'no-store',
-        );
-        if (request.method != 'GET' && request.method != 'HEAD') {
-          request.response.statusCode = HttpStatus.methodNotAllowed;
-        } else if (request.uri.path == '/$nonce/appcast.xml') {
-          final bytes = utf8.encode(xml);
-          request.response.headers.contentType = ContentType(
-            'application',
-            'xml',
-            charset: 'utf-8',
-          );
-          request.response.contentLength = bytes.length;
-          if (request.method == 'GET') request.response.add(bytes);
-        } else if (request.uri.path == '/$nonce/payload.zip') {
-          request.response.headers.contentType = ContentType(
-            'application',
-            'zip',
-          );
-          request.response.contentLength = manifest.size;
-          if (request.method == 'GET') {
-            await request.response.addStream(archive.openRead());
-          }
-        } else {
-          request.response.statusCode = HttpStatus.notFound;
-        }
-        await request.response.close();
-      } catch (_) {
-        request.response
-            .detachSocket()
-            .then((socket) => socket.destroy())
-            .catchError((_) {});
-      }
-    });
-    return Uri.parse('$base/appcast.xml');
+    return serveMacUpdateFeed(
+      server,
+      archive,
+      version: manifest.version.toString(),
+      build: manifest.build,
+      edSignature: manifest.edSignature,
+      size: manifest.size,
+    );
   }
 
   Future<void> _closeLocalFeed() async {
@@ -568,127 +529,4 @@ Stream<List<int>> _readHttps(Uri url) async* {
   } finally {
     client.close(force: true);
   }
-}
-
-class AppUpdateTile extends StatelessWidget {
-  const AppUpdateTile({super.key, required this.controller});
-
-  final AppUpdateController controller;
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: controller,
-    builder: (context, _) {
-      final zh = Localizations.localeOf(context).languageCode == 'zh';
-      String text(String en, String cn) => zh ? cn : en;
-      final subtitle = switch (controller.state) {
-        AppUpdateState.disabled => text(
-          'Updates are unavailable in this build',
-          '此版本暂不提供应用内更新',
-        ),
-        AppUpdateState.idle => text('Check for updates', '检查更新'),
-        AppUpdateState.checking => text('Checking for updates…', '正在检查更新…'),
-        AppUpdateState.current => text('You are up to date', '已是最新版本'),
-        AppUpdateState.downloading => text('Downloading update…', '正在下载更新…'),
-        AppUpdateState.ready =>
-          controller.busy
-              ? text(
-                  'Finish the current transfer or pairing first',
-                  '请先完成当前传输或配对',
-                )
-              : text('Update ready to install', '更新已下载，可以安装'),
-        AppUpdateState.installing => text('Installing update…', '正在安装更新…'),
-        AppUpdateState.error => text(
-          'Could not update; tap to retry',
-          '更新失败，点击重试',
-        ),
-      };
-      return ListTile(
-        key: const ValueKey('app-update'),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-        leading: const Icon(Icons.system_update_alt_rounded),
-        title: Text(text('App updates', '应用更新')),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(subtitle),
-            if (controller.state == AppUpdateState.downloading)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: LinearProgressIndicator(value: controller.progress),
-              ),
-          ],
-        ),
-        trailing: controller.canInstall
-            ? const Icon(Icons.download_done_rounded)
-            : const Icon(Icons.chevron_right_rounded),
-        onTap: controller.canInstall
-            ? () async {
-                final accepted = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text(text('Install update?', '安装更新？')),
-                    content: Text(
-                      controller.platform == 'android'
-                          ? text(
-                              'Android will ask you to confirm installation.',
-                              'Android 将请你确认安装。',
-                            )
-                          : text(
-                              'Vela will close and restart to install the update.',
-                              'Vela 将关闭并重启以安装更新。',
-                            ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: Text(text('Later', '稍后')),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: Text(text('Install', '安装')),
-                      ),
-                    ],
-                  ),
-                );
-                if (accepted != true || !context.mounted) return;
-                if (!controller.canInstall) {
-                  showNotice(
-                    context,
-                    text(
-                      'Finish the current transfer or pairing first',
-                      '请先完成当前传输或配对',
-                    ),
-                    kind: NoticeKind.info,
-                  );
-                  return;
-                }
-                await controller.install();
-                if (context.mounted && controller.errorCode != null) {
-                  showNotice(context, switch (controller.errorCode) {
-                    'unknown_sources' => text(
-                      'Allow Vela to install updates in Android settings, then try again.',
-                      '请在 Android 设置中允许 Vela 安装更新，然后重试。',
-                    ),
-                    'read_only' => text(
-                      'Move Vela to a writable location and try again.',
-                      '请将 Vela 移到可写位置后重试。',
-                    ),
-                    'busy' => text(
-                      'Finish the current transfer or pairing first',
-                      '请先完成当前传输或配对',
-                    ),
-                    _ => text(
-                      'Could not install the update. Please try again.',
-                      '无法安装更新，请重试。',
-                    ),
-                  }, kind: NoticeKind.error);
-                }
-              }
-            : controller.canCheck
-            ? controller.check
-            : null,
-      );
-    },
-  );
 }

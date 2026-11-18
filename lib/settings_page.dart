@@ -10,6 +10,7 @@ import 'notice.dart';
 import 'notification_settings.dart';
 import 'received_storage.dart';
 import 'app_update.dart';
+import 'app_update_tile.dart';
 import 'desktop_platform.dart';
 
 class NameDialog extends StatefulWidget {
