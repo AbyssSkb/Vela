@@ -16,15 +16,15 @@ void main() {
       final paths = [userFile.path, temporary.path];
       final transfer = PreparedTransfer(
         paths: paths,
-        ownedPaths: [temporary.path, temporary.path],
+        ownedTemporaryPaths: [temporary.path, temporary.path],
       );
       paths.clear();
       expect(transfer.paths, [userFile.path, temporary.path]);
-      expect(transfer.ownedPaths, [temporary.path]);
+      expect(transfer.ownedTemporaryPaths, [temporary.path]);
       expect(() => transfer.paths.clear(), throwsUnsupportedError);
 
-      await transfer.cleanup();
-      await transfer.cleanup();
+      await transfer.deleteOwnedTemporaryFiles();
+      await transfer.deleteOwnedTemporaryFiles();
       expect(await userFile.readAsString(), 'user');
       expect(await temporary.exists(), isFalse);
     },
@@ -48,10 +48,10 @@ void main() {
           .writeAsString('source');
       final transfer = PreparedTransfer(
         paths: [file.path],
-        ownedPaths: [directory.path],
+        ownedTemporaryPaths: [directory.path],
       );
       await expectLater(
-        transfer.cleanup(),
+        transfer.deleteOwnedTemporaryFiles(),
         throwsA(isA<FileSystemException>()),
       );
       expect(await file.exists(), isTrue);

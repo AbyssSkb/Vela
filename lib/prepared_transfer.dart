@@ -7,26 +7,26 @@ class PreparedTransfer {
   PreparedTransfer({
     required List<String> paths,
     this.kind = TransferKind.file,
-    List<String> ownedPaths = const [],
+    List<String> ownedTemporaryPaths = const [],
     this.fromClipboard = false,
     this.share,
   }) : paths = List.unmodifiable(paths),
-       ownedPaths = List.unmodifiable(ownedPaths.toSet()) {
+       ownedTemporaryPaths = List.unmodifiable(ownedTemporaryPaths.toSet()) {
     if (paths.isEmpty ||
         paths.length > 100 ||
         paths.any((path) => path.isEmpty) ||
-        ownedPaths.any((path) => path.isEmpty)) {
+        ownedTemporaryPaths.any((path) => path.isEmpty)) {
       throw const FormatException('Invalid prepared transfer');
     }
   }
 
-  final List<String> paths, ownedPaths;
+  final List<String> paths, ownedTemporaryPaths;
   final TransferKind kind;
   final bool fromClipboard;
   final PendingShare? share;
 
-  Future<void> cleanup() async {
-    for (final path in ownedPaths) {
+  Future<void> deleteOwnedTemporaryFiles() async {
+    for (final path in ownedTemporaryPaths) {
       try {
         await File(path).delete();
       } on PathNotFoundException {

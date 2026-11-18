@@ -2,18 +2,16 @@ class PendingShare {
   PendingShare({
     List<String>? paths,
     List<String>? uris,
-    this.uri,
     this.text,
     this.typed = false,
     this.drop = false,
     this.stage,
   }) : paths = paths == null ? null : List.unmodifiable(paths),
        uris = uris == null ? null : List.unmodifiable(uris) {
-    final sources = [paths, uris, uri, text].where((value) => value != null);
+    final sources = [paths, uris, text].where((value) => value != null);
     if (sources.length != 1 ||
         !_validFiles(paths) ||
         !_validFiles(uris) ||
-        uri == '' ||
         stage == '' ||
         (typed && text == null) ||
         (drop && paths == null)) {
@@ -22,10 +20,10 @@ class PendingShare {
   }
 
   final List<String>? paths, uris;
-  final String? uri, text, stage;
+  final String? text, stage;
   final bool typed, drop;
 
-  bool get hasFiles => paths != null || uris != null || uri != null;
+  bool get hasFiles => paths != null || uris != null;
 
   factory PendingShare.fromMap(Map<dynamic, dynamic> value) {
     String? string(String key) {
@@ -50,10 +48,14 @@ class PendingShare {
       return item.cast<String>();
     }
 
+    final uris = files('uris');
+    final uri = string('uri');
+    if (uris != null && uri != null) {
+      throw const FormatException('Invalid shared content');
+    }
     return PendingShare(
       paths: files('paths'),
-      uris: files('uris'),
-      uri: string('uri'),
+      uris: uri == null ? uris : [uri],
       text: string('text'),
       typed: flag('typed'),
       drop: flag('drop'),

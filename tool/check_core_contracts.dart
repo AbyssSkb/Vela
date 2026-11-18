@@ -8,7 +8,7 @@ class MemoryContent extends PreparedTransfer {
   int cleanups = 0;
 
   @override
-  Future<void> cleanup() async => cleanups++;
+  Future<void> deleteOwnedTemporaryFiles() async => cleanups++;
 }
 
 void check(bool condition, String message) {
@@ -75,7 +75,7 @@ Future<void> main() async {
   final firstRetry = session.allowRetry();
   check(
     identical(firstRetry.take(), session),
-    'Retry reuses the same snapshot',
+    'Retry reuses the same prepared content',
   );
   final secondRetry = session.allowRetry();
   await firstRetry.dismiss();
@@ -83,8 +83,11 @@ Future<void> main() async {
   check(firstRetry.take() == null, 'Retry is single use');
   await secondRetry.dismiss();
   await secondRetry.dismiss();
-  await session.discard();
-  check(content.cleanups == 1, 'Abandon releases the snapshot exactly once');
+  await session.discardPreparedFiles();
+  check(
+    content.cleanups == 1,
+    'Abandon deletes owned temporary files exactly once',
+  );
   check(sourceReleases == 0, 'Failed attempt keeps the pending source');
 
   final sent = MemoryContent();
@@ -92,8 +95,8 @@ Future<void> main() async {
     sent,
     releaseSource: () async => sourceReleases++,
   );
-  await completed.complete();
-  await completed.discard();
+  await completed.releaseAfterSuccessfulSend();
+  await completed.discardPreparedFiles();
   check(
     sourceReleases == 1 && sent.cleanups == 1,
     'Success releases both owners',
@@ -104,7 +107,7 @@ Future<void> main() async {
     await SendSession(
       failedRelease,
       releaseSource: () async => throw StateError('Source release failed'),
-    ).complete();
+    ).releaseAfterSuccessfulSend();
     throw StateError('Expected source release failure');
   } catch (error) {
     check(

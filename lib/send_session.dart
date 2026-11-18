@@ -8,17 +8,17 @@ class SendSession {
   SendRetry? _retry;
   Future<void>? _cleanup;
 
-  Future<void> complete() async {
+  Future<void> releaseAfterSuccessfulSend() async {
     try {
       await releaseSource?.call();
     } finally {
-      await discard();
+      await discardPreparedFiles();
     }
   }
 
-  Future<void> discard() {
+  Future<void> discardPreparedFiles() {
     _retry = null;
-    return _cleanup ??= content.cleanup();
+    return _cleanup ??= content.deleteOwnedTemporaryFiles();
   }
 
   SendRetry allowRetry() {
@@ -40,6 +40,6 @@ class SendRetry {
   }
 
   Future<void> dismiss() async {
-    await take()?.discard();
+    await take()?.discardPreparedFiles();
   }
 }
