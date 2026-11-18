@@ -35,12 +35,12 @@ class DesktopIntegration {
                                    APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
     app_indicator_set_title(indicator_, "Vela");
     auto* menu = gtk_menu_new();
-    auto* show = gtk_menu_item_new_with_label("Show Vela");
-    auto* quit = gtk_menu_item_new_with_label("Quit");
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), show);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), quit);
-    g_signal_connect_swapped(show, "activate", G_CALLBACK(Show), this);
-    g_signal_connect_swapped(quit, "activate", G_CALLBACK(Quit), this);
+    show_item_ = gtk_menu_item_new_with_label("Open Vela");
+    quit_item_ = gtk_menu_item_new_with_label("Quit");
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), show_item_);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), quit_item_);
+    g_signal_connect_swapped(show_item_, "activate", G_CALLBACK(Show), this);
+    g_signal_connect_swapped(quit_item_, "activate", G_CALLBACK(Quit), this);
     gtk_widget_show_all(menu);
     app_indicator_set_menu(indicator_, GTK_MENU(menu));
     app_indicator_set_status(indicator_, APP_INDICATOR_STATUS_ACTIVE);
@@ -95,6 +95,8 @@ class DesktopIntegration {
   FlMethodChannel* files_ = nullptr;
   FlMethodChannel* clipboard_ = nullptr;
   AppIndicator* indicator_ = nullptr;
+  GtkWidget* show_item_ = nullptr;
+  GtkWidget* quit_item_ = nullptr;
   NotifyNotification* offer_ = nullptr;
   GNetworkMonitor* network_ = nullptr;
   GDBusConnection* system_bus_ = nullptr;
@@ -308,6 +310,17 @@ class DesktopIntegration {
                    message == nullptr ? "Incoming transfer" : message);
     } else if (strcmp(method, "clearOffer") == 0) {
       self->ClearOffer();
+    } else if (strcmp(method, "setTrayLabels") == 0) {
+      const auto* open = StringArgument(arguments, "open");
+      const auto* quit = StringArgument(arguments, "quit");
+      if (open == nullptr || *open == '\0' || quit == nullptr || *quit == '\0') {
+        fl_method_call_respond_error(call, "arguments",
+                                     "Expected Open and Quit labels", nullptr,
+                                     nullptr);
+        return;
+      }
+      gtk_menu_item_set_label(GTK_MENU_ITEM(self->show_item_), open);
+      gtk_menu_item_set_label(GTK_MENU_ITEM(self->quit_item_), quit);
     } else if (strcmp(method, "setNodeStatus") == 0) {
       if (arguments != nullptr &&
           fl_value_get_type(arguments) == FL_VALUE_TYPE_STRING) {

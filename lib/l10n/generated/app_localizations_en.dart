@@ -1057,6 +1057,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Keep Vela in the system tray when the window is closed. Quit from the tray menu to stop receiving.';
 
   @override
+  String get trayOpen => 'Open Vela';
+
+  @override
+  String get trayQuit => 'Quit';
+
+  @override
   String get desktopBackgroundLimits =>
       'Receiving stops when Vela is quit or the computer sleeps. Tray availability depends on your desktop environment.';
 

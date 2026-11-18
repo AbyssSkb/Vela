@@ -1958,6 +1958,18 @@ abstract class AppLocalizations {
   /// **'Keep Vela in the system tray when the window is closed. Quit from the tray menu to stop receiving.'**
   String get desktopBackgroundHint;
 
+  /// No description provided for @trayOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Vela'**
+  String get trayOpen;
+
+  /// No description provided for @trayQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit'**
+  String get trayQuit;
+
   /// No description provided for @desktopBackgroundLimits.
   ///
   /// In en, this message translates to:

@@ -188,8 +188,9 @@ void DesktopIntegration::RequestQuit() {
 void DesktopIntegration::ShowMenu() {
   const HMENU menu = CreatePopupMenu();
   if (!menu) return;
-  AppendMenuW(menu, MF_STRING, kShowCommand, L"Open Vela");
-  AppendMenuW(menu, MF_STRING | (quitting_ ? MF_GRAYED : 0), kQuitCommand, L"Quit");
+  AppendMenuW(menu, MF_STRING, kShowCommand, open_label_.c_str());
+  AppendMenuW(menu, MF_STRING | (quitting_ ? MF_GRAYED : 0), kQuitCommand,
+              quit_label_.c_str());
   POINT point{};
   GetCursorPos(&point);
   SetForegroundWindow(window_);
@@ -331,6 +332,16 @@ void DesktopIntegration::HandleBackground(
       transferring_ = *value;
       UpdateTray();
     }
+    result->Success();
+  } else if (method == "setTrayLabels") {
+    const auto open = Wide(StringArgument(call.arguments(), "open"));
+    const auto quit = Wide(StringArgument(call.arguments(), "quit"));
+    if (open.empty() || quit.empty()) {
+      result->Error("arguments", "Expected Open and Quit labels");
+      return;
+    }
+    open_label_ = open;
+    quit_label_ = quit;
     result->Success();
   } else if (method == "setNodeStatus") {
     const auto* status = call.arguments() ? std::get_if<std::string>(call.arguments()) : nullptr;

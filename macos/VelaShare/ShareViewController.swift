@@ -48,11 +48,13 @@ final class ShareViewController: NSViewController {
                 userInfo: [NSLocalizedDescriptionKey: "Could not read shared file."])
             }
             if try url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true {
+              let chinese = Locale.preferredLanguages.first?.hasPrefix("zh") == true
               throw NSError(
                 domain: "Vela", code: 5,
                 userInfo: [
-                  NSLocalizedDescriptionKey: NSLocalizedString(
-                    "Folder sharing is not available yet.", comment: "")
+                  NSLocalizedDescriptionKey: chinese
+                    ? "打开 Vela，选择「文件夹」来发送此文件夹。"
+                    : "Open Vela and choose Folder to send this folder."
                 ])
             }
             let accessed = url.startAccessingSecurityScopedResource()
