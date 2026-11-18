@@ -30,6 +30,15 @@
   "media": "相册",
   "mediaPickFailed": "无法打开相册，请重试",
   "clipboard": "剪贴板",
+  "sendContentGroup": "发送内容",
+  "sendContentType": "发送{kind}",
+  "@sendContentType": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
   "sendFile": "发送文件",
   "sendClipboard": "发送剪贴板",
   "chooseDevice": "选择设备",
@@ -341,7 +350,7 @@
   "backgroundReceiving": "后台接收",
   "localBackgroundReceiving": "本机后台接收",
   "enableBackgroundReceiving": "允许后台接收",
-  "notificationBackgroundBlocked": "系统通知已关闭。需要确认的传输，请打开 Vela 后接收。",
+  "notificationBackgroundBlocked": "通知已关闭。请打开 Vela 确认接收请求。",
   "notificationSettings": "通知",
   "notificationSystemSettings": "系统通知设置",
   "notificationOff": "已在系统设置中关闭",

@@ -101,6 +101,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clipboard => 'Clipboard';
 
   @override
+  String get sendContentGroup => 'Send content';
+
+  @override
+  String sendContentType(String kind) {
+    return 'Send $kind';
+  }
+
+  @override
   String get sendFile => 'Send file';
 
   @override
@@ -686,7 +694,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationBackgroundBlocked =>
-      'System notifications are off. Open Vela to accept transfers that need your confirmation.';
+      'Notifications are off. Open Vela to accept requests.';
 
   @override
   String get notificationSettings => 'Notifications';

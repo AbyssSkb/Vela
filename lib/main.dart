@@ -3503,15 +3503,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 )
               : null,
         ),
-        HomeToolbarAction(
-          'view',
-          showingGraph ? t.showList : t.showGraph,
-          showingGraph ? Icons.view_list_rounded : Icons.hub_outlined,
-          () => _toggleDeviceView(showingGraph),
-          key: const ValueKey('toggle-device-view'),
-        ),
       ],
     ],
+    viewMode: peers.isEmpty || pendingShare != null
+        ? null
+        : HomeToolbarAction(
+            'view',
+            showingGraph ? t.showList : t.showGraph,
+            showingGraph ? Icons.view_list_rounded : Icons.hub_outlined,
+            () => _toggleDeviceView(showingGraph),
+            key: const ValueKey('toggle-device-view'),
+          ),
     menuActions: [
       if (status != null)
         HomeToolbarAction(
@@ -3732,7 +3734,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final colors = Theme.of(context).colorScheme;
     final wide = viewport.maxWidth >= 700;
     final largeText = HomeSendButton.usesLargeLabels(context);
-    final roomyActions = largeText || viewport.maxWidth < 340;
     final compactHeader = wide && viewport.maxHeight < 500 && !Platform.isMacOS;
     final headerTop = Platform.isMacOS
         ? 44.0
@@ -3789,6 +3790,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
           ),
+        if (node != null &&
+            error == null &&
+            peers.isNotEmpty &&
+            pendingShare == null &&
+            !showingGraph &&
+            viewport.maxHeight >= 520)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            sliver: SliverToBoxAdapter(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  t.sendContentGroup,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+            ),
+          ),
         if (error != null)
           SliverToBoxAdapter(
             child: Padding(
@@ -3838,7 +3857,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   HomeResponsiveLayout.minimumHeight(
                     wide: wide,
                     count: actions.length,
-                    largeText: roomyActions,
+                    largeText: largeText,
                     width: viewport.maxWidth - 48,
                   ),
                   constraints.viewportMainAxisExtent -
@@ -3848,7 +3867,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: HomeResponsiveLayout(
                     wide: wide,
-                    largeText: roomyActions,
+                    largeText: largeText,
                     centerActions: showingGraph,
                     actions: actions,
                     devices: CustomScrollView(

@@ -100,6 +100,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clipboard => '剪贴板';
 
   @override
+  String get sendContentGroup => '发送内容';
+
+  @override
+  String sendContentType(String kind) {
+    return '发送$kind';
+  }
+
+  @override
   String get sendFile => '发送文件';
 
   @override
@@ -634,7 +642,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get enableBackgroundReceiving => '允许后台接收';
 
   @override
-  String get notificationBackgroundBlocked => '系统通知已关闭。需要确认的传输，请打开 Vela 后接收。';
+  String get notificationBackgroundBlocked => '通知已关闭。请打开 Vela 确认接收请求。';
 
   @override
   String get notificationSettings => '通知';

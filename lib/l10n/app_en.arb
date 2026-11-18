@@ -30,6 +30,15 @@
   "media": "Photos",
   "mediaPickFailed": "Couldn't open the photo picker. Try again.",
   "clipboard": "Clipboard",
+  "sendContentGroup": "Send content",
+  "sendContentType": "Send {kind}",
+  "@sendContentType": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
   "sendFile": "Send file",
   "sendClipboard": "Send clipboard",
   "chooseDevice": "Choose a device",
@@ -351,7 +360,7 @@
   "backgroundReceiving": "Background receiving",
   "localBackgroundReceiving": "Background receiving on this device",
   "enableBackgroundReceiving": "Allow background receiving",
-  "notificationBackgroundBlocked": "System notifications are off. Open Vela to accept transfers that need your confirmation.",
+  "notificationBackgroundBlocked": "Notifications are off. Open Vela to accept requests.",
   "notificationSettings": "Notifications",
   "notificationSystemSettings": "System notification settings",
   "notificationOff": "Off in system settings",

@@ -278,6 +278,18 @@ abstract class AppLocalizations {
   /// **'Clipboard'**
   String get clipboard;
 
+  /// No description provided for @sendContentGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Send content'**
+  String get sendContentGroup;
+
+  /// No description provided for @sendContentType.
+  ///
+  /// In en, this message translates to:
+  /// **'Send {kind}'**
+  String sendContentType(String kind);
+
   /// No description provided for @sendFile.
   ///
   /// In en, this message translates to:
@@ -1253,7 +1265,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationBackgroundBlocked.
   ///
   /// In en, this message translates to:
-  /// **'System notifications are off. Open Vela to accept transfers that need your confirmation.'**
+  /// **'Notifications are off. Open Vela to accept requests.'**
   String get notificationBackgroundBlocked;
 
   /// No description provided for @notificationSettings.
