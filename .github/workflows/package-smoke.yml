@@ -92,7 +92,7 @@ jobs:
         run: |
           sudo apt-get update
           # AppImages use host graphics drivers; supply EGL/Mesa for this headless display.
-          sudo apt-get install -y xvfb x11-utils dbus-x11 libegl1 libgl1-mesa-dri gnome-keyring
+          sudo apt-get install -y xvfb x11-utils dbus-x11 libegl1 libgles2 libgl1 libgl1-mesa-dri gnome-keyring
       - name: Extract and open the Linux package
         if: runner.os == 'Linux'
         shell: bash
