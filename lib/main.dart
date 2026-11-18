@@ -260,6 +260,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   static const clipboardChannel = MethodChannel('vela/clipboard');
   static const shareChannel = MethodChannel('vela/share');
   static const backgroundChannel = MethodChannel('vela/background');
+  ({bool enabled, bool autoAccept, Map<Object?, Object?> status})?
+  _backgroundAvailability;
+  int _backgroundStatusRequest = 0;
   static const offerActionsChannel = MethodChannel('vela/offer_actions');
   late final runtime = AppRuntime(
     profile: widget.profile,
@@ -506,6 +509,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             presenceController.requestMonitoring(enabled: monitorPresence);
         }
         if (call.method == 'visible') {
+          unawaited(_refreshBackgroundAvailability());
           windowVisibilityRevision++;
           final wasMonitoring = monitorPresence;
           final wasHidden = !presenceVisible;
@@ -645,9 +649,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (DesktopPlatform.isDesktop) unawaited(_syncInitialWindowVisibility());
     if (Platform.isMacOS) {
       unawaited(
-        _restoreMacKeepAwake().catchError((Object e) {
-          debugPrint('Could not restore background receiving: $e');
-        }),
+        _restoreMacKeepAwake()
+            .catchError((Object e) {
+              debugPrint('Could not restore background receiving: $e');
+            })
+            .whenComplete(_refreshBackgroundAvailability),
       );
     }
     _startNode();
@@ -662,6 +668,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       presenceController.requestMonitoring(enabled: monitorPresence);
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
+      unawaited(_refreshBackgroundAvailability());
       unawaited(_showLegacyPairingNotice());
       incomingPrompt?.becameVisible();
       if (Platform.isAndroid ||
@@ -821,10 +828,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     if (pendingShare != null || _failedSend != null) {
       _message(t.dropAlreadyPending, kind: NoticeKind.error);
-      return;
-    }
-    if (peers.isEmpty) {
-      _message(t.noDevices, kind: NoticeKind.info);
       return;
     }
     if (details.files.isEmpty) return;
@@ -1060,8 +1063,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         unawaited(
           backgroundChannel
               .invokeMethod<void>('nodeReady', {'message': t.backgroundReady})
-              .catchError((Object _) {}),
+              .catchError((Object _) {})
+              .whenComplete(_refreshBackgroundAvailability),
         );
+      } else {
+        unawaited(_refreshBackgroundAvailability());
       }
       if (ready.legacyStateDetected &&
           !(p.getBool('legacy_pairing_notice_${widget.profile}') ?? false)) {
@@ -1088,7 +1094,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 .catchError((Object e) {
                   debugPrint('Could not resume background receiving: $e');
                   return false;
-                }),
+                })
+                .whenComplete(_refreshBackgroundAvailability),
           );
         }
       }
@@ -2338,6 +2345,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  BackgroundReceiving? get _backgroundSetting =>
+      BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase());
+
+  Future<void> _refreshBackgroundAvailability() async {
+    final setting = _backgroundSetting;
+    final preferences = prefs;
+    if (!mounted || setting == null || preferences == null) return;
+    final request = ++_backgroundStatusRequest;
+    Map<Object?, Object?> status;
+    try {
+      status = await setting.readStatus();
+    } catch (_) {
+      status = {};
+    }
+    if (!mounted || request != _backgroundStatusRequest) return;
+    setState(() {
+      _backgroundAvailability = status.isEmpty
+          ? null
+          : (
+              enabled: setting.enabled(preferences, widget.profile),
+              autoAccept:
+                  preferences.getBool('auto_accept_${widget.profile}') ?? false,
+              status: status,
+            );
+    });
+  }
+
+  Future<void> _showBackgroundSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => BackgroundSettingsPage(
+          profile: widget.profile,
+          onChanged: _backgroundPresenceChanged,
+        ),
+      ),
+    );
+    await _refreshBackgroundAvailability();
+  }
+
   Future<void> _showSettings() async {
     await Navigator.push(
       context,
@@ -2366,6 +2413,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       ),
     );
+    await _refreshBackgroundAvailability();
   }
 
   String _relayTokenKey(String url) => runtime.relayTokenKey(url);
@@ -3361,7 +3409,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     selectingPeers = false;
   });
 
-  Widget _buildHomeToolbar(bool showingGraph) => HomeToolbar(
+  Widget _buildHomeToolbar(bool showingGraph, String? status) => HomeToolbar(
     selection: selectingPeers
         ? Row(
             children: [
@@ -3423,17 +3471,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 )
               : null,
         ),
-        if (pendingShare == null)
-          HomeToolbarAction(
-            'view',
-            showingGraph ? t.showList : t.showGraph,
-            showingGraph ? Icons.view_list_rounded : Icons.hub_outlined,
-            () => _toggleDeviceView(showingGraph),
-            key: const ValueKey('toggle-device-view'),
-          ),
+        HomeToolbarAction(
+          'view',
+          showingGraph ? t.showList : t.showGraph,
+          showingGraph ? Icons.view_list_rounded : Icons.hub_outlined,
+          () => _toggleDeviceView(showingGraph),
+          key: const ValueKey('toggle-device-view'),
+        ),
       ],
     ],
     menuActions: [
+      if (status != null)
+        HomeToolbarAction(
+          'background',
+          '${t.localBackgroundReceiving}\n$status',
+          Icons.move_to_inbox_outlined,
+          _showBackgroundSettings,
+        ),
       if (peers.isNotEmpty)
         HomeToolbarAction(
           'select',
@@ -3511,7 +3565,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _tapDevice(String id) {
     if (selectingPeers) {
       _togglePeerSelection(id);
-    } else if (pendingShare case final share? when _failedSend == null) {
+    } else if (pendingShare case final share?
+        when _failedSend == null && deviceView != 'graph') {
       unawaited(_sendShare(id, share));
     } else {
       _showDeviceDetails(id);
@@ -3652,8 +3707,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ? 4.0
         : 24.0;
     final headerBottom = compactHeader ? 4.0 : 12.0;
-    final deviceHeight = viewport.maxHeight - headerTop - 48 - headerBottom;
-    final showingGraph = deviceView == 'graph' && pendingShare == null;
+    final showingGraph = deviceView == 'graph';
+    final background = _backgroundSetting;
+    final availability = _backgroundAvailability;
+    final backgroundStatus =
+        background != null &&
+            availability != null &&
+            node != null &&
+            error == null &&
+            peers.isNotEmpty
+        ? background.statusText(
+            t,
+            availability.enabled,
+            availability.status,
+            autoAccept: availability.autoAccept,
+          )
+        : null;
+    final showBackgroundStatus = viewport.maxHeight >= 500;
 
     final actions = _sendButtons();
     return CustomScrollView(
@@ -3661,8 +3731,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       slivers: [
         SliverPadding(
           padding: EdgeInsets.fromLTRB(24, headerTop, 24, headerBottom),
-          sliver: SliverToBoxAdapter(child: _buildHomeToolbar(showingGraph)),
+          sliver: SliverToBoxAdapter(
+            child: _buildHomeToolbar(
+              showingGraph,
+              showBackgroundStatus ? null : backgroundStatus,
+            ),
+          ),
         ),
+        if (showBackgroundStatus && backgroundStatus != null)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            sliver: SliverToBoxAdapter(
+              child: ListTile(
+                key: const ValueKey('local-background-availability'),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                tileColor: colors.surfaceContainerLow,
+                title: Text(t.localBackgroundReceiving),
+                subtitle: Text(backgroundStatus),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _showBackgroundSettings,
+              ),
+            ),
+          ),
         if (error != null)
           SliverToBoxAdapter(
             child: Padding(
@@ -3689,15 +3782,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           Platform.isMacOS ||
                           DesktopPlatform.isWindowsOrLinux)
                         TextButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => BackgroundSettingsPage(
-                                profile: widget.profile,
-                                onChanged: _backgroundPresenceChanged,
-                              ),
-                            ),
-                          ),
+                          onPressed: _showBackgroundSettings,
                           child: Text(t.backgroundReceiving),
                         ),
                     ],
@@ -3719,28 +3804,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onShowCode: _showMyDeviceDialog,
           )
         else
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: math.max(
-                HomeResponsiveLayout.minimumHeight(
-                  wide: wide,
-                  count: actions.length,
-                  largeText: roomyActions,
-                  width: viewport.maxWidth - 48,
+          SliverLayoutBuilder(
+            builder: (context, constraints) => SliverToBoxAdapter(
+              child: SizedBox(
+                height: math.max(
+                  HomeResponsiveLayout.minimumHeight(
+                    wide: wide,
+                    count: actions.length,
+                    largeText: roomyActions,
+                    width: viewport.maxWidth - 48,
+                  ),
+                  constraints.viewportMainAxisExtent -
+                      constraints.precedingScrollExtent,
                 ),
-                deviceHeight,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: HomeResponsiveLayout(
-                  wide: wide,
-                  largeText: roomyActions,
-                  centerActions: showingGraph,
-                  actions: actions,
-                  devices: CustomScrollView(
-                    key: const ValueKey('home-devices'),
-                    physics: const ClampingScrollPhysics(),
-                    slivers: _deviceSlivers(showingGraph, largeText: largeText),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: HomeResponsiveLayout(
+                    wide: wide,
+                    largeText: roomyActions,
+                    centerActions: showingGraph,
+                    actions: actions,
+                    devices: CustomScrollView(
+                      key: const ValueKey('home-devices'),
+                      physics: const ClampingScrollPhysics(),
+                      slivers: _deviceSlivers(
+                        showingGraph,
+                        largeText: largeText,
+                      ),
+                    ),
                   ),
                 ),
               ),

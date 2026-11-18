@@ -162,7 +162,6 @@
   "nameVisible": "Your other devices will see this name.",
   "deviceAliasHint": "Only shown on this device.",
   "selectFileFirst": "Choose a file, then a device.",
-  "noDevices": "Add a device first.",
   "requestAccepted": "Device added",
   "deviceCodeShort": "Device code {code}",
   "@deviceCodeShort": {
@@ -330,6 +329,9 @@
   "dropAlreadyPending": "Finish with the selected content first",
   "tooManyFiles": "You can send up to 100 files at once",
   "backgroundReceiving": "Background receiving",
+  "localBackgroundReceiving": "Background receiving on this device",
+  "enableBackgroundReceiving": "Allow background receiving",
+  "notificationBackgroundBlocked": "System notifications are off. Open Vela to accept transfers that need your confirmation.",
   "notificationSettings": "Notifications",
   "notificationSystemSettings": "System notification settings",
   "notificationOff": "Off in system settings",

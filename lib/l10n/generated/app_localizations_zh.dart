@@ -374,9 +374,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selectFileFirst => '选择文件后，再选择接收设备';
 
   @override
-  String get noDevices => '请先添加设备';
-
-  @override
   String get requestAccepted => '已添加设备';
 
   @override
@@ -588,6 +585,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundReceiving => '后台接收';
+
+  @override
+  String get localBackgroundReceiving => '本机后台接收';
+
+  @override
+  String get enableBackgroundReceiving => '允许后台接收';
+
+  @override
+  String get notificationBackgroundBlocked => '系统通知已关闭。需要确认的传输，请打开 Vela 后接收。';
 
   @override
   String get notificationSettings => '通知';

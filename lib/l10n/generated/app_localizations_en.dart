@@ -403,9 +403,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectFileFirst => 'Choose a file, then a device.';
 
   @override
-  String get noDevices => 'Add a device first.';
-
-  @override
   String get requestAccepted => 'Device added';
 
   @override
@@ -626,6 +623,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundReceiving => 'Background receiving';
+
+  @override
+  String get localBackgroundReceiving => 'Background receiving on this device';
+
+  @override
+  String get enableBackgroundReceiving => 'Allow background receiving';
+
+  @override
+  String get notificationBackgroundBlocked =>
+      'System notifications are off. Open Vela to accept transfers that need your confirmation.';
 
   @override
   String get notificationSettings => 'Notifications';
