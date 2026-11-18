@@ -285,13 +285,15 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         val view =
                             Intent(Intent.ACTION_VIEW)
                                 .setDataAndType(uri, type)
-                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                .addFlags(
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                        Intent.FLAG_ACTIVITY_NEW_TASK
+                                )
                         val open =
                             PendingIntent.getActivity(
                                 context,
                                 notificationId,
-                                Intent.createChooser(view, null)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                view,
                                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                             )
                         builder.addAction(0, call.argument<String>("open") ?: "Open", open)
