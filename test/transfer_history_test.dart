@@ -207,7 +207,9 @@ void main() {
     expect(find.text('File details'), findsNothing);
   });
 
-  testWidgets('search finds clipboard text and can be cleared', (tester) async {
+  testWidgets('history search keeps removal scoped to the results', (
+    tester,
+  ) async {
     final record = TransferRecord(
       name: 'Clipboard text',
       peer: 'Phone',
@@ -217,7 +219,16 @@ void main() {
       fileReference: '/clip.txt',
       preview: 'A useful link',
     );
-    final records = ValueNotifier([record]);
+    final other = TransferRecord(
+      name: 'report.pdf',
+      peer: 'Mac',
+      time: DateTime.now(),
+      kind: HistoryKind.file,
+      received: true,
+      fileReference: '/report.pdf',
+    );
+    final records = ValueNotifier([record, other]);
+    final removed = <TransferRecord>[];
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
@@ -229,21 +240,43 @@ void main() {
           export: (_) async {},
           openFolder: () async {},
           reveal: (_) async {},
-          remove: (_, {required bool deleteFiles}) async {},
+          remove: (items, {required bool deleteFiles}) async {
+            expect(deleteFiles, isFalse);
+            removed.addAll(items);
+            records.value = records.value
+                .where((item) => !items.contains(item))
+                .toList();
+          },
         ),
       ),
     );
+    expect(find.byTooltip('Clear history'), findsOneWidget);
     await tester.tap(find.byTooltip('Search history'));
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Clear history'), findsNothing);
     await tester.enterText(find.byType(TextField), 'useful');
     await tester.pump();
     expect(find.text('A useful link'), findsOneWidget);
+    expect(find.text('report.pdf'), findsNothing);
+    await tester.longPress(find.text('A useful link'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Select all'));
+    await tester.pump();
+    expect(find.text('1 selected'), findsOneWidget);
+    await tester.tap(find.byTooltip('Remove record'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove 1 record?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
+    await tester.pumpAndSettle();
+    expect(removed, [record]);
+    expect(records.value, [other]);
     await tester.enterText(find.byType(TextField), 'missing');
     await tester.pump();
     expect(find.text('No matching records'), findsOneWidget);
     await tester.tap(find.byTooltip('Close'));
     await tester.pump();
-    expect(find.text('A useful link'), findsOneWidget);
+    expect(find.text('report.pdf'), findsOneWidget);
+    expect(find.byTooltip('Clear history'), findsOneWidget);
   });
 
   testWidgets(
@@ -289,7 +322,9 @@ void main() {
       expect(find.text('sent.pdf'), findsNothing);
       await tester.tap(find.byTooltip('Clear history'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Remove records only'),
+      );
       await tester.pumpAndSettle();
       expect(find.text('No received items yet'), findsOneWidget);
       expect(records.value, [sent]);
@@ -358,7 +393,7 @@ void main() {
       tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
       isFalse,
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
     await tester.pumpAndSettle();
     expect(removed, containsAll([first, second]));
     expect(records.value, [sent]);
@@ -410,7 +445,9 @@ void main() {
     );
     await tester.tap(find.text('Also delete files'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Delete records and files'),
+    );
     await tester.pumpAndSettle();
     expect(chosenDeleteFiles, isTrue);
     expect(tester.takeException(), isNull);
@@ -455,7 +492,7 @@ void main() {
       tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
       isFalse,
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
     await tester.pumpAndSettle();
     expect(chosenDeleteFiles, isFalse);
   });
