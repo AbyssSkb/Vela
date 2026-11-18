@@ -78,6 +78,15 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
         expect(tester.takeException(), isNull);
+        expect(find.text('Local alias'), findsOneWidget);
+        expect(find.text('Only shown on this device.'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'Original device name'),
+            matching: find.byTooltip('Restore device name'),
+          ),
+          findsOneWidget,
+        );
 
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         await tester.pump();
@@ -427,17 +436,8 @@ void main() {
         await tester.tap(find.byTooltip('Cancel').first);
         await tester.pump();
         await resize(const Size(500, 844));
-        expect(find.byKey(const ValueKey('home-more')), findsNothing);
-        expect(
-          find.byTooltip('Settings'),
-          findsOneWidget,
-          reason: 'A menu containing only Settings should be a direct button',
-        );
-        expect(
-          find.byKey(const ValueKey('select-devices')),
-          findsOneWidget,
-          reason: 'Toolbar actions should return progressively as space grows',
-        );
+        expect(find.byKey(const ValueKey('home-more')), findsOneWidget);
+        expect(find.byKey(const ValueKey('select-devices')), findsNothing);
         expect(
           find.byKey(const ValueKey('toggle-device-view')),
           findsOneWidget,
@@ -455,11 +455,13 @@ void main() {
               .getTopLeft(find.byKey(const ValueKey('toggle-device-view')))
               .dx,
           lessThan(
-            tester.getTopLeft(find.byKey(const ValueKey('select-devices'))).dx,
+            tester
+                .getTopLeft(find.byKey(const ValueKey('transfer-history')))
+                .dx,
           ),
         );
         expect(
-          tester.getTopLeft(find.byKey(const ValueKey('select-devices'))).dx,
+          tester.getTopLeft(find.byKey(const ValueKey('transfer-history'))).dx,
           lessThan(
             tester.getTopLeft(find.byKey(const ValueKey('add-device'))).dx,
           ),
@@ -503,6 +505,9 @@ void main() {
         }
 
         await resize(const Size(844, 390));
+        expect(find.widgetWithText(TextButton, 'Received'), findsOneWidget);
+        expect(find.widgetWithText(TextButton, 'Add device'), findsOneWidget);
+        expect(tester.getTopLeft(file).dy, tester.getTopLeft(device).dy);
         expect(
           tester.getRect(file).right,
           lessThanOrEqualTo(tester.getRect(device).left),
@@ -546,8 +551,12 @@ void main() {
         );
         await resize(const Size(844, 390));
 
+        await tester.tap(find.byKey(const ValueKey('home-more')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(find.byKey(const ValueKey('select-devices')));
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(device);
         await tester.pump();
         expect(

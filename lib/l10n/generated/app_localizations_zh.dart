@@ -76,10 +76,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceDetails => '设备详情';
 
   @override
-  String get renameDevice => '重命名设备';
+  String get renameDevice => '本机别名';
 
   @override
-  String get useDeviceName => '使用设备原名';
+  String get useDeviceName => '恢复设备名称';
 
   @override
   String get deviceNameRequired => '请输入设备名称';
@@ -356,7 +356,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get storageFailed => '无法保存设置';
 
   @override
-  String get systemDeviceName => '使用系统设备名';
+  String get systemDeviceName => '设备原名';
 
   @override
   String get nameVisible => '其他设备会看到此名称';

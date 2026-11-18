@@ -138,6 +138,14 @@ void main() {
           expect(state.pendingShare.text, text);
           expect(state.pendingShare.stage, stage);
           expect(find.text('Ready to send: Text'), findsOneWidget);
+          expect(find.text(text), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('peer-$peerId')),
+              matching: find.text('Send to Phone'),
+            ),
+            findsOneWidget,
+          );
           if (send) {
             final choose = find.byKey(const ValueKey('choose-share-device'));
             await tester.tap(choose);

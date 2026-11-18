@@ -77,10 +77,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceDetails => 'Device details';
 
   @override
-  String get renameDevice => 'Rename device';
+  String get renameDevice => 'Local alias';
 
   @override
-  String get useDeviceName => 'Use device name';
+  String get useDeviceName => 'Restore device name';
 
   @override
   String get deviceNameRequired => 'Enter a device name';
@@ -383,7 +383,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storageFailed => 'Could not save settings.';
 
   @override
-  String get systemDeviceName => 'Use system device name';
+  String get systemDeviceName => 'Original device name';
 
   @override
   String get nameVisible => 'Your other devices will see this name.';
