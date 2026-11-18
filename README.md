@@ -72,6 +72,7 @@ For limited local disk space, use the GitHub workflows for full builds and tests
 4. Approve the incoming transfer on the receiver. Received files go to Downloads by default; change the destination in settings.
 
 When searching received history, select the entries you want to remove.
+On Android, tap a batch completion notification to open the records for that transfer.
 
 Both apps need to be running and reachable. The latest successful send stays visible on the home screen during the session, until dismissed or the next send starts. For background controls and troubleshooting, see the [user guide](docs/user-guide.md).
 

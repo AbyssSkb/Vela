@@ -252,7 +252,16 @@
   "directConnection": "直连",
   "relayConnection": "中继",
   "transferHistory": "接收记录",
-  "openReceivedHistory": "查看接收记录",
+  "viewReceivedBatch": "查看本次接收",
+  "receivedBatch": "本次接收",
+  "receivedBatchUnavailable": "找不到本次接收的记录。",
+  "showAllOfferedFiles": "查看全部文件",
+  "receivedSavedTo": "已保存至 {folder}",
+  "@receivedSavedTo": {
+    "placeholders": {
+      "folder": { "type": "String" }
+    }
+  },
   "openFile": "打开文件",
   "openReceiveFolder": "打开接收文件夹",
   "showInFolder": "打开所在文件夹",
@@ -269,6 +278,7 @@
   "incomingShort": "待接收",
   "transferNotificationTitle": "传输",
   "noTransferHistory": "暂无接收记录",
+  "transferHistoryEmptyHint": "收到的文件、文字和链接会显示在这里。",
   "clearHistory": "清空记录",
   "clearHistoryConfirm": "清空接收记录？接收的文件不会被删除。",
   "historyReceivedFrom": "来自 {name}",

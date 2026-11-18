@@ -16,15 +16,20 @@ void main() {
       received: true,
       fileReference: '/image.png',
       size: 42,
+      batchId: '101',
     );
     final restored = TransferRecord.decode(jsonEncode([record.toJson()]))
         .single;
     expect(restored.fileReference, '/image.png');
     expect(record.toJson()['path'], '/image.png');
     expect(restored.size, 42);
+    expect(restored.batchId, '101');
     expect(restored.received, isTrue);
-    final legacy = record.toJson()..remove('size');
+    final legacy = record.toJson()
+      ..remove('size')
+      ..remove('batchId');
     expect(TransferRecord.decode(jsonEncode([legacy])).single.size, isNull);
+    expect(TransferRecord.decode(jsonEncode([legacy])).single.batchId, isNull);
     expect(
       TransferRecord.decode(
         jsonEncode([
@@ -398,6 +403,64 @@ void main() {
     expect(removed, containsAll([first, second]));
     expect(records.value, [sent]);
     expect(find.text('No received items yet'), findsOneWidget);
+    expect(
+      find.text('Files, text, and links you receive will appear here.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a batch view keeps select all and removal within that batch', (
+    tester,
+  ) async {
+    TransferRecord received(String name, String? batchId) => TransferRecord(
+      name: name,
+      peer: 'Phone',
+      time: DateTime.now(),
+      kind: HistoryKind.file,
+      received: true,
+      batchId: batchId,
+    );
+    final batch = [received('one.pdf', '7'), received('two.pdf', '7')];
+    final others = [received('other.pdf', '8'), received('legacy.pdf', null)];
+    final records = ValueNotifier([...others, ...batch]);
+    addTearDown(records.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: TransferHistoryPage(
+          records: records,
+          batchId: '7',
+          open: (_) async {},
+          export: (_) async {},
+          openFolder: () async {},
+          reveal: (_) async {},
+          remove: (items, {required bool deleteFiles}) async {
+            expect(items, unorderedEquals(batch));
+            records.value = records.value
+                .where((item) => !items.contains(item))
+                .toList();
+          },
+        ),
+      ),
+    );
+    expect(find.text('other.pdf'), findsNothing);
+    expect(find.text('legacy.pdf'), findsNothing);
+    expect(find.byTooltip('Clear history'), findsNothing);
+    await tester.longPress(find.text('one.pdf'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Select all'));
+    await tester.pump();
+    expect(find.text('2 selected'), findsOneWidget);
+    await tester.tap(find.byTooltip('Remove record'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
+    await tester.pumpAndSettle();
+    expect(records.value, others);
+    expect(
+      find.text('The records for this batch are unavailable.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('batch removal can explicitly include files', (tester) async {

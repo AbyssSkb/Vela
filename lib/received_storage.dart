@@ -43,12 +43,15 @@ class SavedReceivedFile {
     required this.reference,
     required this.name,
     required this.size,
+    this.folderLabel,
   });
 
   // A local path or a platform document URI; use ReceivedStorage to access it.
   final String reference;
   final String name;
   final int size;
+  // Label supplied by Android's document provider for the folder used to save.
+  final String? folderLabel;
 
   factory SavedReceivedFile._fromPlatform(Object? value, int size) {
     if (value is! Map ||
@@ -62,6 +65,7 @@ class SavedReceivedFile {
       reference: value['path'] as String,
       name: value['name'] as String,
       size: size,
+      folderLabel: value['folderLabel'] as String?,
     );
   }
 }
