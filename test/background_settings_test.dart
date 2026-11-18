@@ -124,6 +124,42 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final (state, label, section) in [
+    ('app', 'System notification settings', 'notification_app'),
+    ('requests', 'Open incoming request settings', 'notification_requests'),
+    ('battery', 'Open app settings', 'battery'),
+  ]) {
+    testWidgets('blocked Android receiving opens the $state settings', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'background_receive_test': true});
+      final messenger = tester.binding.defaultBinaryMessenger;
+      String? opened;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'status') {
+          return {
+            'running': true,
+            'nodeReady': true,
+            'allNotifications': state != 'app',
+            'notifications': state == 'battery',
+            'batteryExempt': false,
+          };
+        }
+        if (call.method == 'settings') {
+          opened = (call.arguments as Map)['section'] as String;
+        }
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      await showPage(tester, () async {});
+      final action = find.widgetWithText(TextButton, label);
+      expect(action.hitTestable(), findsOneWidget);
+      await tester.tap(action);
+      await tester.pump();
+      expect(opened, section);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+  }
+
   testWidgets(
     'desktop background and login controls use desktop native methods',
     (tester) async {
@@ -474,6 +510,7 @@ void main() {
     var active = false;
     var login = 'notRegistered';
     var changes = 0;
+    String? opened;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
       call,
     ) async {
@@ -487,6 +524,9 @@ void main() {
       if (call.method == 'setLaunchAtLogin') {
         login = 'requiresApproval';
         return login;
+      }
+      if (call.method == 'settings') {
+        opened = (call.arguments as Map)['section'] as String;
       }
       return null;
     });
@@ -512,6 +552,9 @@ void main() {
     await tester.tap(find.byType(SwitchListTile).last);
     await tester.pumpAndSettle();
     expect(find.text('Approval required in System Settings'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Open Login Items'));
+    await tester.pump();
+    expect(opened, 'login');
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('Mac keep-awake failure rolls back its setting', (tester) async {

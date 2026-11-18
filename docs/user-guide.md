@@ -50,7 +50,7 @@ Folder archives support at most 16 GiB of uncompressed content, 10,000 entries, 
 
 ### Android
 
-Enable background reception in settings. Vela runs a foreground service with a persistent notification and holds a CPU wake lock. The background settings page shows notification permissions, battery restrictions, autostart controls where available, and node initialization status.
+Enable background reception in settings. Vela runs a foreground service with a persistent notification and holds a CPU wake lock. The background settings page shows notification permissions, battery restrictions, autostart controls where available, and node initialization status. When permissions or battery restrictions prevent reception, use the shortcut at the top of the page to open the relevant system setting.
 
 Incoming requests can be accepted or declined in notifications. Active transfers show progress notifications. Systems supporting live updates may promote them to a status-bar capsule; presentation depends on the OS and notification settings.
 
@@ -60,7 +60,7 @@ Vela attempts to restore the enabled service after a reboot and unlock. Vendor r
 
 Closing the window leaves Vela running in the menu bar. Choose **Quit** to end the process.
 
-The optional background availability setting prevents idle system sleep while allowing the display to turn off. It can increase power use and does not prevent lid-close or manual sleep from interrupting connectivity. On macOS 13+, login-at-start is a separate setting and requires any approval requested by macOS.
+The optional background availability setting prevents idle system sleep while allowing the display to turn off. It can increase power use and does not prevent lid-close or manual sleep from interrupting connectivity. On macOS 13+, login-at-start is a separate setting. Choose **Open Login Items** on the background receiving page if macOS requests approval.
 
 ### Windows and Linux
 
