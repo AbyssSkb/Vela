@@ -13,25 +13,25 @@
 
 3. **Commit each logical change promptly.** Once the applicable local checks
    pass, commit before starting the next change or reporting completion.
-   Keep the implementation, its regression test, and any required generated
-   files or lockfile updates together. Split independent changes into commits
-   that can be reviewed and reverted individually. Stage only this task's files
-   or hunks. Review the exact staged diff with `git diff --cached` and
+   Use intermediate commits as needed. Stage only this task's files or hunks.
+   Review the exact staged diff with `git diff --cached` and
    `git diff --cached --check`. Preserve unrelated staged work and leave the
    commit pending if you cannot safely isolate the task's changes.
 
-4. **Deliver implementation tasks through a PR.** Unless the user limits the
-   task, push only authorized commits to a dedicated `codex/*` branch and open
-   or update a PR to `main`. Verify the outgoing commit range before pushing.
+4. **Deliver one logical change per PR.** Unless the user limits the task, use
+   a dedicated `codex/*` branch for each independently reviewable change. Keep
+   its implementation, regression tests, and required generated files or
+   lockfile updates in the same PR. Target `main` for independent PRs and stack
+   dependent PRs. Verify the outgoing commit range and push only authorized
+   commits.
    Follow [CI](.github/workflows/ci.yml) and use
    [Installation packages](.github/workflows/build.yml) when native compilation
    or an installer is needed. Verify the checks cover the exact PR head, fix
-   regressions within scope, and follow the checks to completion. Merge once
-   required checks and verification pass and the PR remains in scope. Squash
-   a single logical change and preserve independently useful commits when
-   a PR contains several. Ask for input when a required check is blocked or a
-   decision changes the scope. Direct pushes to `main` and force-pushes require
-   explicit permission.
+   regressions within scope, and follow the checks to completion. Squash each PR
+   into one commit on `main` once required checks and verification pass and the
+   PR remains in scope. Merge stacked PRs from the bottom up. Ask for input if
+   a required check or squash merge is blocked, or a decision changes the scope.
+   Direct pushes to `main` and force-pushes require explicit permission.
 
 5. **Report what was verified.** Include the PR, commit hashes, local checks,
    GitHub Actions links and outcomes when run, and any remaining device checks.
