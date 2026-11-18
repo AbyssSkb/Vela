@@ -628,6 +628,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundReceiving => 'Background receiving';
 
   @override
+  String get localBackgroundReceiving => 'Background receiving on this device';
+
+  @override
+  String get enableBackgroundReceiving => 'Allow background receiving';
+
+  @override
+  String get notificationBackgroundBlocked =>
+      'System notifications are off. Open Vela to accept transfers that need your confirmation.';
+
+  @override
   String get notificationSettings => 'Notifications';
 
   @override
