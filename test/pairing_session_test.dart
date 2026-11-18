@@ -94,7 +94,7 @@ void main() {
       sessions.cancel(peerId);
       expect(await result, isFalse);
       expect(store.saved, isNull);
-      expect(devices.relationshipFor(peerId), isNull);
+      expect(devices.pairingRevisionFor(peerId), isNull);
       expect(sessions.isActive, isFalse);
     },
   );

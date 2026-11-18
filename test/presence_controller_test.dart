@@ -30,7 +30,7 @@ void main() {
     onMembershipChanging: (_, changed) =>
         controller.membershipChanging(changed),
     onStateChanged: controller.membershipPublished,
-    onMembershipSettled: controller.membershipSettled,
+    onMembershipWriteFinished: controller.membershipWriteFinished,
   );
 
   setUp(() {

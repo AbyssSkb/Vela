@@ -52,13 +52,13 @@ class PresenceController extends ChangeNotifier {
   final Map<String, Future<void>> _probes = {};
   final Set<String> _trustPending = {};
   final Set<String> _updatingInfo = {};
-  final Map<String, ({VelaNode node, Object relationship, DeviceInfo info})>
+  final Map<String, ({VelaNode node, Object pairingRevision, DeviceInfo info})>
   _pendingInfo = {};
   final Map<String, Timer> _infoRetries = {};
 
   bool get _alive => !_disposed;
-  Map<String, String> get _peers => _devices?.state.peers ?? const {};
-  Map<String, String> get _peerTypes => _devices?.state.types ?? const {};
+  static final _emptyPeerState = PeerState();
+  PeerState get _peerState => _devices?.state ?? _emptyPeerState;
   Map<String, PeerPresence> get values => UnmodifiableMapView(_values);
   Set<String> get visibleChecks => UnmodifiableSetView(_visibleChecks);
   bool get checkingPeers => _checkingPeers;
@@ -78,8 +78,8 @@ class PresenceController extends ChangeNotifier {
     reset();
     _node = devices.node;
     _devices = devices;
-    _visibleChecks.addAll(_peers.keys);
-    _checkingPeers = _peers.isNotEmpty;
+    _visibleChecks.addAll(_peerState.deviceIds);
+    _checkingPeers = _peerState.deviceIds.isNotEmpty;
     unawaited(_watchSnapshotUpdates(devices.node));
     notifyListeners();
   }
@@ -101,19 +101,21 @@ class PresenceController extends ChangeNotifier {
       _pendingInfo.remove(id);
     }
     _trustPending.addAll(changed);
-    _change(() => _visibleChecks.addAll(changed.where(_peers.containsKey)));
+    _change(
+      () => _visibleChecks.addAll(changed.where(_peerState.containsDevice)),
+    );
     if (_refreshInterrupt?.isCompleted == false) _refreshInterrupt!.complete();
   }
 
   void membershipPublished(PeerState state, Set<String> changed) {
     _change(() {
-      _visibleChecks.removeWhere((id) => !state.peers.containsKey(id));
-      _visibleChecks.addAll(changed.where(state.peers.containsKey));
+      _visibleChecks.removeWhere((id) => !state.containsDevice(id));
+      _visibleChecks.addAll(changed.where(state.containsDevice));
       if (_visibleChecks.isEmpty) _checkingPeers = false;
     });
   }
 
-  void membershipSettled(Set<String> changed) {
+  void membershipWriteFinished(Set<String> changed) {
     _trustPending.removeAll(changed);
     if (changed.isEmpty || !_alive || _node == null) return;
     _snapshotToken = Object();
@@ -148,7 +150,7 @@ class PresenceController extends ChangeNotifier {
     for (final entry in _pendingInfo.entries.toList()) {
       final next = entry.value;
       if (identical(next.node, source)) {
-        _queueInfo(source, entry.key, next.relationship, next.info);
+        _queueInfo(source, entry.key, next.pairingRevision, next.info);
       }
     }
     unawaited(readCurrentSnapshot());
@@ -161,10 +163,10 @@ class PresenceController extends ChangeNotifier {
     if (resumed) {
       _pendingSystemWakes++;
       _snapshotToken = Object();
-      if (_monitoringRequested && _peers.isNotEmpty) {
+      if (_monitoringRequested && _peerState.deviceIds.isNotEmpty) {
         _change(() {
           _checkingPeers = true;
-          _visibleChecks.addAll(_peers.keys);
+          _visibleChecks.addAll(_peerState.deviceIds);
         });
       }
     }
@@ -184,7 +186,7 @@ class PresenceController extends ChangeNotifier {
           onFailure: () {
             if (!_current(source)) return;
             _change(() {
-              for (final id in _peers.keys) {
+              for (final id in _peerState.deviceIds) {
                 _values[id] = PeerPresence.unavailable;
               }
               _checkingPeers = false;
@@ -261,11 +263,15 @@ class PresenceController extends ChangeNotifier {
   void _queueInfo(
     VelaNode source,
     String id,
-    Object relationship,
+    Object pairingRevision,
     DeviceInfo info,
   ) {
     _infoRetries.remove(id)?.cancel();
-    _pendingInfo[id] = (node: source, relationship: relationship, info: info);
+    _pendingInfo[id] = (
+      node: source,
+      pairingRevision: pairingRevision,
+      info: info,
+    );
     if (!_updatingInfo.add(id)) return;
     final lifetime = _lifetime;
     unawaited(() async {
@@ -276,7 +282,7 @@ class PresenceController extends ChangeNotifier {
           final next = _pendingInfo.remove(id)!;
           bool current() =>
               _current(next.node) &&
-              _devices!.isCurrentRelationship(id, next.relationship);
+              _devices!.isCurrentPairingRevision(id, next.pairingRevision);
           if (!current()) continue;
           if (!canPersistInfo()) {
             _pendingInfo.putIfAbsent(id, () => next);
@@ -296,7 +302,7 @@ class PresenceController extends ChangeNotifier {
                 _infoRetries.remove(id);
                 final retry = _pendingInfo.remove(id);
                 if (retry != null) {
-                  _queueInfo(retry.node, id, retry.relationship, retry.info);
+                  _queueInfo(retry.node, id, retry.pairingRevision, retry.info);
                 }
               });
               break;
@@ -325,21 +331,21 @@ class PresenceController extends ChangeNotifier {
     final changes = <String, PeerPresence>{};
     final checked = <String>{};
     final resolved = <String>{};
-    final metadata = <({String id, Object relationship, DeviceInfo info})>[];
-    final unpaired = <({String id, Object relationship})>[];
+    final metadata = <({String id, Object pairingRevision, DeviceInfo info})>[];
+    final unpaired = <({String id, Object pairingRevision})>[];
     final expired = <String>{};
     var retryClock = false;
     for (final peer in snapshot.peers) {
       final id = peer.peerId;
-      final relationship = _devices!.relationshipFor(id);
-      if (!_peers.containsKey(id) ||
+      final pairingRevision = _devices!.pairingRevisionFor(id);
+      if (!_peerState.containsDevice(id) ||
           _trustPending.contains(id) ||
-          relationship == null ||
+          pairingRevision == null ||
           pairingActive(id)) {
         continue;
       }
       if (peer.unpaired) {
-        unpaired.add((id: id, relationship: relationship));
+        unpaired.add((id: id, pairingRevision: pairingRevision));
         continue;
       }
       final info = peer.info;
@@ -365,9 +371,9 @@ class PresenceController extends ChangeNotifier {
       if (live &&
           (_updatingInfo.contains(id) ||
               _infoRetries.containsKey(id) ||
-              _peers[id] != info.name ||
-              _peerTypes[id] != info.deviceType)) {
-        metadata.add((id: id, relationship: relationship, info: info));
+              _peerState.reportedName(id) != info.name ||
+              _peerState.deviceType(id) != info.deviceType)) {
+        metadata.add((id: id, pairingRevision: pairingRevision, info: info));
       }
     }
     if (changes.isNotEmpty ||
@@ -384,10 +390,10 @@ class PresenceController extends ChangeNotifier {
       });
     }
     for (final value in metadata) {
-      _queueInfo(source, value.id, value.relationship, value.info);
+      _queueInfo(source, value.id, value.pairingRevision, value.info);
     }
     for (final value in unpaired) {
-      unawaited(removeUnpaired(source, value.id, value.relationship));
+      unawaited(removeUnpaired(source, value.id, value.pairingRevision));
     }
     if (expired.isNotEmpty) {
       final retryImmediately = _expiredRevision != snapshot.revision;
@@ -513,7 +519,7 @@ class PresenceController extends ChangeNotifier {
     _change(() {
       _values.clear();
       _snapshotChecks.clear();
-      _visibleChecks.addAll(_peers.keys);
+      _visibleChecks.addAll(_peerState.deviceIds);
       _checkingPeers = false;
     });
   }
@@ -523,7 +529,7 @@ class PresenceController extends ChangeNotifier {
     if (!_alive ||
         !_monitoringRequested ||
         activeNode == null ||
-        _peers.isEmpty ||
+        _peerState.deviceIds.isEmpty ||
         _pendingSystemWakes > 0) {
       return;
     }
@@ -535,20 +541,20 @@ class PresenceController extends ChangeNotifier {
       }
       _change(() {
         _checkingPeers = true;
-        _visibleChecks.addAll(_peers.keys);
+        _visibleChecks.addAll(_peerState.deviceIds);
       });
       return;
     }
 
     Future<void> probe(String id) async {
-      final relationship = _devices!.relationshipFor(id);
+      final pairingRevision = _devices!.pairingRevisionFor(id);
       final generation = (_generations[id] ?? 0) + 1;
       _generations[id] = generation;
       bool current() =>
           _alive &&
           identical(_node, activeNode) &&
-          _peers.containsKey(id) &&
-          _devices!.isCurrentRelationship(id, relationship) &&
+          _peerState.containsDevice(id) &&
+          _devices!.isCurrentPairingRevision(id, pairingRevision) &&
           _generations[id] == generation;
       try {
         await activeNode.checkPeerFresh(peerId: id);
@@ -569,17 +575,17 @@ class PresenceController extends ChangeNotifier {
     _change(() {
       _probing = true;
       _checkingPeers = true;
-      _visibleChecks.addAll(_peers.keys);
+      _visibleChecks.addAll(_peerState.deviceIds);
     });
     final interrupt = Completer<void>();
     _refreshInterrupt = interrupt;
-    final ids = _peers.keys.toList();
+    final ids = _peerState.deviceIds.toList();
     final deferred = <String>{};
     Future<void> worker(String id) async {
       if (!_alive ||
           !_monitoringRequested ||
           interrupt.isCompleted ||
-          !_peers.containsKey(id)) {
+          !_peerState.containsDevice(id)) {
         return;
       }
       if (_trustPending.contains(id)) {
