@@ -233,13 +233,13 @@ abstract class AppLocalizations {
   /// No description provided for @renameDevice.
   ///
   /// In en, this message translates to:
-  /// **'Rename device'**
+  /// **'Local alias'**
   String get renameDevice;
 
   /// No description provided for @useDeviceName.
   ///
   /// In en, this message translates to:
-  /// **'Use device name'**
+  /// **'Restore device name'**
   String get useDeviceName;
 
   /// No description provided for @deviceNameRequired.
@@ -761,7 +761,7 @@ abstract class AppLocalizations {
   /// No description provided for @systemDeviceName.
   ///
   /// In en, this message translates to:
-  /// **'Use system device name'**
+  /// **'Original device name'**
   String get systemDeviceName;
 
   /// No description provided for @nameVisible.

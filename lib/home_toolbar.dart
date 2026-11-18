@@ -26,6 +26,7 @@ class HomeToolbar extends StatelessWidget {
     super.key,
     this.addDevice,
     required this.actions,
+    required this.menuActions,
     this.received,
     this.onSettings,
     this.selection,
@@ -33,6 +34,7 @@ class HomeToolbar extends StatelessWidget {
 
   final HomeToolbarAction? addDevice;
   final List<HomeToolbarAction> actions;
+  final List<HomeToolbarAction> menuActions;
   final HomeToolbarAction? received;
   final VoidCallback? onSettings;
   final Widget? selection;
@@ -68,15 +70,27 @@ class HomeToolbar extends StatelessWidget {
         priority.length,
       );
       final visible = priority.take(slotCount).toSet();
+      final labelActions = width >= 620 && titleWidth <= 128;
       final settings = HomeToolbarAction(
         'settings',
         t.settings,
         Icons.settings_outlined,
         onSettings,
       );
-      final byId = {
-        for (final action in [...priority, settings]) action.id: action,
-      };
+      final menu = [
+        ...priority.skip(slotCount),
+        ...menuActions,
+        if (onSettings != null) settings,
+      ];
+      final byId = {for (final action in menu) action.id: action};
+      Widget primaryButton(HomeToolbarAction action) => labelActions
+          ? TextButton.icon(
+              key: action.key,
+              onPressed: action.onPressed,
+              icon: Icon(action.icon),
+              label: Text(action.label),
+            )
+          : _button(context, action);
       return IconButtonTheme(
         data: IconButtonThemeData(
           style: IconButton.styleFrom(
@@ -102,10 +116,10 @@ class HomeToolbar extends StatelessWidget {
                 SizedBox(width: math.min(16, math.max(0, width - 16))),
                 for (final action in actions)
                   if (visible.contains(action)) _button(context, action),
-                if (visible.contains(received)) _button(context, received!),
-                if (visible.contains(addDevice)) _button(context, addDevice!),
-                if (onSettings != null)
-                  if (visible.length == priority.length)
+                if (visible.contains(received)) primaryButton(received!),
+                if (visible.contains(addDevice)) primaryButton(addDevice!),
+                if (menu.isNotEmpty)
+                  if (menu.length == 1 && menu.single == settings)
                     IconButton(
                       key: const ValueKey('home-settings'),
                       tooltip: t.settings,
@@ -123,12 +137,11 @@ class HomeToolbar extends StatelessWidget {
                       ),
                       onSelected: (id) => byId[id]?.onPressed?.call(),
                       itemBuilder: (_) => [
-                        for (final action in [
-                          ...priority.skip(slotCount),
-                          settings,
-                        ])
+                        for (final action in menu)
                           PopupMenuItem(
-                            key: action.key,
+                            key: action == settings
+                                ? const ValueKey('home-settings')
+                                : action.key,
                             value: action.id,
                             enabled: action.onPressed != null,
                             child: Row(

@@ -9,11 +9,13 @@ class HomeResponsiveLayout extends StatefulWidget {
     required this.actions,
     required this.devices,
     this.largeText = false,
+    this.centerActions = true,
   });
   final bool wide;
   final List<Widget> actions;
   final Widget devices;
   final bool largeText;
+  final bool centerActions;
 
   static const _largeButtonHeight = 64.0;
   static const _gap = 8.0;
@@ -85,6 +87,7 @@ class _HomeLayoutState extends State<HomeResponsiveLayout>
         transition.value,
         widget.actions.length,
         widget.largeText,
+        widget.centerActions,
       ),
       children: [
         for (final (index, action) in widget.actions.indexed)
@@ -96,10 +99,16 @@ class _HomeLayoutState extends State<HomeResponsiveLayout>
 }
 
 class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
-  _HomeLayoutDelegate(this.progress, this.count, this.largeText);
+  _HomeLayoutDelegate(
+    this.progress,
+    this.count,
+    this.largeText,
+    this.centerActions,
+  );
   final double progress;
   final int count;
   final bool largeText;
+  final bool centerActions;
 
   @override
   void performLayout(Size size) {
@@ -138,7 +147,7 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
       final stagedY =
           (i ~/ columns) * (buttonHeight + gap) * (1 - movingDown) +
           i * (railHeight + railRowGap) * movingDown;
-      final y = stagedY + railTop * movingUp;
+      final y = stagedY + (centerActions ? railTop * movingUp : 0);
       layoutChild(i, BoxConstraints.tight(Size(width, height)));
       positionChild(i, Offset(x, y));
       bottom = math.max(bottom, y + height);
@@ -158,5 +167,6 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
   bool shouldRelayout(_HomeLayoutDelegate oldDelegate) =>
       progress != oldDelegate.progress ||
       count != oldDelegate.count ||
-      largeText != oldDelegate.largeText;
+      largeText != oldDelegate.largeText ||
+      centerActions != oldDelegate.centerActions;
 }

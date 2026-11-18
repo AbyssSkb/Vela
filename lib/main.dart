@@ -2127,6 +2127,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   leading: const Icon(Icons.devices_outlined),
                   title: Text(t.systemDeviceName),
                   subtitle: Text(peers[id]!),
+                  trailing: IconButton(
+                    tooltip: t.useDeviceName,
+                    icon: const Icon(Icons.restore_rounded),
+                    onPressed: () => Navigator.pop(context, 'reset'),
+                  ),
                 ),
               ListTile(
                 leading: const Icon(Icons.fingerprint_rounded),
@@ -2151,15 +2156,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
-                title: Text(t.rename),
+                title: Text(t.renameDevice),
+                subtitle: Text(t.deviceAliasHint),
                 onTap: () => Navigator.pop(context, 'rename'),
               ),
-              if (peerState.aliases.containsKey(id))
-                ListTile(
-                  leading: const Icon(Icons.restore_rounded),
-                  title: Text(t.useDeviceName),
-                  onTap: () => Navigator.pop(context, 'reset'),
-                ),
               ListTile(
                 leading: const Icon(Icons.link_off_rounded),
                 title: Text(t.removeDevice),
@@ -3323,6 +3323,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           () => _toggleDeviceView(showingGraph),
           key: const ValueKey('toggle-device-view'),
         ),
+      ],
+    ],
+    menuActions: [
+      if (peers.isNotEmpty)
         HomeToolbarAction(
           'select',
           t.selectDevices,
@@ -3332,15 +3336,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               : () => setState(() => selectingPeers = true),
           key: const ValueKey('select-devices'),
         ),
-      ],
-      if (node != null) ...[
+      if (node != null && peers.isNotEmpty)
         HomeToolbarAction(
           'device',
           t.myDevice,
           Icons.qr_code_rounded,
           _showMyDeviceDialog,
         ),
-      ],
     ],
     received: node == null
         ? null
@@ -3461,6 +3463,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             itemCount: peers.length,
             itemBuilder: (context, index) {
               final id = peers.keys.elementAt(index);
+              final name = peerState.displayName(id);
+              final canSend = !selectingPeers && choosingShareRecipient;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Material(
@@ -3475,14 +3479,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                     leading: Icon(_deviceIcon(id), color: colors.primary),
                     title: Text(
-                      peerState.displayName(id),
-                      maxLines: largeText ? null : 1,
+                      canSend ? t.sendToDevice(name) : name,
+                      maxLines: largeText ? null : (canSend ? 2 : 1),
                       overflow: largeText ? null : TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: !selectingPeers && choosingShareRecipient
-                        ? Text(_presenceLabel(id))
-                        : null,
+                    subtitle: Text(_presenceLabel(id)),
                     trailing: selectingPeers
                         ? Semantics(
                             label: peerState.displayName(id),
@@ -3496,7 +3498,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _presenceIcon(id),
+                              ExcludeSemantics(child: _presenceIcon(id)),
                               const SizedBox(width: 14),
                               Icon(
                                 choosingShareRecipient
@@ -3615,6 +3617,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: HomeResponsiveLayout(
                   wide: wide,
                   largeText: roomyActions,
+                  centerActions: showingGraph,
                   actions: actions,
                   devices: CustomScrollView(
                     key: const ValueKey('home-devices'),
@@ -3791,6 +3794,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget _buildPendingShareNotice(PendingShare share) {
     final onlyPeer = peers.keys.singleOrNull;
+    final preview = share.text?.trim();
     return Column(
       key: const ValueKey('pending-share'),
       mainAxisSize: MainAxisSize.min,
@@ -3804,6 +3808,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        if (preview != null && preview.isNotEmpty)
+          Text(
+            String.fromCharCodes(preview.runes.take(120)),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         if (peers.isEmpty) Text(t.noDevices),
         OverflowBar(
           alignment: MainAxisAlignment.end,

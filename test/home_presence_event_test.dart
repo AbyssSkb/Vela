@@ -122,6 +122,7 @@ void main() {
           findsOneWidget,
           reason: 'an event should update the indicator without waiting for a 250 ms polling tick',
         );
+        expect(find.text('Reachable'), findsOneWidget);
 
         // A temporarily unavailable proof clock must not leave the device
         // offline forever when no new snapshot revision arrives.
