@@ -93,7 +93,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
             if (detail != null)
               Text(
                 detail,
-                maxLines: 2,
+                maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: foreground),
               ),
@@ -146,7 +146,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
         builder: (context, constraints) {
           final scale = MediaQuery.textScalerOf(context).scale(1);
           if (actions.isNotEmpty &&
-              (constraints.maxWidth < 340 || scale > 1.3)) {
+              (detail != null || constraints.maxWidth < 340 || scale > 1.3)) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,

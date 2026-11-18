@@ -127,17 +127,19 @@ class IncomingOfferPrompt {
               ),
               if (batchFiles.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(
-                  (showingAllFiles ? batchFiles : batchFiles.take(3)).join(
-                    '\n',
-                  ),
-                ),
-                if (batchFiles.length > 3 && !showingAllFiles)
+                Text(batchFiles.take(3).join('\n')),
+                if (batchFiles.length > 3)
                   TextButton(
-                    onPressed: () =>
-                        setDialogState(() => showingAllFiles = true),
-                    child: Text(t.showAllOfferedFiles),
+                    onPressed: () => setDialogState(
+                      () => showingAllFiles = !showingAllFiles,
+                    ),
+                    child: Text(
+                      showingAllFiles
+                          ? t.showFewerOfferedFiles
+                          : t.showMoreOfferedFiles(batchFiles.length - 3),
+                    ),
                   ),
+                if (showingAllFiles) Text(batchFiles.skip(3).join('\n')),
               ],
             ],
           ),

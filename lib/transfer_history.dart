@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import 'content_kind.dart';
@@ -129,7 +130,8 @@ class TransferHistoryPage extends StatefulWidget {
 
 class _TransferHistoryPageState extends State<TransferHistoryPage> {
   final searchController = TextEditingController();
-  bool searching = false;
+  final searchFocus = FocusNode();
+  bool searching = false, selecting = false;
   String query = '';
   final Set<TransferRecord> selected = {};
 
@@ -139,14 +141,44 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
   @override
   void dispose() {
     searchController.dispose();
+    searchFocus.dispose();
     super.dispose();
   }
 
+  bool _matches(TransferRecord item) =>
+      query.isEmpty ||
+      '${item.name} ${item.peer} ${item.preview ?? ''}'.toLowerCase().contains(
+        query,
+      );
+
   void _toggleSelection(TransferRecord item) {
     setState(() {
+      selecting = true;
       if (!selected.add(item)) selected.remove(item);
     });
   }
+
+  void _closeSelection() => setState(() {
+    selecting = false;
+    selected.clear();
+  });
+
+  void _startSearch() {
+    if (selecting || !widget.records.value.any(_inScope)) return;
+    setState(() => searching = true);
+    searchFocus.requestFocus();
+  }
+
+  void _clearSearch() => setState(() {
+    searchController.clear();
+    query = '';
+  });
+
+  void _closeSearch() => setState(() {
+    searching = false;
+    searchController.clear();
+    query = '';
+  });
 
   Future<void> _confirmRemove(Iterable<TransferRecord> records) async {
     final t = AppLocalizations.of(context)!;
@@ -195,7 +227,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
     if (choice == null || !mounted) return;
     try {
       await widget.remove(items, deleteFiles: choice);
-      if (mounted) setState(() => selected.clear());
+      if (mounted) _closeSelection();
     } catch (e) {
       if (mounted) {
         setState(
@@ -303,6 +335,161 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
     );
   }
 
+  Widget _buildToolbar(BuildContext context, List<TransferRecord> records) {
+    final t = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final visibleRecords = records.where(_inScope);
+    final matches = visibleRecords.where(_matches);
+    final batch = widget.batchId != null;
+    final showClear = !searching && !batch && visibleRecords.isNotEmpty;
+    final showMenu = showClear || matches.isNotEmpty;
+    final batchSenders = batch
+        ? visibleRecords.map((item) => item.peer).toSet()
+        : const <String>{};
+    final title = selecting
+        ? t.selectedCount(selected.length)
+        : batch
+        ? t.receivedBatch
+        : t.transferHistory;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        theme.platform == TargetPlatform.macOS ? 38 : 8,
+        20,
+        8,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: selecting
+                    ? _closeSelection
+                    : () => Navigator.pop(context),
+                tooltip: selecting
+                    ? t.cancel
+                    : MaterialLocalizations.of(context).backButtonTooltip,
+                icon: Icon(
+                  selecting ? Icons.close_rounded : Icons.arrow_back_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (batch && visibleRecords.isNotEmpty && !selecting)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Text(
+                [
+                  t.filesCount(visibleRecords.length),
+                  if (batchSenders.length == 1)
+                    t.historyReceivedFrom(batchSenders.single),
+                ].join(' · '),
+                style: theme.textTheme.bodyLarge,
+              ),
+            ),
+          if (searching && !selecting)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+              child: TextField(
+                controller: searchController,
+                focusNode: searchFocus,
+                onChanged: (value) =>
+                    setState(() => query = value.trim().toLowerCase()),
+                decoration: InputDecoration(
+                  labelText: t.searchHistory,
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    tooltip: t.close,
+                    onPressed: _closeSearch,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ),
+              ),
+            ),
+          Wrap(
+            spacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (selecting) ...[
+                TextButton(
+                  onPressed: matches.isEmpty
+                      ? null
+                      : () => setState(() => selected.addAll(matches)),
+                  child: Text(t.selectAll),
+                ),
+                TextButton(
+                  onPressed: selected.isEmpty
+                      ? null
+                      : () => _confirmRemove(selected),
+                  child: Text(t.removeRecord),
+                ),
+              ] else ...[
+                if (!searching && visibleRecords.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: _startSearch,
+                    icon: const Icon(Icons.search_rounded),
+                    label: Text(t.searchHistory),
+                  ),
+                TextButton.icon(
+                  onPressed: () async {
+                    try {
+                      await widget.openFolder();
+                    } catch (_) {
+                      if (context.mounted) {
+                        showNotice(
+                          context,
+                          t.storageFailed,
+                          kind: NoticeKind.error,
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.folder_open_rounded),
+                  label: Text(t.openReceiveFolder),
+                ),
+                if (showMenu)
+                  PopupMenuButton<String>(
+                    key: const ValueKey('history-actions'),
+                    tooltip: t.manageRecords,
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    onSelected: (action) {
+                      if (action == 'select') {
+                        setState(() => selecting = true);
+                      } else {
+                        _confirmRemove(visibleRecords);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'select',
+                        child: Text(t.selectRecords),
+                      ),
+                      if (showClear)
+                        PopupMenuItem(
+                          value: 'clear',
+                          child: Text(t.clearHistory),
+                        ),
+                    ],
+                  ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
@@ -320,475 +507,395 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
     bool sameDay(DateTime a, DateTime b) =>
         a.year == b.year && a.month == b.month && a.day == b.day;
     return PopScope(
-      canPop: selected.isEmpty,
+      canPop: !selecting && !searching,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && selected.isNotEmpty) setState(() => selected.clear());
+        if (didPop) return;
+        if (selecting) {
+          _closeSelection();
+        } else if (searching) {
+          _closeSearch();
+        }
       },
-      child: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      Theme.of(context).platform == TargetPlatform.macOS
-                          ? 38
-                          : 8,
-                      20,
-                      8,
-                    ),
-                    child: Row(
-                      children: [
-                        if (selected.isNotEmpty) ...[
-                          IconButton(
-                            onPressed: () => setState(() => selected.clear()),
-                            tooltip: t.cancel,
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              t.selectedCount(selected.length),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: t.selectAll,
-                            onPressed: () => setState(
-                              () => selected.addAll(
-                                widget.records.value.where(
-                                  (item) =>
-                                      _inScope(item) &&
-                                      (query.isEmpty ||
-                                          '${item.name} ${item.peer} ${item.preview ?? ''}'
-                                              .toLowerCase()
-                                              .contains(query)),
-                                ),
-                              ),
-                            ),
-                            icon: const Icon(Icons.select_all_rounded),
-                          ),
-                          IconButton(
-                            tooltip: t.removeRecord,
-                            onPressed: () => _confirmRemove(selected),
-                            icon: const Icon(Icons.delete_outline_rounded),
-                          ),
-                        ] else ...[
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            tooltip: MaterialLocalizations.of(context)
-                                .backButtonTooltip,
-                            icon: const Icon(Icons.arrow_back_rounded),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: searching
-                                ? TextField(
-                                    controller: searchController,
-                                    autofocus: true,
-                                    onChanged: (value) => setState(
-                                      () => query = value.trim().toLowerCase(),
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: t.searchHistory,
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                    ),
-                                  )
-                                : Text(
-                                    widget.batchId == null
-                                        ? t.transferHistory
-                                        : t.receivedBatch,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall
-                                        ?.copyWith(fontWeight: FontWeight.w700),
-                                  ),
-                          ),
-                          IconButton(
-                            tooltip: t.openReceiveFolder,
-                            icon: const Icon(Icons.folder_open_rounded),
-                            onPressed: () async {
-                              try {
-                                await widget.openFolder();
-                              } catch (_) {
-                                if (context.mounted) {
-                                  showNotice(
-                                    context,
-                                    t.storageFailed,
-                                    kind: NoticeKind.error,
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                          ValueListenableBuilder<List<TransferRecord>>(
-                            valueListenable: widget.records,
-                            builder: (context, items, _) => !items.any(_inScope)
-                                ? const SizedBox.shrink()
-                                : IconButton(
-                                    tooltip: searching
-                                        ? t.close
-                                        : t.searchHistory,
-                                    icon: Icon(
-                                      searching
-                                          ? Icons.close_rounded
-                                          : Icons.search_rounded,
-                                    ),
-                                    onPressed: () => setState(() {
-                                      searching = !searching;
-                                      searchController.clear();
-                                      query = '';
-                                    }),
-                                  ),
-                          ),
-                          if (!searching && widget.batchId == null)
-                            ValueListenableBuilder<List<TransferRecord>>(
-                              valueListenable: widget.records,
-                              builder: (context, items, _) =>
-                                  !items.any((item) => item.received)
-                                  ? const SizedBox.shrink()
-                                  : IconButton(
-                                      tooltip: t.clearHistory,
-                                      icon: const Icon(
-                                        Icons.delete_outline_rounded,
-                                      ),
-                                      onPressed: () => _confirmRemove(
-                                        items.where((item) => item.received),
-                                      ),
-                                    ),
-                            ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ValueListenableBuilder<List<TransferRecord>>(
-                      valueListenable: widget.records,
-                      builder: (context, allItems, _) {
-                        final received = allItems.where(_inScope).toList();
-                        if (received.isEmpty) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    widget.batchId == null
-                                        ? t.noTransferHistory
-                                        : t.receivedBatchUnavailable,
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
-                                  ),
-                                  if (widget.batchId == null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Text(
-                                        t.transferHistoryEmptyHint,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+              _startSearch,
+          const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+              _startSearch,
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: Column(
+                    children: [
+                      ValueListenableBuilder<List<TransferRecord>>(
+                        valueListenable: widget.records,
+                        builder: (context, records, _) =>
+                            _buildToolbar(context, records),
+                      ),
+                      Expanded(
+                        child: ValueListenableBuilder<List<TransferRecord>>(
+                          valueListenable: widget.records,
+                          builder: (context, allItems, _) {
+                            final received = allItems.where(_inScope).toList();
+                            if (received.isEmpty) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        widget.batchId == null
+                                            ? t.noTransferHistory
+                                            : t.receivedBatchUnavailable,
                                         textAlign: TextAlign.center,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium,
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
-                        final items = query.isEmpty
-                            ? received
-                            : received
-                                  .where(
-                                    (item) =>
-                                        '${item.name} ${item.peer} ${item.preview ?? ''}'
-                                            .toLowerCase()
-                                            .contains(query),
-                                  )
-                                  .toList();
-                        if (items.isEmpty) {
-                          return Center(
-                            child: Text(
-                              t.noHistoryMatches,
-                              style: TextStyle(color: colors.onSurfaceVariant),
-                            ),
-                          );
-                        }
-                        return ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            final date = item.time.toLocal();
-                            final firstOfDay =
-                                index == 0 ||
-                                !sameDay(date, items[index - 1].time.toLocal());
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (firstOfDay)
-                                  Padding(
-                                    padding: EdgeInsets.fromLTRB(
-                                      12,
-                                      index == 0 ? 8 : 24,
-                                      12,
-                                      8,
-                                    ),
-                                    child: Text(
-                                      dateLabel(date),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(
-                                            color: colors.onSurfaceVariant,
+                                      if (widget.batchId == null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 6,
                                           ),
-                                    ),
+                                          child: Text(
+                                            t.transferHistoryEmptyHint,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                Material(
-                                  color: selected.contains(item)
-                                      ? colors.secondaryContainer.withValues(
-                                          alpha: .5,
-                                        )
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onLongPress: () => _toggleSelection(item),
-                                    onTap: selected.isNotEmpty
-                                        ? () => _toggleSelection(item)
-                                        : item.fileReference == null
-                                        ? null
-                                        : () => widget.open(item),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
+                                ),
+                              );
+                            }
+                            final items = received.where(_matches).toList();
+                            if (items.isEmpty) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        t.noHistoryMatches,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: colors.onSurfaceVariant,
+                                        ),
                                       ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 42,
-                                            height: 42,
-                                            decoration: BoxDecoration(
-                                              color: colors.secondaryContainer
-                                                  .withValues(alpha: 0.55),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Icon(
-                                              _icon(item),
-                                              size: 21,
-                                              color:
-                                                  colors.onSecondaryContainer,
-                                            ),
+                                      TextButton(
+                                        onPressed: _clearSearch,
+                                        child: Text(t.clearSearch),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                            return ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                              itemCount: items.length,
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                final date = item.time.toLocal();
+                                final firstOfDay =
+                                    index == 0 ||
+                                    !sameDay(
+                                      date,
+                                      items[index - 1].time.toLocal(),
+                                    );
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (firstOfDay)
+                                      Padding(
+                                        padding: EdgeInsets.fromLTRB(
+                                          12,
+                                          index == 0 ? 8 : 24,
+                                          12,
+                                          8,
+                                        ),
+                                        child: Text(
+                                          dateLabel(date),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelLarge
+                                              ?.copyWith(
+                                                color: colors.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ),
+                                    Material(
+                                      color: selected.contains(item)
+                                          ? colors.secondaryContainer
+                                                .withValues(alpha: .5)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(12),
+                                        onLongPress: () =>
+                                            _toggleSelection(item),
+                                        onTap: selecting
+                                            ? () => _toggleSelection(item)
+                                            : item.fileReference == null
+                                            ? null
+                                            : () => widget.open(item),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
                                           ),
-                                          const SizedBox(width: 14),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  item.preview?.isNotEmpty ==
-                                                          true
-                                                      ? item.preview!
-                                                      : item.name,
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .bodyLarge
-                                                      ?.copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 42,
+                                                height: 42,
+                                                decoration: BoxDecoration(
+                                                  color: colors
+                                                      .secondaryContainer
+                                                      .withValues(alpha: 0.55),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
                                                 ),
-                                                const SizedBox(height: 3),
-                                                Row(
+                                                child: Icon(
+                                                  _icon(item),
+                                                  size: 21,
+                                                  color: colors
+                                                      .onSecondaryContainer,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 14),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        item.peer,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color: colors
-                                                                  .onSurfaceVariant,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
                                                     Text(
-                                                      DateFormat.Hm(locale)
-                                                          .format(date),
+                                                      item.preview?.isNotEmpty ==
+                                                              true
+                                                          ? item.preview!
+                                                          : item.name,
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: Theme.of(context)
                                                           .textTheme
-                                                          .bodySmall
+                                                          .bodyLarge
                                                           ?.copyWith(
-                                                            color: colors
-                                                                .onSurfaceVariant,
+                                                            fontWeight:
+                                                                FontWeight.w600,
                                                           ),
+                                                    ),
+                                                    const SizedBox(height: 3),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            item.peer,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .textTheme
+                                                                    .bodySmall
+                                                                    ?.copyWith(
+                                                                      color: colors
+                                                                          .onSurfaceVariant,
+                                                                    ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        Text(
+                                                          DateFormat.Hm(locale)
+                                                              .format(date),
+                                                          style:
+                                                              Theme.of(context)
+                                                                  .textTheme
+                                                                  .bodySmall
+                                                                  ?.copyWith(
+                                                                    color: colors
+                                                                        .onSurfaceVariant,
+                                                                  ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ],
                                                 ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (selected.isNotEmpty)
-                                            Semantics(
-                                              label: item.name,
-                                              child: Checkbox(
-                                                value: selected.contains(item),
-                                                onChanged: (_) =>
-                                                    _toggleSelection(item),
                                               ),
-                                            )
-                                          else
-                                            PopupMenuButton<String>(
-                                              tooltip: t.moreOptions,
-                                              icon: Icon(
-                                                Icons.more_vert_rounded,
-                                                color: colors.onSurfaceVariant,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                              ),
-                                              onSelected: (action) async {
-                                                try {
-                                                  if (action == 'export') {
-                                                    await widget.export(item);
-                                                  } else if (action ==
-                                                      'reveal') {
-                                                    await widget.reveal(item);
-                                                  } else if (action ==
-                                                      'details') {
-                                                    _showDetails(item);
-                                                  } else {
-                                                    await _confirmRemove([
+                                              if (selecting)
+                                                Semantics(
+                                                  label: item.name,
+                                                  child: Checkbox(
+                                                    value: selected.contains(
                                                       item,
-                                                    ]);
-                                                  }
-                                                } catch (e) {
-                                                  if (context.mounted) {
-                                                    showNotice(
-                                                      context,
-                                                      e is StateError
-                                                          ? e.message.toString()
-                                                          : t.storageFailed,
-                                                      kind: NoticeKind.error,
-                                                    );
-                                                  }
-                                                }
-                                              },
-                                              itemBuilder: (_) => [
-                                                if (item.fileReference !=
-                                                        null &&
-                                                    item.kind.isFile &&
-                                                    (Platform.isAndroid ||
-                                                        Platform.isMacOS ||
-                                                        DesktopPlatform
-                                                            .isWindowsOrLinux))
-                                                  PopupMenuItem(
-                                                    value: 'reveal',
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        const Icon(
-                                                          Icons.folder_outlined,
-                                                          size: 20,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 12,
-                                                        ),
-                                                        Text(
-                                                          Platform.isMacOS
-                                                              ? t.revealInFinder
-                                                              : t.showInFolder,
-                                                        ),
-                                                      ],
                                                     ),
+                                                    onChanged: (_) =>
+                                                        _toggleSelection(item),
                                                   ),
-                                                PopupMenuItem(
-                                                  value: 'details',
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(
-                                                        Icons
-                                                            .info_outline_rounded,
-                                                        size: 20,
+                                                )
+                                              else
+                                                PopupMenuButton<String>(
+                                                  tooltip: t.moreOptions,
+                                                  icon: Icon(
+                                                    Icons.more_vert_rounded,
+                                                    color:
+                                                        colors.onSurfaceVariant,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                  ),
+                                                  onSelected: (action) async {
+                                                    try {
+                                                      if (action == 'export') {
+                                                        await widget.export(
+                                                          item,
+                                                        );
+                                                      } else if (action ==
+                                                          'reveal') {
+                                                        await widget.reveal(
+                                                          item,
+                                                        );
+                                                      } else if (action ==
+                                                          'details') {
+                                                        _showDetails(item);
+                                                      } else {
+                                                        await _confirmRemove([
+                                                          item,
+                                                        ]);
+                                                      }
+                                                    } catch (e) {
+                                                      if (context.mounted) {
+                                                        showNotice(
+                                                          context,
+                                                          e is StateError
+                                                              ? e.message
+                                                                    .toString()
+                                                              : t.storageFailed,
+                                                          kind:
+                                                              NoticeKind.error,
+                                                        );
+                                                      }
+                                                    }
+                                                  },
+                                                  itemBuilder: (_) => [
+                                                    if (item.fileReference !=
+                                                            null &&
+                                                        item.kind.isFile &&
+                                                        (Platform.isAndroid ||
+                                                            Platform.isMacOS ||
+                                                            DesktopPlatform
+                                                                .isWindowsOrLinux))
+                                                      PopupMenuItem(
+                                                        value: 'reveal',
+                                                        child: Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(
+                                                              Icons
+                                                                  .folder_outlined,
+                                                              size: 20,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 12,
+                                                            ),
+                                                            Text(
+                                                              Platform.isMacOS
+                                                                  ? t.revealInFinder
+                                                                  : t.showInFolder,
+                                                            ),
+                                                          ],
+                                                        ),
                                                       ),
-                                                      const SizedBox(width: 12),
-                                                      Text(t.recordDetails),
-                                                    ],
-                                                  ),
-                                                ),
-                                                if (item.fileReference !=
-                                                        null &&
-                                                    !item.kind.isText &&
-                                                    Platform.isAndroid)
-                                                  PopupMenuItem(
-                                                    value: 'export',
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        const Icon(
-                                                          Icons
-                                                              .save_alt_rounded,
-                                                          size: 20,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 12,
-                                                        ),
-                                                        Text(t.saveAs),
-                                                      ],
+                                                    PopupMenuItem(
+                                                      value: 'details',
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .info_outline_rounded,
+                                                            size: 20,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 12,
+                                                          ),
+                                                          Text(t.recordDetails),
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                PopupMenuItem(
-                                                  value: 'remove',
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(
-                                                        Icons
-                                                            .playlist_remove_rounded,
-                                                        size: 20,
+                                                    if (item.fileReference !=
+                                                            null &&
+                                                        !item.kind.isText &&
+                                                        Platform.isAndroid)
+                                                      PopupMenuItem(
+                                                        value: 'export',
+                                                        child: Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(
+                                                              Icons
+                                                                  .save_alt_rounded,
+                                                              size: 20,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 12,
+                                                            ),
+                                                            Text(t.saveAs),
+                                                          ],
+                                                        ),
                                                       ),
-                                                      const SizedBox(width: 12),
-                                                      Text(t.removeRecord),
-                                                    ],
-                                                  ),
+                                                    PopupMenuItem(
+                                                      value: 'remove',
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .playlist_remove_rounded,
+                                                            size: 20,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 12,
+                                                          ),
+                                                          Text(t.removeRecord),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
-                                            ),
-                                        ],
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ],
+                                  ],
+                                );
+                              },
                             );
                           },
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

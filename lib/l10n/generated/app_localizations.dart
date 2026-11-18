@@ -932,11 +932,17 @@ abstract class AppLocalizations {
   /// **'The records for this batch are unavailable.'**
   String get receivedBatchUnavailable;
 
-  /// No description provided for @showAllOfferedFiles.
+  /// No description provided for @showMoreOfferedFiles.
   ///
   /// In en, this message translates to:
-  /// **'Show all files'**
-  String get showAllOfferedFiles;
+  /// **'{count, plural, one{Show 1 more file} other{Show {count} more files}}'**
+  String showMoreOfferedFiles(int count);
+
+  /// No description provided for @showFewerOfferedFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Show fewer files'**
+  String get showFewerOfferedFiles;
 
   /// No description provided for @receivedSavedTo.
   ///
@@ -1045,6 +1051,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Files, text, and links you receive will appear here.'**
   String get transferHistoryEmptyHint;
+
+  /// No description provided for @manageRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage records'**
+  String get manageRecords;
+
+  /// No description provided for @selectRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'Select records'**
+  String get selectRecords;
+
+  /// No description provided for @clearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get clearSearch;
 
   /// No description provided for @clearHistory.
   ///
