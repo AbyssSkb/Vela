@@ -55,10 +55,10 @@ void main() {
 
   test('reading a snapshot never starts a network probe', () async {
     await controller.syncMonitoring(enabled: true);
-    await controller.readSnapshot();
+    await controller.readCurrentSnapshot();
     expect(node.freshCalls, isEmpty);
 
-    final probe = controller.probePeers(userInitiated: true);
+    final probe = controller.requestPeerProbes(userInitiated: true);
     await _flush();
     expect(node.freshCalls, hasLength(1));
     expect(controller.checkingPeers, isTrue);
@@ -86,7 +86,7 @@ void main() {
     devices = trustedDevices(node);
     controller.attach(devices);
     await controller.syncMonitoring(enabled: true);
-    await controller.readSnapshot();
+    await controller.readCurrentSnapshot();
     old.releaseWatch.complete();
     await _flush();
 
@@ -98,7 +98,7 @@ void main() {
     'membership interruption does not start another network probe',
     () async {
       await controller.syncMonitoring(enabled: true);
-      final probe = controller.probePeers();
+      final probe = controller.requestPeerProbes();
       await _flush();
       expect(node.freshCalls, hasLength(1));
 
@@ -120,7 +120,7 @@ void main() {
       info: const DeviceInfo(name: 'Phone', deviceType: 'mobile'),
       proofValidUntilNs: BigInt.from(9000000000),
     );
-    await controller.readSnapshot();
+    await controller.readCurrentSnapshot();
     expect(controller.values[peerId], PeerPresence.reachable);
     await devices.setAlias(peerId, 'Work');
     expect(controller.values[peerId], PeerPresence.reachable);
