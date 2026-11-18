@@ -1812,21 +1812,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _composeAndSendText() async {
-    final text = await showDialog<String>(
+    final selection = await showDialog<({String peer, String text})>(
       context: context,
-      builder: (_) => const _TextComposeDialog(),
+      builder: (_) => _TextComposeDialog(
+        choosePeer: _choosePeer,
+        hasMultiplePeers: peers.length > 1,
+      ),
     );
-    if (text == null || !mounted) return;
-    final id = await _choosePeer();
-    if (utf8.encode(text).length > 1024 * 1024) {
-      if (mounted) _message(t.textTooLarge, kind: NoticeKind.error);
-      return;
-    }
-    if (id != null && mounted && peers.containsKey(id)) {
+    if (selection != null && mounted && peers.containsKey(selection.peer)) {
       await _sendShare(
-        id,
-        peerState.displayName(id),
-        PendingShare(text: text, typed: true),
+        selection.peer,
+        peerState.displayName(selection.peer),
+        PendingShare(text: selection.text, typed: true),
       );
     }
   }
@@ -3729,13 +3726,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 }
 
 class _TextComposeDialog extends StatefulWidget {
-  const _TextComposeDialog();
+  const _TextComposeDialog({
+    required this.choosePeer,
+    required this.hasMultiplePeers,
+  });
+
+  final Future<String?> Function() choosePeer;
+  final bool hasMultiplePeers;
+
   @override
   State<_TextComposeDialog> createState() => _TextComposeDialogState();
 }
 
 class _TextComposeDialogState extends State<_TextComposeDialog> {
   final controller = TextEditingController();
+  bool tooLarge = false;
+
+  Future<void> _submit() async {
+    final text = controller.text;
+    if (utf8.encode(text).length > 1024 * 1024) {
+      setState(() => tooLarge = true);
+      return;
+    }
+    if (widget.hasMultiplePeers) FocusScope.of(context).unfocus();
+    final peer = await widget.choosePeer();
+    if (mounted && peer != null && ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.pop(context, (peer: peer, text: text));
+    }
+  }
+
   @override
   void dispose() {
     controller.dispose();
@@ -3746,6 +3765,7 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     return AlertDialog(
+      scrollable: true,
       title: Text(t.sendText),
       content: SizedBox(
         width: 480,
@@ -3754,8 +3774,12 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
           autofocus: true,
           minLines: 4,
           maxLines: 12,
-          decoration: InputDecoration(hintText: t.enterText),
-          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: t.enterText,
+            errorText: tooLarge ? t.textTooLarge : null,
+            errorMaxLines: 3,
+          ),
+          onChanged: (_) => setState(() => tooLarge = false),
         ),
       ),
       actions: [
@@ -3764,10 +3788,8 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
           child: Text(t.cancel),
         ),
         FilledButton(
-          onPressed: controller.text.isEmpty
-              ? null
-              : () => Navigator.pop(context, controller.text),
-          child: Text(t.sendText),
+          onPressed: controller.text.isEmpty ? null : _submit,
+          child: Text(widget.hasMultiplePeers ? t.chooseDevice : t.sendText),
         ),
       ],
     );

@@ -116,7 +116,7 @@ void main() {
     types: {fakes.peerId: 'mobile', 'c' * 64: 'desktop'},
   );
 
-  testWidgets('composed text is sent as a typed_text .txt file', (
+  testWidgets('going back from device selection keeps the draft for sending', (
     tester,
   ) async {
     final node = RecordingNode();
@@ -131,7 +131,26 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.enterText(find.byType(TextField), 'Hello from Vela');
         await tester.pump();
-        await tester.tap(find.text('Send text').last);
+        final next = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(FilledButton),
+        );
+        await tester.tap(next);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text('Choose a device'),
+          ),
+          findsOneWidget,
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Hello from Vela'), findsOneWidget);
+        expect(node.sentText, isNull);
+        await tester.tap(next);
         await choosePhoneAndWaitForSend(tester);
         expect(node.sentText, 'Hello from Vela');
         expect(node.sentKind, 'typed_text');
