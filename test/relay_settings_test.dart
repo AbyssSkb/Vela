@@ -130,7 +130,7 @@ void main() {
           .value,
       isFalse,
     );
-    expect(find.text('Uses Iroh public relays'), findsOneWidget);
+    expect(find.text('Currently using Iroh public relays'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('relay-enabled')));
     await tester.pumpAndSettle();
     expect(changes, [false, true]);
@@ -168,7 +168,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Public relays'), findsNothing);
+    expect(find.text('Currently using custom relays'), findsOneWidget);
     expect(
       find.text(
         'Only custom relays are used. Configure the same relay list on your other devices.',
@@ -181,7 +181,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(testedUrl, 'https://relay.example.com/');
     expect(testedToken, 'secret');
-    expect(find.text('Access denied. Check the token.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'relay.example.com'),
+        matching: find.text('Access denied. Check the token.'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('relay.example.com'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Access denied. Check the token.'), findsNothing);
   });
 
   testWidgets('tests unsaved relay settings without saving them', (
@@ -274,7 +285,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(added, 'https://example.com');
     expect(secret, 'test-token');
-    expect(find.text('Public relays'), findsNothing);
+    expect(find.text('Currently using custom relays'), findsOneWidget);
     await tester.tap(find.text('example.com'));
     await tester.pumpAndSettle();
     expect(find.text('Edit relay'), findsOneWidget);
@@ -301,7 +312,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(removed, 'https://relay.example.com/');
     expect(find.text('relay.example.com'), findsNothing);
-    expect(find.text('Public relays'), findsOneWidget);
+    expect(find.text('Currently using Iroh public relays'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

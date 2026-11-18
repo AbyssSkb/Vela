@@ -27,6 +27,54 @@ class FailingFirstWriteStore extends InMemorySharedPreferencesStore {
 void main() {
   const channel = MethodChannel('vela/background');
 
+  testWidgets('settings keep Back visible and repair an unavailable folder', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    const storage = MethodChannel('vela/storage');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    var chosen = false;
+    messenger.setMockMethodCallHandler(storage, (call) async {
+      if (call.method == 'choose') {
+        chosen = true;
+        return true;
+      }
+      if (!chosen) throw PlatformException(code: 'unavailable');
+      return {'isDefault': false, 'displayPath': 'Shared files'};
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(storage, null));
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SettingsPage(
+          profile: 'test',
+          language: 'en',
+          appearance: 'light',
+          deviceName: 'Phone',
+          systemDeviceName: 'Phone',
+          changeSetting: (_, _) async {},
+          rename: (_) async {},
+          relaySettings: () async {},
+          diagnostics: () async {},
+          backgroundChanged: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final choose = find.text('Choose a save location again');
+    await tester.ensureVisible(choose);
+    await tester.tap(choose);
+    await tester.pumpAndSettle();
+    expect(chosen, isTrue);
+    expect(find.text('Shared files'), findsOneWidget);
+    await tester.ensureVisible(find.text('Diagnostics'));
+    expect(find.byTooltip('Back').hitTestable(), findsOneWidget);
+  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+
   test(
     'background summaries do not equate configuration with availability',
     () {

@@ -809,7 +809,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoAccept => 'Auto accept';
 
   @override
-  String get autoAcceptHint => 'Receive content without confirmation';
+  String get autoAcceptHint =>
+      'Accept transfers from paired devices without asking';
 
   @override
   String get retry => 'Retry';
@@ -843,7 +844,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get saveLocationUnavailable =>
-      'Can\'t access this location. Choose it again.';
+      'Vela can\'t access the selected folder.';
+
+  @override
+  String get chooseSaveLocationAgain => 'Choose a save location again';
 
   @override
   String get savingFile => 'Saving';
@@ -869,7 +873,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Uses public relays when no custom relay is configured';
 
   @override
-  String get relayDisabledDetail => 'Uses Iroh public relays';
+  String get relayCustomActive => 'Currently using custom relays';
+
+  @override
+  String get relayPublicActive => 'Currently using Iroh public relays';
 
   @override
   String get relayToggleFailed => 'Could not change relay settings';
@@ -880,12 +887,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get relayCustomOnly =>
       'Only custom relays are used. Configure the same relay list on your other devices.';
-
-  @override
-  String get relayPublic => 'Public relays';
-
-  @override
-  String get relayPublicDetail => 'Default candidates';
 
   @override
   String get relayShowToken => 'Show token';

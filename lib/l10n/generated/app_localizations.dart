@@ -1493,7 +1493,7 @@ abstract class AppLocalizations {
   /// No description provided for @autoAcceptHint.
   ///
   /// In en, this message translates to:
-  /// **'Receive content without confirmation'**
+  /// **'Accept transfers from paired devices without asking'**
   String get autoAcceptHint;
 
   /// No description provided for @retry.
@@ -1559,8 +1559,14 @@ abstract class AppLocalizations {
   /// No description provided for @saveLocationUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Can\'t access this location. Choose it again.'**
+  /// **'Vela can\'t access the selected folder.'**
   String get saveLocationUnavailable;
+
+  /// No description provided for @chooseSaveLocationAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a save location again'**
+  String get chooseSaveLocationAgain;
 
   /// No description provided for @savingFile.
   ///
@@ -1604,11 +1610,17 @@ abstract class AppLocalizations {
   /// **'Uses public relays when no custom relay is configured'**
   String get relayEnabledDetail;
 
-  /// No description provided for @relayDisabledDetail.
+  /// No description provided for @relayCustomActive.
   ///
   /// In en, this message translates to:
-  /// **'Uses Iroh public relays'**
-  String get relayDisabledDetail;
+  /// **'Currently using custom relays'**
+  String get relayCustomActive;
+
+  /// No description provided for @relayPublicActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently using Iroh public relays'**
+  String get relayPublicActive;
 
   /// No description provided for @relayToggleFailed.
   ///
@@ -1627,18 +1639,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only custom relays are used. Configure the same relay list on your other devices.'**
   String get relayCustomOnly;
-
-  /// No description provided for @relayPublic.
-  ///
-  /// In en, this message translates to:
-  /// **'Public relays'**
-  String get relayPublic;
-
-  /// No description provided for @relayPublicDetail.
-  ///
-  /// In en, this message translates to:
-  /// **'Default candidates'**
-  String get relayPublicDetail;
 
   /// No description provided for @relayShowToken.
   ///
