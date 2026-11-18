@@ -1,0 +1,99 @@
+# Vela development workflow
+
+1. **Start in the current checkout.** Review `git status --short --branch`,
+   `git diff`, and `git diff --cached`. Preserve existing user changes.
+   Create a worktree only when requested.
+
+2. **Run lightweight checks locally.** Reproduce bugs when feasible. Run
+   `git diff --check` and use the lightweight checks in [CONTRIBUTING.md](CONTRIBUTING.md).
+   Run focused tests locally when they can use installed tools and dependencies
+   without compiling native code or creating large caches. Use GitHub Actions
+   for full test suites, native compilation, and packaging. Ask before running
+   a local platform build or downloading a large toolchain.
+
+3. **Commit each logical change promptly.** Once the applicable local checks
+   pass, commit before starting the next change or reporting completion.
+   Keep the implementation, its regression test, and any required generated
+   files or lockfile updates together. Split independent changes into commits
+   that can be reviewed and reverted individually. Stage only this task's files
+   or hunks. Review the exact staged diff with `git diff --cached` and
+   `git diff --cached --check`. Preserve unrelated staged work and leave the
+   commit pending if you cannot safely isolate the task's changes.
+
+4. **Verify remotely when needed.** You may push task commits to a dedicated
+   `codex/*` branch on the configured GitHub remote and trigger ordinary CI.
+   Check that all outgoing commits, including any pre-existing local commits,
+   are authorized for that remote. Dispatch [CI](.github/workflows/ci.yml) for
+   full checks and [Installation packages](.github/workflows/build.yml) when
+   native compilation or an installer is needed. Verify the run covers the
+   intended commit and follow it to completion. Fix regressions in a follow-up
+   commit and rerun the affected checks. Pushes to `main`, force-pushes, PR
+   creation, merges, release tags, and publication require separate authorization.
+
+5. **Report what was verified.** Include the commit hashes, local checks,
+   GitHub Actions links and outcomes when run, and any remaining device checks.
+   Give the specific blocker for any required check that could not run.
+
+## Commit messages
+
+Use Conventional Commits: `<type>[(<scope>)][!]: <description>`.
+
+- Write a short English subject starting with an imperative verb. Use a
+  lowercase scope when a module clearly owns the change. Otherwise omit it.
+- Use `feat` for a new feature, `fix` for a bug fix, `perf` for performance,
+  and `refactor` for restructuring that preserves behavior. Use `docs`,
+  `test`, `build`, `ci`, `chore`, `style`, or `revert` when applicable.
+- Add a body after a blank line when the reason or tradeoff needs explanation.
+  For breaking changes, use `!` and a `BREAKING CHANGE:` footer explaining
+  the impact and migration.
+
+Examples:
+
+- `fix(android): honor the default PDF viewer from notifications`
+- `ci: verify packaged desktop startup`
+- `chore(release): prepare v0.1.0-beta.3`
+
+## GitHub releases
+
+Start release preparation only when the user asks to ship a batch of changes.
+Follow [docs/releasing.md](docs/releasing.md) to propose a version, build a signed
+GitHub draft, and verify it. Use tag `v<version>` and title `Vela <version>`,
+omitting the build number from both. Mark versions with a prerelease suffix as
+**Pre-release**.
+
+Write the English release notes into the GitHub draft. Review the diff from
+the previous published version and describe what changes for users. Link the
+Chinese guide. Verify download links against the uploaded installers and link
+`SHA256SUMS`. Use the layout below. Omit optional sections with no content and
+omit the changelog link when there is no previous published version.
+
+```markdown
+<One sentence summarizing the release and identifying a preview when applicable.>
+
+## Downloads
+
+| Platform and architecture | Download |
+| --- | --- |
+| <Platform and architecture> | [<Installer>](<asset URL>) |
+
+[SHA-256 checksums](<SHA256SUMS URL>)
+
+## What's changed
+
+- <User-visible improvement or fix.>
+
+## Installation and upgrade
+
+- <Compatibility change, migration step, or action users need to take.>
+
+## Known issues
+
+- <Known limitation and available workaround.>
+
+[Full changelog](<comparison URL>) · [English guide](<URL>) · [中文说明](<URL>)
+```
+
+Present the proposed version, the reviewed draft, and the release check results
+together for one explicit approval before publication. Publish using the
+approved fingerprint as described in [docs/releasing.md](docs/releasing.md).
+Verify the public release and the rolling update feeds before reporting success.

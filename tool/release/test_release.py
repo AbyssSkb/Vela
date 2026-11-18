@@ -1,16 +1,18 @@
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from textwrap import dedent
 import unittest
 
 from feeds import generate, public_key, required_artifacts
 from android_signing import configure
 from macos_entitlements import validate as validate_macos_entitlements
-from version import read_version
+from version import precedence, read_version
 
 
 class ReleaseTests(unittest.TestCase):
@@ -32,47 +34,146 @@ class ReleaseTests(unittest.TestCase):
                 validate_macos_entitlements(info, invalid)
 
     def test_draft_does_not_publish_or_change_live_feeds(self):
-        commands = self.run_publication(publish=False)
+        result, commands = self.run_publication(publish=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(command[:3] == ['release', 'create', 'v1.2.3'] and '--draft' in command
+                            for command in commands))
+        self.assertTrue(any(command[:3] == ['release', 'upload', 'v1.2.3'] for command in commands))
         self.assertFalse(any(command[:2] == ['release', 'edit'] for command in commands))
         self.assertFalse(any('updates' in command for command in commands))
 
     def test_live_feeds_follow_completed_version_publication(self):
-        commands = self.run_publication(publish=True)
+        result, commands = self.run_publication(publish=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
         publish = next(i for i, command in enumerate(commands) if command[:2] == ['release', 'edit'])
-        feeds = next(i for i, command in enumerate(commands) if command[:3] == ['release', 'upload', 'updates'])
+        feeds, upload = next((i, command) for i, command in enumerate(commands)
+                             if command[:3] == ['release', 'upload', 'updates'])
         self.assertLess(publish, feeds)
-        self.assertTrue(any(command[:3] == ['release', 'upload', 'v1.2.3'] for command in commands[:publish]))
+        self.assertFalse(any(command[:3] == ['release', 'upload', 'v1.2.3'] for command in commands))
+        self.assertEqual({Path(argument).name for argument in upload[3:] if not argument.startswith('-')},
+                         {f'{target}.json' for target in required_artifacts('1.2.3')})
 
-    def run_publication(self, publish):
+    def test_publish_retry_keeps_the_versioned_release_intact(self):
+        result, commands = self.run_publication(publish=True, change='already published')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        mutations = [command[:3] for command in commands if command[1] in ('create', 'edit', 'upload')]
+        self.assertEqual(mutations, [['release', 'upload', 'updates']])
+
+    def test_publish_rejects_missing_approval_or_changes_to_reviewed_draft(self):
+        for change in ('no approval', 'changed notes', 'missing asset', 'bad checksum',
+                       'changed download', 'moved tag'):
+            with self.subTest(change=change):
+                result, commands = self.run_publication(publish=True, change=change)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(command[1] in ('create', 'edit', 'upload') for command in commands))
+
+    def test_older_versions_or_reused_build_numbers_cannot_be_released(self):
+        for publish in (False, True):
+            for prior in ('1.2.2+42', '1.2.4+41'):
+                with self.subTest(publish=publish, prior=prior):
+                    result, commands = self.run_publication(publish=publish, prior=prior)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse(any(command[1] in ('create', 'edit', 'upload') for command in commands))
+
+    def run_publication(self, publish, *, change=None, prior='1.2.2+41'):
         source = Path(__file__).resolve().parent
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             scripts = root / 'tool' / 'release'
             scripts.mkdir(parents=True)
-            for name in ('version.py', 'publish.sh'):
+            for name in ('version.py', 'publish.sh', 'feeds.py', 'publication.py'):
                 shutil.copyfile(source / name, scripts / name)
             (root / 'pubspec.yaml').write_text('version: 1.2.3+42\n')
-            for name in ('dist', 'feeds', 'bin'):
-                (root / name).mkdir()
-            (root / 'dist' / 'fixture.zip').write_text('installer')
-            (root / 'feeds' / 'fixture.xml').write_text('feed')
+            (root / 'bin').mkdir()
+            targets = required_artifacts('1.2.3')
+            packages = [*targets.values(), 'Vela-1.2.3-macos-arm64.dmg', 'Vela-1.2.3-macos-x64.dmg']
+            manifests = [f'{target}.json' for target in targets]
+            contents = {name: f'fixture {name}\n' for name in (*packages, *manifests)}
+            checksums = {name: hashlib.sha256(contents[name].encode()).hexdigest() for name in packages}
+            if change == 'bad checksum':
+                checksums[packages[0]] = '0' * 64
+            contents['SHA256SUMS'] = ''.join(f'{digest}  {name}\n' for name, digest in checksums.items())
+            if change == 'missing asset':
+                del contents['android-arm64.json']
+            if not publish:
+                for folder, names in (('dist', [*packages, 'SHA256SUMS']), ('feeds', manifests)):
+                    (root / folder).mkdir()
+                    for name in names:
+                        (root / folder / name).write_text(contents[name])
+
+            commit = 'a' * 40
+            release = {
+                'assets': [{'name': name, 'id': str(i), 'state': 'uploaded', 'size': len(data),
+                            'digest': 'sha256:' + hashlib.sha256(data.encode()).hexdigest()}
+                           for i, (name, data) in enumerate(contents.items())],
+                'body': 'Reviewed release notes', 'id': 'release-id', 'isDraft': True,
+                'isPrerelease': False, 'name': 'Vela 1.2.3', 'tagName': 'v1.2.3',
+                'targetCommitish': commit,
+            }
+            fixture = {'commit': commit, 'prior': prior, 'release': release if publish else None,
+                       'contents': contents}
+            (root / 'release.json').write_text(json.dumps(fixture))
             gh = root / 'bin' / 'gh'
-            gh.write_text('#!/usr/bin/env python3\nimport json, os, sys\n'
-                          'with open(os.environ["COMMANDS"], "a") as f: f.write(json.dumps(sys.argv[1:])+"\\n")\n'
-                          'sys.exit(1 if sys.argv[1:3] == ["release", "view"] else 0)\n')
+            gh.write_text('#!/usr/bin/env python3\n' + dedent(r'''
+                import json, os, sys
+                from pathlib import Path
+
+                args = sys.argv[1:]
+                tag = os.environ['TAG']
+                fixture = json.loads(Path('release.json').read_text())
+                with open(os.environ['COMMANDS'], 'a') as log:
+                    log.write(json.dumps(args) + '\n')
+
+                if args[:2] == ['api', '--paginate']:
+                    print('v' + fixture['prior'].partition('+')[0])
+                    print('updates')
+                elif any('/contents/pubspec.yaml' in argument for argument in args):
+                    print(f"version: {fixture['prior']}")
+                elif any('/commits/' in argument for argument in args):
+                    print(fixture['commit'])
+                elif args[:3] == ['release', 'view', tag] and fixture['release']:
+                    print(json.dumps(fixture['release']))
+                elif args[:3] == ['release', 'view', 'updates'] and fixture.get('rolling_exists'):
+                    print('Vela update feeds')
+                elif args[:3] == ['release', 'download', tag]:
+                    directory = Path(args[args.index('--dir') + 1])
+                    for name, data in fixture['contents'].items():
+                        if name.endswith('.json') or name == 'SHA256SUMS':
+                            (directory / name).write_text(data)
+                elif args[0] != 'release' or args[1] not in ('create', 'edit', 'upload'):
+                    sys.exit(1)
+            '''))
             gh.chmod(0o755)
             git = root / 'bin' / 'git'
-            git.write_text('#!/bin/sh\nprintf "%s\\n" "0123456789012345678901234567890123456789"\n')
+            git.write_text(f'#!/bin/sh\nprintf "%s\\n" "{commit}"\n')
             git.chmod(0o755)
             commands = root / 'commands.jsonl'
+            commands.touch()
             environment = os.environ | {
                 'PATH': str(root / 'bin') + os.pathsep + os.environ['PATH'],
                 'RUNNER_TEMP': str(root), 'GH_REPO': 'owner/Vela', 'TAG': 'v1.2.3',
                 'PUBLISH': str(publish).lower(), 'COMMANDS': str(commands),
+                'APPROVED_FINGERPRINT': '',
             }
-            subprocess.run(['bash', str(scripts / 'publish.sh')], cwd=root, env=environment,
-                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return [json.loads(line) for line in commands.read_text().splitlines()]
+            if publish and change != 'no approval':
+                reviewed = subprocess.run(['python3', str(scripts / 'publication.py'), 'fingerprint', 'v1.2.3'],
+                                          cwd=root, env=environment, capture_output=True, text=True)
+                self.assertEqual(reviewed.returncode, 0, reviewed.stderr)
+                environment['APPROVED_FINGERPRINT'] = reviewed.stdout.strip()
+                commands.write_text('')
+            if change == 'already published':
+                release['isDraft'] = False
+                fixture['rolling_exists'] = True
+            elif change == 'changed notes':
+                release['body'] = 'Unreviewed release notes'
+            elif change == 'changed download':
+                contents['android-arm64.json'] = 'unreviewed feed\n'
+            elif change == 'moved tag':
+                fixture['commit'] = 'b' * 40
+            (root / 'release.json').write_text(json.dumps(fixture))
+            result = subprocess.run(['bash', str(scripts / 'publish.sh')], cwd=root, env=environment,
+                                    capture_output=True, text=True)
+            return result, [json.loads(line) for line in commands.read_text().splitlines()]
 
     def test_android_release_signing_has_no_debug_fallback(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -103,6 +204,10 @@ class ReleaseTests(unittest.TestCase):
                 spec.write_text(f"version: {invalid}\n")
                 with self.assertRaises(ValueError):
                     read_version(spec)
+
+    def test_version_precedence_compares_beta_numbers_numerically(self):
+        versions = ['0.1.0-beta.9', '0.1.0-beta.10', '0.1.0', '0.2.0-beta.1']
+        self.assertEqual(sorted(reversed(versions), key=precedence), versions)
 
     def test_feeds_verify_real_signatures_and_require_complete_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:
