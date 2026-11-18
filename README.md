@@ -14,7 +14,7 @@
 
 Vela connects your personal devices to share files, folders, text, and clipboard content without an account. Pair once, keep Vela available in the background, and choose what to send. Built with Flutter, Rust, and [Iroh](https://www.iroh.computer/).
 
-**Four-platform preview:** Android, macOS, Windows, and Linux. Windows/Linux hosts and the release/update pipeline are newly implemented. See [Actions](https://github.com/AbyssSkb/Vela/actions) for current build results and [Releases](https://github.com/AbyssSkb/Vela/releases) for published installers; platform behavior still needs real-device testing.
+**First public preview:** [v0.1.0-beta.2](https://github.com/AbyssSkb/Vela/releases/tag/v0.1.0-beta.2) is available for Android, macOS, Windows, and Linux. CI, package builds, and Windows/Linux startup checks passed. Cross-device transfers, background behavior, and upgrades still need release testing on real hardware.
 
 ## What you can do
 
@@ -30,16 +30,17 @@ Vela connects your personal devices to share files, folders, text, and clipboard
 
 ### Installation packages
 
-GitHub builds the following packages; download published versions from [Releases](https://github.com/AbyssSkb/Vela/releases). Before a release is published, the [Installation packages workflow](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml) provides candidate artifacts retained for seven days.
+Download **v0.1.0-beta.2**: [release notes](https://github.com/AbyssSkb/Vela/releases/tag/v0.1.0-beta.2) · [SHA256 checksums](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/SHA256SUMS).
 
-| Platform | Package targets |
-| --- | --- |
-| macOS | Apple Silicon and Intel DMG installers; ZIP update payloads |
-| Windows | x64 EXE installer, installed for the current user |
-| Linux | x64 AppImage; Ubuntu LTS is the initial validation target |
-| Android | ARM64 APK; x86_64 packages are for testing |
+| Platform | Architecture | Download |
+| --- | --- | --- |
+| macOS | Apple Silicon (ARM64) | [DMG](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-macos-arm64.dmg) |
+| macOS | Intel (x64) | [DMG](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-macos-x64.dmg) |
+| Windows | x64 | [EXE installer](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-windows-x64-setup.exe) |
+| Linux | x64 | [AppImage](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-linux-x64.AppImage) |
+| Android | ARM64 | [APK](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-android-arm64.apk) |
 
-Actions preview builds have automatic updates disabled. Android preview APKs use a debug key and cannot be upgraded in place to the public release key. Zero-cost desktop builds are not Apple-notarized or Windows Authenticode-signed; follow the installation and verification notes for the version you download. See [release setup](docs/releasing.md).
+The [Installation packages workflow](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml) also provides development snapshots retained for seven days, with automatic updates disabled. Android preview APKs use a debug key and cannot be upgraded in place to the public release key. Zero-cost desktop builds are not Apple-notarized or Windows Authenticode-signed; follow the installation and verification notes for the version you download. See [release setup](docs/releasing.md).
 
 ### Build from source
 

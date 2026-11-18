@@ -14,7 +14,7 @@
 
 Vela 面向个人设备互联：配对一次，保持后台可用，再主动分享文件、文件夹、文字和剪贴板内容，无需注册账号。项目使用 Flutter、Rust 和 [Iroh](https://www.iroh.computer/)。
 
-**当前为四平台预览阶段：Android、macOS、Windows 和 Linux。** Windows/Linux 宿主及构建、更新流程为新增实现。构建结果见 [Actions](https://github.com/AbyssSkb/Vela/actions)，已发布安装包见 [Releases](https://github.com/AbyssSkb/Vela/releases)；各平台行为仍需真机验证。
+**首个公开预览版 [v0.1.0-beta.2](https://github.com/AbyssSkb/Vela/releases/tag/v0.1.0-beta.2) 已发布，支持 Android、macOS、Windows 和 Linux。** CI、安装包构建及 Windows/Linux 启动检查已通过；跨设备收发、后台行为和升级仍需针对本版进行真机验收。
 
 ## 可以做什么
 
@@ -30,16 +30,17 @@ Vela 面向个人设备互联：配对一次，保持后台可用，再主动分
 
 ### 安装包
 
-GitHub 负责构建以下安装包，公开版本从 [Releases](https://github.com/AbyssSkb/Vela/releases) 下载。发布前，可从[安装包工作流](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml)下载保留七天的候选构建产物。
+下载 **v0.1.0-beta.2**：[版本说明](https://github.com/AbyssSkb/Vela/releases/tag/v0.1.0-beta.2) · [SHA256 校验文件](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/SHA256SUMS)。
 
-| 平台 | 打包目标 |
-| --- | --- |
-| macOS | Apple Silicon、Intel 的 DMG 安装包及 ZIP 更新文件 |
-| Windows | x64 EXE 安装器，安装到当前用户目录 |
-| Linux | x64 AppImage，初期以 Ubuntu LTS 为验证目标 |
-| Android | ARM64 APK；x86_64 包用于测试 |
+| 平台 | 架构 | 下载 |
+| --- | --- | --- |
+| macOS | Apple Silicon（ARM64） | [DMG](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-macos-arm64.dmg) |
+| macOS | Intel（x64） | [DMG](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-macos-x64.dmg) |
+| Windows | x64 | [EXE 安装器](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-windows-x64-setup.exe) |
+| Linux | x64 | [AppImage](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-linux-x64.AppImage) |
+| Android | ARM64 | [APK](https://github.com/AbyssSkb/Vela/releases/download/v0.1.0-beta.2/Vela-0.1.0-beta.2-android-arm64.apk) |
 
-Actions 预览构建关闭自动更新；Android 预览 APK 使用调试密钥，不能直接覆盖升级到使用正式发布密钥的版本。零成本桌面构建暂不提供 Apple 公证或 Windows Authenticode 发行签名，安装时请按对应版本的说明核验并处理系统提示。发布配置见[发行说明](docs/releasing.md)。
+[安装包工作流](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml)另提供保留七天的开发快照，关闭自动更新；Android 预览 APK 使用调试密钥，不能直接覆盖升级到使用正式发布密钥的版本。零成本桌面构建暂不提供 Apple 公证或 Windows Authenticode 发行签名，安装时请按对应版本的说明核验并处理系统提示。发布配置见[发行说明](docs/releasing.md)。
 
 ### 从源码运行
 

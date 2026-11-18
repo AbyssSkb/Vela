@@ -9,7 +9,10 @@ Vela builds on GitHub-hosted runners. Keep local verification small when disk is
 | [CI](../.github/workflows/ci.yml) | Push/PR/manual: Dart checks/tests, Rust format/tests on Linux/macOS/Windows, release-script checks |
 | [Installation packages](../.github/workflows/build.yml) | Main/PR/manual: preview installers; reusable by the release workflow for configured release packages |
 | [Release](../.github/workflows/release.yml) | Version tag or manual run: validate credentials/version, build all packages, sign feeds, assemble a draft; optional publication |
+| [Packaged desktop startup smoke](../.github/workflows/package-smoke.yml) | Manual with a source workflow `run_id`: download its Windows/Linux artifacts and check package loading and window creation |
 | [External relay tests](../.github/workflows/relay-tests.yml) | Manual public/private relay verification, separate from normal PR checks |
+
+For the first public preview, [v0.1.0-beta.2](https://github.com/AbyssSkb/Vela/releases/tag/v0.1.0-beta.2), [CI](https://github.com/AbyssSkb/Vela/actions/runs/44120656381), [release packaging](https://github.com/AbyssSkb/Vela/actions/runs/44120654409), and [packaged startup checks](https://github.com/AbyssSkb/Vela/actions/runs/44212215724) passed. The startup check installs, opens, and uninstalls Windows; Linux opens the extracted AppImage under Xvfb/Mesa with a temporary Secret Service keyring, reaching identity, database, and node initialization. Real-hardware transfers, background behavior, and old-to-new upgrades remain separate release acceptance checks.
 
 The package matrix builds macOS ARM64/Intel, Windows x64, Linux x64, Android ARM64, and an Android x86_64 test package. Preview artifacts expire after seven days. Previews contain no trusted update key; Android previews explicitly use a disposable debug key. They are not public update releases.
 
