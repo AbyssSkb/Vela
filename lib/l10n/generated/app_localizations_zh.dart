@@ -980,6 +980,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get desktopBackgroundHint => '关闭窗口后，Vela 继续在系统托盘运行。请从托盘菜单退出以停止接收。';
 
   @override
+  String get trayOpen => '打开 Vela';
+
+  @override
+  String get trayQuit => '退出';
+
+  @override
   String get desktopBackgroundLimits => '退出 Vela 或电脑进入睡眠后会停止接收。托盘是否可用取决于桌面环境。';
 
   @override

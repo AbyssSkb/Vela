@@ -445,6 +445,8 @@
   "viewText": "查看文字",
   "textTooLarge": "文字不能超过 1 MiB",
   "desktopBackgroundHint": "关闭窗口后，Vela 继续在系统托盘运行。请从托盘菜单退出以停止接收。",
+  "trayOpen": "打开 Vela",
+  "trayQuit": "退出",
   "desktopBackgroundLimits": "退出 Vela 或电脑进入睡眠后会停止接收。托盘是否可用取决于桌面环境。",
   "desktopTray": "系统托盘"
 }

@@ -419,6 +419,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux) {
+      _updateDesktopStatus('setTrayLabels', {
+        'open': t.trayOpen,
+        'quit': t.trayQuit,
+      });
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     updates.addListener(_updatesChanged);

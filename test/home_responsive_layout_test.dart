@@ -17,6 +17,45 @@ import 'support/home_environment.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets(
+    'tray menu follows the resolved app language',
+    (tester) async {
+      await withHomeTestEnvironment(
+        tester,
+        devices: PeerState(),
+        api: fakes.FakeRustApi(fakes.FakeNode()),
+        run: (_) async {
+          final labels = <Object?>[];
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            const MethodChannel('vela/background'),
+            (call) async {
+              if (call.method == 'setTrayLabels') labels.add(call.arguments);
+              return call.method == 'getWindowVisible' ? true : null;
+            },
+          );
+          await tester.pumpWidget(
+            const VelaApp(
+              profile: 'test',
+              initialLanguage: 'en',
+              initialAppearance: 'light',
+              initialDiagnosticsEnabled: false,
+            ),
+          );
+          expect(labels.last, {'open': 'Open Vela', 'quit': 'Quit'});
+          await tester
+              .widget<HomePage>(find.byType(HomePage))
+              .changeSetting('language', 'zh');
+          await tester.pump();
+          expect(labels.last, {'open': '打开 Vela', 'quit': '退出'});
+        },
+      );
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+    }),
+  );
+
   testWidgets('first launch offers both sides of pairing', (tester) async {
     await withHomeTestEnvironment(
       tester,

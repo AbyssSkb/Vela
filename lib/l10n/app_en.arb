@@ -455,6 +455,8 @@
   "viewText": "View text",
   "textTooLarge": "Text must be no larger than 1 MiB",
   "desktopBackgroundHint": "Keep Vela in the system tray when the window is closed. Quit from the tray menu to stop receiving.",
+  "trayOpen": "Open Vela",
+  "trayQuit": "Quit",
   "desktopBackgroundLimits": "Receiving stops when Vela is quit or the computer sleeps. Tray availability depends on your desktop environment.",
   "desktopTray": "System tray"
 }
