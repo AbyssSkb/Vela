@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:vela/diagnostics_page.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/main.dart';
 import 'package:vela/src/rust/api/node.dart';
@@ -102,6 +103,14 @@ void main() {
             'mac_background_receiving',
             false,
           );
+          final diagnostics = find.text('Diagnostics');
+          expect(diagnostics.hitTestable(), findsOneWidget);
+          await tester.tap(diagnostics);
+          await tester.pumpAndSettle();
+          expect(find.byType(DiagnosticsPage), findsOneWidget);
+          expect(find.text('Not ready'), findsOneWidget);
+          await tester.pageBack();
+          await tester.pumpAndSettle();
         }
         if (scenario == 'disposed') await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(seconds: 1));

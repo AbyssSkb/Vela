@@ -310,7 +310,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get writeClipboardFailed => '已接收，但未能复制到剪贴板';
 
   @override
-  String get startupFailed => '无法启动，请重新打开应用';
+  String get startupFailed => 'Vela 无法启动。';
+
+  @override
+  String get diagnostics => '诊断';
+
+  @override
+  String diagnosticsUpdated(String time) {
+    return '更新于 $time';
+  }
+
+  @override
+  String diagnosticsStale(String time) {
+    return '刷新失败，正在显示 $time 的结果。';
+  }
 
   @override
   String get mobile => '手机';

@@ -3553,6 +3553,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         },
                         child: Text(t.retry),
                       ),
+                      TextButton(
+                        onPressed: _showDiagnostics,
+                        child: Text(t.diagnostics),
+                      ),
                       if (Platform.isAndroid ||
                           Platform.isMacOS ||
                           DesktopPlatform.isWindowsOrLinux)

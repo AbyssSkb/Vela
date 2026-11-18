@@ -4,7 +4,7 @@ import 'package:vela/diagnostics_page.dart';
 import 'package:vela/src/rust/api/node.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -85,6 +85,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: DiagnosticsPage(
             load: load,
             clear: () async {},
@@ -139,16 +140,22 @@ void main() {
       '00:01 relay {"url":"https://relay.example.com","error":"connection refused"}',
       '00:02 status updated',
     ];
-    Future<DiagnosticsSnapshot> load() async => DiagnosticsSnapshot(
-      nodeReady: true,
-      peerCount: 2,
-      reachableCount: 1,
-      relayCount: 1,
-      readyRelayCount: null,
-      events: List.of(events),
-    );
+    var failRefresh = false;
+    Future<DiagnosticsSnapshot> load() async {
+      if (failRefresh) throw StateError('could not refresh');
+      return DiagnosticsSnapshot(
+        nodeReady: true,
+        peerCount: 2,
+        reachableCount: 1,
+        relayCount: 1,
+        readyRelayCount: null,
+        events: List.of(events),
+      );
+    }
+
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: DiagnosticsPage(
           load: load,
           clear: () async => events = [],
@@ -166,6 +173,17 @@ void main() {
       tester.getTopLeft(find.text('00:02 status updated')).dy,
       lessThan(tester.getTopLeft(find.text(events.first)).dy),
     );
+    expect(find.textContaining('Updated at '), findsOneWidget);
+    failRefresh = true;
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(find.textContaining('Refresh failed'), findsOneWidget);
+    expect(find.text('1 / 2'), findsOneWidget);
+    failRefresh = false;
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(find.textContaining('Refresh failed'), findsNothing);
+    expect(find.textContaining('Updated at '), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('diagnostics-copy')));
     await tester.pump();
     expect(copied, contains('Reachable devices: 1 / 2'));
@@ -207,8 +225,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('zh'),
-        supportedLocales: const [Locale('en'), Locale('zh')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: DiagnosticsPage(
           load: load,
           clear: () async => events = [],
@@ -254,6 +272,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: DiagnosticsPage(
           load: load,
           clear: () async => events.clear(),
@@ -294,6 +313,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: DiagnosticsPage(
             load: load,
             clear: () async {},
@@ -331,6 +351,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: DiagnosticsPage(
           load: load,
           clear: () async {},
@@ -370,6 +391,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: DiagnosticsPage(
           load: load,
           clear: () async {},
@@ -412,6 +434,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: DiagnosticsPage(
           load: load,
           clear: () async {},

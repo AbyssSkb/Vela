@@ -93,6 +93,8 @@ Iroh encrypts traffic between endpoints, including traffic forwarded by a relay.
 
 ## Help shape Vela
 
+If Vela cannot start, you can open Diagnostics directly from the error screen.
+
 Useful first contributions include testing transfers between platforms, reporting reproducible background or network failures, improving translations, and fixing focused bugs. Start with [CONTRIBUTING.md](CONTRIBUTING.md); issues and pull requests can be written in English or Chinese.
 
 | Resource | Purpose |

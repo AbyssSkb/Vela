@@ -337,7 +337,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Received, but couldn\'t copy to the clipboard.';
 
   @override
-  String get startupFailed => 'Could not start. Restart the app.';
+  String get startupFailed => 'Vela could not start.';
+
+  @override
+  String get diagnostics => 'Diagnostics';
+
+  @override
+  String diagnosticsUpdated(String time) {
+    return 'Updated at $time';
+  }
+
+  @override
+  String diagnosticsStale(String time) {
+    return 'Refresh failed. Showing results from $time.';
+  }
 
   @override
   String get mobile => 'Phone';

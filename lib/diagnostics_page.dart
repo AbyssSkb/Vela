@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
 import 'src/rust/api/node.dart';
 
@@ -125,6 +126,7 @@ class DiagnosticsPage extends StatefulWidget {
 
 class _DiagnosticsPageState extends State<DiagnosticsPage> {
   DiagnosticsSnapshot? snapshot;
+  TimeOfDay? refreshedAt;
   Timer? timer;
   bool loading = false;
   bool reload = false;
@@ -156,6 +158,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
       if (mounted && request == version) {
         setState(() {
           snapshot = next;
+          refreshedAt = TimeOfDay.now();
           failed = false;
         });
       }
@@ -260,8 +263,10 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     final current = snapshot;
+    final updated = refreshedAt?.format(context);
     final titleStyle = Theme.of(context).textTheme.headlineSmall
         ?.copyWith(fontWeight: FontWeight.w700);
     Widget status(String label, String value) => Padding(
@@ -308,10 +313,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                text('诊断', 'Diagnostics'),
-                                style: titleStyle,
-                              ),
+                              child: Text(t.diagnostics, style: titleStyle),
                             ),
                             IconButton(
                               key: const ValueKey('diagnostics-copy'),
@@ -370,6 +372,24 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                             ),
                           )
                         else ...[
+                          if (updated != null)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                              child: Semantics(
+                                liveRegion: failed,
+                                child: Text(
+                                  failed
+                                      ? t.diagnosticsStale(updated)
+                                      : t.diagnosticsUpdated(updated),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: failed
+                                            ? colors.error
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                ),
+                              ),
+                            ),
                           Material(
                             color: colors.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(18),
