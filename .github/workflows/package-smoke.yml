@@ -91,7 +91,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11-utils dbus-x11
+          # AppImages use host graphics drivers; supply EGL/Mesa for this headless display.
+          sudo apt-get install -y xvfb x11-utils dbus-x11 libegl1 libgl1-mesa-dri
       - name: Extract and open the Linux package
         if: runner.os == 'Linux'
         shell: bash
