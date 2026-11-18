@@ -7,7 +7,7 @@ Vela builds on GitHub-hosted runners. Keep local verification small when disk is
 | Workflow | Trigger and result |
 | --- | --- |
 | [CI](../.github/workflows/ci.yml) | Push/PR/manual: Dart checks/tests, Rust format/tests on Linux/macOS/Windows, release-script checks |
-| [Installation packages](../.github/workflows/build.yml) | Main/PR/manual: preview installers; reusable by the release workflow for configured release packages |
+| [Installation packages](../.github/workflows/build.yml) | Pull requests and manual runs build preview installers. The release workflow calls it for configured release packages. |
 | [Release](../.github/workflows/release.yml) | A version tag or manual run prepares a signed draft. A manual run with the approved fingerprint publishes the reviewed draft and updates the rolling feeds. |
 | [Packaged desktop startup smoke](../.github/workflows/package-smoke.yml) | Manual with a source workflow `run_id`: download its Windows/Linux artifacts and check package loading and window creation |
 | [External relay tests](../.github/workflows/relay-tests.yml) | Manual public/private relay verification, separate from normal PR checks |
