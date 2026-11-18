@@ -7,7 +7,11 @@ import re
 
 
 def read_version(pubspec: Path) -> dict:
-    match = re.search(r"^version:\s*['\"]?([^\s'\"]+)", pubspec.read_text(), re.M)
+    return parse_version(pubspec.read_text())
+
+
+def parse_version(pubspec: str) -> dict:
+    match = re.search(r"^version:\s*['\"]?([^\s'\"]+)", pubspec, re.M)
     if not match:
         raise ValueError("pubspec.yaml has no version")
     parsed = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?\+(\d+)", match[1])
@@ -27,6 +31,13 @@ def read_version(pubspec: Path) -> dict:
         "tag": f"v{version}",
         "prerelease": bool(prerelease),
     }
+
+
+def precedence(version: str) -> tuple:
+    base, separator, prerelease = version.partition("-")
+    identifiers = tuple((0, int(part)) if part.isdecimal() else (1, part)
+                        for part in prerelease.split("."))
+    return tuple(map(int, base.split("."))), not separator, identifiers
 
 
 def main() -> None:

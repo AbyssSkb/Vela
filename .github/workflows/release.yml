@@ -10,9 +10,12 @@ on:
         type: string
         required: true
       publish:
-        description: Publish the complete release and update feeds; otherwise leave a draft
+        description: Publish an approved draft and update feeds
         type: boolean
         default: false
+      approved_fingerprint:
+        description: Fingerprint of the reviewed draft (required when publishing)
+        type: string
 
 permissions:
   contents: read
@@ -23,15 +26,18 @@ concurrency:
 
 jobs:
   prepare:
+    if: ${{ github.event_name == 'push' || !inputs.publish }}
     runs-on: ubuntu-24.04
     environment: release
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.checkout.outputs.commit }}
       public_key: ${{ steps.key.outputs.public_key }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        id: checkout
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ format('refs/tags/{0}', inputs.tag || github.ref_name) }}
           persist-credentials: false
       - name: Validate version and release credentials
         id: version
@@ -51,6 +57,12 @@ jobs:
           if missing:
               raise SystemExit('Configure protected release secrets: ' + ', '.join(missing))
           PY
+      - name: Check the release version against published versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: python tool/release/publication.py check-version "$TAG"
       - name: Validate pinned update key
         id: key
         env:
@@ -72,7 +84,7 @@ jobs:
     needs: prepare
     uses: ./.github/workflows/build.yml
     with:
-      ref: ${{ needs.prepare.outputs.tag }}
+      ref: ${{ needs.prepare.outputs.commit }}
       signed: true
       public_key: ${{ needs.prepare.outputs.public_key }}
     secrets:
@@ -90,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ needs.prepare.outputs.tag }}
+          ref: ${{ needs.prepare.outputs.commit }}
           persist-credentials: false
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
@@ -109,10 +121,36 @@ jobs:
           printf '%s\n' "$UPDATE_PRIVATE_KEY_PEM" > "$key"
           rm -f dist/*-test.apk
           python tool/release/feeds.py --key "$key" --repository "$REPOSITORY" --tag "$TAG"
-      - name: Create complete draft and optionally publish
+      - name: Create complete draft
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
-          PUBLISH: ${{ inputs.publish && 'true' || 'false' }}
+          PUBLISH: 'false'
         run: bash tool/release/publish.sh
+
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - name: Publish approved draft and update feeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          PUBLISH: 'true'
+          APPROVED_FINGERPRINT: ${{ inputs.approved_fingerprint }}
+        run: |
+          : "${APPROVED_FINGERPRINT:?Supply the reviewed draft fingerprint.}"
+          if [[ ! -f tool/release/publication.py ]]; then
+            echo 'The release tag must include fingerprint verification.' >&2
+            exit 1
+          fi
+          bash tool/release/publish.sh

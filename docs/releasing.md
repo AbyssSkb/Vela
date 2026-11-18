@@ -8,7 +8,7 @@ Vela builds on GitHub-hosted runners. Keep local verification small when disk is
 | --- | --- |
 | [CI](../.github/workflows/ci.yml) | Push/PR/manual: Dart checks/tests, Rust format/tests on Linux/macOS/Windows, release-script checks |
 | [Installation packages](../.github/workflows/build.yml) | Main/PR/manual: preview installers; reusable by the release workflow for configured release packages |
-| [Release](../.github/workflows/release.yml) | Version tag or manual run: validate credentials/version, build all packages, sign feeds, assemble a draft; optional publication |
+| [Release](../.github/workflows/release.yml) | A version tag or manual run prepares a signed draft. A manual run with the approved fingerprint publishes the reviewed draft and updates the rolling feeds. |
 | [Packaged desktop startup smoke](../.github/workflows/package-smoke.yml) | Manual with a source workflow `run_id`: download its Windows/Linux artifacts and check package loading and window creation |
 | [External relay tests](../.github/workflows/relay-tests.yml) | Manual public/private relay verification, separate from normal PR checks |
 
@@ -50,14 +50,34 @@ Generate these keys once, retain the originals and passwords, and reuse them for
 
 Existing macOS/Android application IDs are intentionally retained to preserve current profiles. A debug-signed Android build still cannot be overwritten with the public key: users need a clean first public install after saving received files, and uninstalling can remove app-local identity/history. Later public releases must keep their signing identity and application IDs.
 
-## Create a version
+## Choose a version
 
-1. Increment the semantic version and build number in `pubspec.yaml`. For example, `0.1.0-beta.2+7` maps to tag `v0.1.0-beta.2`. The build number must increase and fit `1..65535`.
-2. Push the version commit and matching tag. `v*` tag pushes start the release workflow and leave a complete draft by default.
-3. Check all package jobs and inspect the draft artifacts. Run a clean installation and an old-to-new upgrade before advertising the release.
-4. Run **Release** manually for the existing tag with **publish** enabled when ready. The workflow publishes versioned installers first, then updates the machine-readable feeds under the rolling `updates` release.
+Start release preparation when the maintainer asks to ship a batch of changes worth an upgrade. Review the changes since the previous public release and propose a version for the maintainer to approve with the draft. Conventional Commit types inform that decision. Version numbers are chosen per release.
 
-Already published versions are immutable to the publisher script: use a new version/tag to replace a broken build. Android x86_64 test APKs are removed from public release assets. Versioned releases include installation packages, update payloads/feeds, and `SHA256SUMS`.
+- While targeting `0.1.0`, continue the series as `0.1.0-beta.N` and increment `N` for each new public beta.
+- Propose stable `0.1.0` when the release acceptance checks pass and the maintainer is ready to ship it. After that, use `0.1.1` for compatible fixes and `0.2.0` for the next feature milestone. Call out compatibility breaks and the migration steps explicitly in the draft.
+- Use a build number in `1..65535` that is greater than every previously published Vela build. Check the highest published number before preparing the release. If the highest is `7`, the next beta in the series could be `0.1.0-beta.3+8` in `pubspec.yaml`, tagged `v0.1.0-beta.3`.
+
+Public betas continue to update the shared rolling `updates` feeds during the beta period. Split the beta and stable update channels before publishing the first stable version.
+
+## Prepare and review the draft
+
+1. Commit the proposed version in `pubspec.yaml`. Obtain authorization to push the version commit or tag as required by [AGENTS.md](../AGENTS.md). An authorized `v*` tag push starts **Release** in draft mode. To prepare for an existing tag, run **Release** manually with `tag` set and `publish=false`.
+2. Confirm the package jobs pass and the draft targets the intended tag and commit. Check the uploaded installers, signed update feeds and payloads, and `SHA256SUMS`. Release packaging excludes the Android x86_64 test APK. Check a clean installation and an upgrade from a previous public version. Record the checks and their results for review.
+3. Write English release notes into the GitHub draft using the [release page layout](../AGENTS.md#github-releases). Link `README.zh-CN.md` at the release tag, the installers, and the checksums. Review the saved notes and metadata against the uploaded assets.
+4. From the checkout, use an authenticated `gh` session with access to the draft. Calculate its fingerprint once the draft is ready.
+
+   ```sh
+   GH_REPO=AbyssSkb/Vela python3 tool/release/publication.py fingerprint v0.1.0-beta.3
+   ```
+
+5. Present the version, draft link, tag, commit, package digests, release notes, check results, and fingerprint to the maintainer. Ask for one explicit approval of that version and draft before publishing. If the bound draft details change, recompute the fingerprint and obtain fresh approval.
+
+## Publish the approved draft
+
+Run **Release** manually with the reviewed `tag`, `publish=true`, and the approved `approved_fingerprint`. The workflow verifies the fingerprint, publishes the existing draft with its reviewed assets, and then updates the rolling `updates` release. Verify that the versioned release and the new rolling feeds are live.
+
+If publication succeeded and the rolling feed update failed, rerun publication with the same tag and approved fingerprint to resume the feed update. Published releases keep their original installers. Use a new version and tag to replace a broken build.
 
 All platforms consume signed JSON manifests with exact package size and SHA-256. The common download code checks the pinned key and validates the repository/target before installation. macOS JSON also carries the ZIP's Sparkle `edSignature`; only after explicit installation consent does the native code expose the cached ZIP via a temporary loopback appcast to Sparkle. The five rolling feeds are JSON, with no remote XML feed to let Sparkle stage an installation early. The Linux helper replaces a complete verified AppImage without an additional AppImageUpdate engine. Windows uses the verified installer plus a shutdown/install helper.
 
