@@ -3653,6 +3653,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -3766,6 +3767,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: Semantics(
               liveRegion: true,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(t.sentTo(receipt.recipient)),

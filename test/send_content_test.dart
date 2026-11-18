@@ -200,6 +200,10 @@ void main() {
           await tester.pump(const Duration(seconds: 6));
           final receipt = find.byKey(const ValueKey('send-receipt'));
           expect(
+            find.byKey(const ValueKey('peer-${fakes.peerId}')).hitTestable(),
+            findsOneWidget,
+          );
+          expect(
             find.descendant(of: receipt, matching: find.text('Text')),
             findsOneWidget,
           );
