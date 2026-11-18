@@ -191,135 +191,131 @@ class MainActivity : FlutterActivity() {
         app.attachActivity(this)
     }
 
-    fun handleBackgroundCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "start" -> {
-                serviceMessage = call.argument<String>("message") ?: "Ready to receive"
-                if (
-                    Build.VERSION.SDK_INT >= 33 &&
-                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED
-                ) {
-                    if (pendingStart != null)
-                        result.error("background", "Request already in progress", null)
-                    else {
-                        pendingStart = result
-                        requestPermissions(
-                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                            7101,
-                        )
-                    }
-                } else startReceiving(result)
-            }
-            "resume" -> {
-                serviceMessage = call.argument<String>("message") ?: "Ready to receive"
-                if (
-                    Build.VERSION.SDK_INT >= 33 &&
-                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED
+    fun requestBackgroundReceiving(message: String?, result: MethodChannel.Result) {
+        serviceMessage = message ?: "Ready to receive"
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+        ) {
+            if (pendingStart != null)
+                result.error("background", "Request already in progress", null)
+            else {
+                pendingStart = result
+                requestPermissions(
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    7101,
                 )
-                    result.success(false)
-                else startReceiving(result)
             }
-            "settings" -> {
-                NotificationChannels.ensure(this)
-                val section = call.argument<String>("section")
-                val uri = Uri.fromParts("package", packageName, null)
-                val intent =
-                    when (section) {
-                        "notifications" ->
-                            if (
-                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                                    getSystemService(NotificationManager::class.java)
-                                        .getNotificationChannel(ReceivingService.OFFERS) !=
-                                        null
+        } else startReceiving(result)
+    }
+
+    fun resumeBackgroundReceiving(message: String?, result: MethodChannel.Result) {
+        serviceMessage = message ?: "Ready to receive"
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+        )
+            result.success(false)
+        else startReceiving(result)
+    }
+
+    fun openBackgroundSettings(section: String?, result: MethodChannel.Result) {
+        NotificationChannels.ensure(this)
+        val uri = Uri.fromParts("package", packageName, null)
+        val intent =
+            when (section) {
+                "notifications" ->
+                    if (
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                            getSystemService(NotificationManager::class.java)
+                                .getNotificationChannel(ReceivingService.OFFERS) !=
+                                null
+                    )
+                        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                            .putExtra(
+                                Settings.EXTRA_CHANNEL_ID,
+                                ReceivingService.OFFERS,
                             )
-                                Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                                    .putExtra(
-                                        Settings.EXTRA_CHANNEL_ID,
-                                        ReceivingService.OFFERS,
-                                    )
-                            else
-                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                        "notification_app" ->
-                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                        "notification_progress",
-                        "notification_results",
-                        "notification_requests" ->
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                                Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                                    .putExtra(
-                                        Settings.EXTRA_CHANNEL_ID,
-                                        when (section) {
-                                            "notification_progress" ->
-                                                NotificationChannels.PROGRESS
-                                            "notification_results" ->
-                                                NotificationChannels.RESULTS
-                                            else -> ReceivingService.OFFERS
-                                        },
-                                    )
-                            else
-                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                        "notification_live" ->
-                            if (Build.VERSION.SDK_INT >= 36)
-                                Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                            else
-                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                        "battery" ->
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
-                        "autostart" -> Intent(Settings.ACTION_SETTINGS)
-                        "guide" -> {
-                            val vendor =
-                                Build.MANUFACTURER.lowercase()
-                                    .replace(Regex("[^a-z0-9]"), "")
-                            val known =
-                                setOf(
-                                    "samsung",
-                                    "xiaomi",
-                                    "huawei",
-                                    "oneplus",
-                                    "oppo",
-                                    "vivo",
-                                    "sony",
-                                    "nokia",
-                                    "asus",
-                                    "motorola",
-                                )
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse(
-                                    "https://dontkillmyapp.com/" +
-                                        if (vendor in known) vendor else ""
-                                ),
+                    else
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                "notification_app" ->
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                "notification_progress",
+                "notification_results",
+                "notification_requests" ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                            .putExtra(
+                                Settings.EXTRA_CHANNEL_ID,
+                                when (section) {
+                                    "notification_progress" ->
+                                        NotificationChannels.PROGRESS
+                                    "notification_results" ->
+                                        NotificationChannels.RESULTS
+                                    else -> ReceivingService.OFFERS
+                                },
                             )
-                        }
-                        else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
-                    }
-                try {
-                    startActivity(intent)
-                    result.success(null)
-                } catch (e: android.content.ActivityNotFoundException) {
-                    try {
-                        startActivity(
-                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    else
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                "notification_live" ->
+                    if (Build.VERSION.SDK_INT >= 36)
+                        Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    else
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                "battery" ->
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+                "autostart" -> Intent(Settings.ACTION_SETTINGS)
+                "guide" -> {
+                    val vendor =
+                        Build.MANUFACTURER.lowercase()
+                            .replace(Regex("[^a-z0-9]"), "")
+                    val known =
+                        setOf(
+                            "samsung",
+                            "xiaomi",
+                            "huawei",
+                            "oneplus",
+                            "oppo",
+                            "vivo",
+                            "sony",
+                            "nokia",
+                            "asus",
+                            "motorola",
                         )
-                        result.success(null)
-                    } catch (fallback: Exception) {
-                        result.error("settings", fallback.message, null)
-                    }
-                } catch (e: Exception) {
-                    result.error("settings", e.message, null)
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                            "https://dontkillmyapp.com/" +
+                                if (vendor in known) vendor else ""
+                        ),
+                    )
                 }
+                else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
             }
-            else -> result.notImplemented()
+        try {
+            startActivity(intent)
+            result.success(null)
+        } catch (e: android.content.ActivityNotFoundException) {
+            try {
+                startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                )
+                result.success(null)
+            } catch (fallback: Exception) {
+                result.error("settings", fallback.message, null)
+            }
+        } catch (e: Exception) {
+            result.error("settings", e.message, null)
         }
     }
 

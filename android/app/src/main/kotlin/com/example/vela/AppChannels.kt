@@ -191,14 +191,21 @@ class AppChannels(private val context: VelaApplication) {
             }
             "resume" -> {
                 val activity = context.currentActivity
-                if (activity != null) activity.handleBackgroundCall(call, result)
-                else {
+                if (activity != null) {
+                    activity.resumeBackgroundReceiving(call.argument<String>("message"), result)
+                } else {
                     if (ReceivingService.running && context.nodeReady)
                         ReceivingService.markReady(call.argument<String>("message"))
                     result.success(ReceivingService.running)
                 }
             }
-            else -> withActivity(result) { it.handleBackgroundCall(call, result) }
+            "start" -> withActivity(result) {
+                it.requestBackgroundReceiving(call.argument<String>("message"), result)
+            }
+            "settings" -> withActivity(result) {
+                it.openBackgroundSettings(call.argument<String>("section"), result)
+            }
+            else -> withActivity(result) { result.notImplemented() }
         }
     }
 
