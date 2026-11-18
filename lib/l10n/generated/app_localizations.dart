@@ -392,6 +392,18 @@ abstract class AppLocalizations {
   /// **'Cannot open the camera. Check camera permission.'**
   String get cameraError;
 
+  /// No description provided for @enterCodeManually.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter device code manually'**
+  String get enterCodeManually;
+
+  /// No description provided for @invalidDeviceQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR code shown in This device on the other device.'**
+  String get invalidDeviceQr;
+
   /// No description provided for @invalidDeviceCode.
   ///
   /// In en, this message translates to:
@@ -425,7 +437,7 @@ abstract class AppLocalizations {
   /// No description provided for @confirmOwnDevice.
   ///
   /// In en, this message translates to:
-  /// **'Confirm this is your device.'**
+  /// **'Open This device on the device that sent this request. Check that its device code starts and ends with the characters below.'**
   String get confirmOwnDevice;
 
   /// No description provided for @reject.

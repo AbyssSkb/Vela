@@ -1,9 +1,34 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vela/device_pair_dialog.dart';
 import 'package:vela/main.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  testWidgets('invalid device code feedback fits a narrow dialog', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final t = lookupAppLocalizations(const Locale('en'));
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: AddDeviceDialog()),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('confirm-peer')));
+    await tester.pumpAndSettle();
+    final error = find.text(t.invalidDeviceCode);
+    expect(error, findsOneWidget);
+    expect(
+      tester.renderObject<RenderParagraph>(error).didExceedMaxLines,
+      false,
+    );
+  });
+
   test('accepts only Vela device codes', () {
     final id = 'ab' * 32;
     expect(deviceIdFromQr('vela:1:$id'), id);

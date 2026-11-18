@@ -166,6 +166,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cameraError => 'Cannot open the camera. Check camera permission.';
 
   @override
+  String get enterCodeManually => 'Enter device code manually';
+
+  @override
+  String get invalidDeviceQr =>
+      'Scan the QR code shown in This device on the other device.';
+
+  @override
   String get invalidDeviceCode => 'Enter a 64-character device code';
 
   @override
@@ -182,7 +189,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pairRequest => 'Add device?';
 
   @override
-  String get confirmOwnDevice => 'Confirm this is your device.';
+  String get confirmOwnDevice =>
+      'Open This device on the device that sent this request. Check that its device code starts and ends with the characters below.';
 
   @override
   String get reject => 'Decline';
