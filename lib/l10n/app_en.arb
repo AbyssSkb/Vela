@@ -213,7 +213,7 @@
       }
     }
   },
-  "connectingTo": "Sending to {name}",
+  "connectingTo": "Connecting to {name}",
   "@connectingTo": {
     "placeholders": {
       "name": {
@@ -470,5 +470,26 @@
   "trayOpen": "Open Vela",
   "trayQuit": "Quit",
   "desktopBackgroundLimits": "Receiving stops when Vela is quit or the computer sleeps. Tray availability depends on your desktop environment.",
-  "desktopTray": "System tray"
+  "desktopTray": "System tray",
+  "graphPairedDevicesHint": "Lines show paired devices. Switch to the list for connection status.",
+  "deviceRecheckHint": "Open Vela on the other device, then check its status again.",
+  "addDeviceToContinueSending": "Add a device to send this content.",
+  "sendAction": "Send",
+  "sendDeviceSelectAgain": "This device is no longer paired. Choose another device.",
+  "waitingForRecipient": "Waiting for {name} to respond",
+  "@waitingForRecipient": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendDeclinedBy": "{name} declined the transfer.",
+  "@sendDeclinedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

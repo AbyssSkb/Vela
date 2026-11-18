@@ -210,6 +210,31 @@ void main() {
         node.releaseWatch.complete();
         await tester.pump();
 
+        await tester.tap(find.byKey(const ValueKey('peer-$peerId')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        final sheet = find.byType(BottomSheet);
+        expect(
+          find.descendant(
+            of: sheet,
+            matching: find.text('Temporarily unreachable'),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.widgetWithText(TextButton, 'Refresh device status'),
+        );
+        await tester.pump();
+        expect(node.freshCalls.length, 3);
+        expect(
+          find.descendant(of: sheet, matching: find.text('Checking')),
+          findsOneWidget,
+        );
+        node.freshCalls.last.complete(online);
+        Navigator.of(tester.element(sheet)).pop();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+
         // A snapshot from the old relationship must not delete a new pairing.
         node.releaseWatch = Completer<void>();
         node.watchHeld = false;

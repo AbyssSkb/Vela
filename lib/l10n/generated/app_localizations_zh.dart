@@ -414,7 +414,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String connectingTo(String name) {
-    return '正在发送给 $name';
+    return '正在连接 $name';
   }
 
   @override
@@ -1013,4 +1013,29 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get desktopTray => '系统托盘';
+
+  @override
+  String get graphPairedDevicesHint => '连线表示已配对。切换到列表可查看连接状态。';
+
+  @override
+  String get deviceRecheckHint => '请在另一台设备上打开 Vela，再检查连接状态。';
+
+  @override
+  String get addDeviceToContinueSending => '添加设备后即可继续发送这份内容。';
+
+  @override
+  String get sendAction => '发送';
+
+  @override
+  String get sendDeviceSelectAgain => '此设备已解除配对。请选择另一台设备。';
+
+  @override
+  String waitingForRecipient(String name) {
+    return '正在等待 $name 响应';
+  }
+
+  @override
+  String sendDeclinedBy(String name) {
+    return '$name 已拒绝接收。';
+  }
 }
