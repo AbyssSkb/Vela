@@ -100,6 +100,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clipboard => '剪贴板';
 
   @override
+  String get sendContentGroup => '发送内容';
+
+  @override
+  String sendContentType(String kind) {
+    return '发送$kind';
+  }
+
+  @override
   String get sendFile => '发送文件';
 
   @override
@@ -372,14 +380,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get selectFileFirst => '选择文件后，再选择接收设备';
-
-  @override
-  String get sendContentGroup => '发送内容';
-
-  @override
-  String sendContentType(String kind) {
-    return '发送$kind';
-  }
 
   @override
   String get noDevices => '请先添加设备';

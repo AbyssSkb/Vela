@@ -101,6 +101,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clipboard => 'Clipboard';
 
   @override
+  String get sendContentGroup => 'Send content';
+
+  @override
+  String sendContentType(String kind) {
+    return 'Send $kind';
+  }
+
+  @override
   String get sendFile => 'Send file';
 
   @override
@@ -401,14 +409,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectFileFirst => 'Choose a file, then a device.';
-
-  @override
-  String get sendContentGroup => 'Send content';
-
-  @override
-  String sendContentType(String kind) {
-    return 'Send $kind';
-  }
 
   @override
   String get noDevices => 'Add a device first.';
