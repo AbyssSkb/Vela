@@ -125,7 +125,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectDevices => 'Connect your devices';
 
   @override
-  String get emptyDevices => 'Add a device to share files and clipboard.';
+  String get emptyDevices =>
+      'Open Vela on both devices. Show the code on one, then add it on the other.';
+
+  @override
+  String get showMyCode => 'Show my QR code';
 
   @override
   String get deviceCode => 'Device code';
@@ -138,13 +142,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get showDeviceCode =>
-      'Scan or enter this code on your other device, then confirm the pairing request.';
+      'On the other device, choose Add device and scan this QR code or enter the device code. Then approve the request here.';
 
   @override
-  String get enterOrScan => 'Enter or scan the code from your other device.';
+  String get enterOrScan =>
+      'On the other device, open This device to show its code. Enter it here or scan its QR code.';
 
   @override
-  String get enterCode => 'Enter the code from your other device.';
+  String get enterCode =>
+      'On the other device, open This device and enter its code here.';
 
   @override
   String get scanCode => 'Scan device code';
@@ -165,7 +171,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cannotAddSelf => 'You cannot add this device.';
 
   @override
-  String get connectingPair => 'Adding device…';
+  String get connectingPair =>
+      'Adding device… Confirm the request on the other device.';
 
   @override
   String get pairRequest => 'Add device?';

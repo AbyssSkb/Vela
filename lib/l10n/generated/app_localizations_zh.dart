@@ -124,7 +124,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectDevices => '连接你的设备';
 
   @override
-  String get emptyDevices => '添加设备后，即可分享文件和剪贴板';
+  String get emptyDevices => '在两台设备上打开 Vela。一台出示设备码，另一台添加。';
+
+  @override
+  String get showMyCode => '出示本机二维码';
 
   @override
   String get deviceCode => '设备码';
@@ -136,13 +139,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceCodeCopied => '设备码已复制';
 
   @override
-  String get showDeviceCode => '在另一台设备上扫码或输入设备码，然后确认配对请求。';
+  String get showDeviceCode => '在另一台设备上选择「添加设备」，扫描二维码或输入设备码，再回到本机确认配对。';
 
   @override
-  String get enterOrScan => '输入另一台设备的设备码，或扫描它的二维码。';
+  String get enterOrScan => '在另一台设备上打开「我的设备」，在这里输入设备码或扫描二维码。';
 
   @override
-  String get enterCode => '输入另一台设备的设备码。';
+  String get enterCode => '在另一台设备上打开「我的设备」，在这里输入它的设备码。';
 
   @override
   String get scanCode => '扫码填写设备码';
@@ -163,7 +166,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cannotAddSelf => '不能添加当前设备';
 
   @override
-  String get connectingPair => '正在添加设备…';
+  String get connectingPair => '正在添加设备，请在另一台设备上确认。';
 
   @override
   String get pairRequest => '添加设备？';

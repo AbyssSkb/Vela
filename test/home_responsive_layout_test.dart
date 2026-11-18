@@ -16,6 +16,39 @@ import 'support/home_environment.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('first launch offers both sides of pairing', (tester) async {
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(),
+      api: fakes.FakeRustApi(fakes.FakeNode()),
+      run: (_) async {
+        tester.view.physicalSize = const Size(320, 640);
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'dark',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final add = find.byKey(const ValueKey('add-device'));
+        await waitForHome(tester, () => add.evaluate().isNotEmpty);
+        final showCode = find.text('Show my QR code');
+        expect(add.hitTestable(), findsOneWidget);
+        expect(showCode.hitTestable(), findsOneWidget);
+        await tester.tap(showCode);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('device-id')), findsOneWidget);
+        expect(find.text('Copy device code'), findsOneWidget);
+        await tester.tap(find.text('Close'));
+        await tester.pumpAndSettle();
+        await tester.tap(add);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('peer-id')), findsOneWidget);
+      },
+    );
+  });
+
   testWidgets('five actions remain readable when the layout changes', (
     tester,
   ) async {

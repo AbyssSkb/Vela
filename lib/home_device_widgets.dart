@@ -5,9 +5,14 @@ import 'package:flutter/material.dart';
 import 'l10n/generated/app_localizations.dart';
 
 class EmptyDevicesSliver extends StatelessWidget {
-  const EmptyDevicesSliver({super.key, required this.onAddDevice});
+  const EmptyDevicesSliver({
+    super.key,
+    required this.onAddDevice,
+    required this.onShowCode,
+  });
 
   final VoidCallback? onAddDevice;
+  final VoidCallback onShowCode;
 
   @override
   Widget build(BuildContext context) {
@@ -34,13 +39,13 @@ class EmptyDevicesSliver extends StatelessWidget {
                         width: 106,
                         height: 78,
                         decoration: BoxDecoration(
-                          color: const Color(0xffe9ecfc),
+                          color: colors.primaryContainer,
                           borderRadius: BorderRadius.circular(24),
                         ),
                         child: Icon(
                           Icons.laptop_mac_rounded,
                           size: 46,
-                          color: colors.primary,
+                          color: colors.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -51,9 +56,9 @@ class EmptyDevicesSliver extends StatelessWidget {
                         width: 57,
                         height: 74,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: colors.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(19),
-                          border: Border.all(color: const Color(0xffe5e8f4)),
+                          border: Border.all(color: colors.outlineVariant),
                         ),
                         child: Icon(
                           Icons.phone_android_rounded,
@@ -68,6 +73,7 @@ class EmptyDevicesSliver extends StatelessWidget {
               const SizedBox(height: 24),
               Text(
                 t.connectDevices,
+                textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
@@ -83,6 +89,12 @@ class EmptyDevicesSliver extends StatelessWidget {
                 onPressed: onAddDevice,
                 icon: const Icon(Icons.add_rounded),
                 label: Text(t.addDevice),
+              ),
+              const SizedBox(height: 4),
+              TextButton.icon(
+                onPressed: onShowCode,
+                icon: const Icon(Icons.qr_code_rounded),
+                label: Text(t.showMyCode, textAlign: TextAlign.center),
               ),
             ],
           ),

@@ -16,9 +16,9 @@ An Android debug/preview install and the signed public install use different key
 
 ## Pair devices
 
-1. Open **This device** to display a device code or QR code. On mobile, use the top-right menu.
+1. On one device, choose **Show my QR code** on the empty home screen, or **This device** from the toolbar or menu.
 2. Choose **Add device** on the other device and enter that code. Android can also scan the QR code.
-3. Verify the code through a trusted channel and approve the pairing request.
+3. Verify the code through a trusted channel and approve the request on the device displaying its code.
 
 Paired devices retain their names and types. The device area adapts to available space and can display a list or a graph. Use the desktop selection button, or long-press a device on mobile, to enter multi-selection.
 

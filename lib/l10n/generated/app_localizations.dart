@@ -329,8 +329,14 @@ abstract class AppLocalizations {
   /// No description provided for @emptyDevices.
   ///
   /// In en, this message translates to:
-  /// **'Add a device to share files and clipboard.'**
+  /// **'Open Vela on both devices. Show the code on one, then add it on the other.'**
   String get emptyDevices;
+
+  /// No description provided for @showMyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Show my QR code'**
+  String get showMyCode;
 
   /// No description provided for @deviceCode.
   ///
@@ -353,19 +359,19 @@ abstract class AppLocalizations {
   /// No description provided for @showDeviceCode.
   ///
   /// In en, this message translates to:
-  /// **'Scan or enter this code on your other device, then confirm the pairing request.'**
+  /// **'On the other device, choose Add device and scan this QR code or enter the device code. Then approve the request here.'**
   String get showDeviceCode;
 
   /// No description provided for @enterOrScan.
   ///
   /// In en, this message translates to:
-  /// **'Enter or scan the code from your other device.'**
+  /// **'On the other device, open This device to show its code. Enter it here or scan its QR code.'**
   String get enterOrScan;
 
   /// No description provided for @enterCode.
   ///
   /// In en, this message translates to:
-  /// **'Enter the code from your other device.'**
+  /// **'On the other device, open This device and enter its code here.'**
   String get enterCode;
 
   /// No description provided for @scanCode.
@@ -407,7 +413,7 @@ abstract class AppLocalizations {
   /// No description provided for @connectingPair.
   ///
   /// In en, this message translates to:
-  /// **'Adding device…'**
+  /// **'Adding device… Confirm the request on the other device.'**
   String get connectingPair;
 
   /// No description provided for @pairRequest.

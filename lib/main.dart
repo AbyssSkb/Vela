@@ -2578,7 +2578,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(
+                SelectableText(
                   id,
                   key: const ValueKey('device-id'),
                   style: TextStyle(
@@ -2603,7 +2603,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               _message(t.deviceCodeCopied, kind: NoticeKind.success);
             },
             icon: const Icon(Icons.copy_rounded, size: 18),
-            label: Text(t.deviceCode),
+            label: Text(t.copyDeviceCode),
           ),
         ],
       ),
@@ -3541,6 +3541,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         else if (peers.isEmpty)
           EmptyDevicesSliver(
             onAddDevice: _deviceActionsBlocked ? null : _addDevice,
+            onShowCode: _showMyDeviceDialog,
           )
         else
           SliverToBoxAdapter(
@@ -3595,7 +3596,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ? activity!
                             : t.connectingPair,
                         key: const ValueKey('activity-status'),
-                        maxLines: 2,
+                        maxLines: contentOperationActive ? 2 : null,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
