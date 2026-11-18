@@ -12,6 +12,8 @@ enum PeerPresence { reachable, unavailable }
 
 enum _RefreshRequest { snapshot, probe }
 
+enum PresenceNetworkEvent { configurationChanged, systemWake }
+
 class PresenceController extends ChangeNotifier {
   PresenceController({
     required this.pairingActive,
@@ -78,7 +80,7 @@ class PresenceController extends ChangeNotifier {
     _devices = devices;
     _visibleChecks.addAll(_peers.keys);
     _checkingPeers = _peers.isNotEmpty;
-    unawaited(_listen(devices.node));
+    unawaited(_watchSnapshotUpdates(devices.node));
     notifyListeners();
   }
 
@@ -115,22 +117,19 @@ class PresenceController extends ChangeNotifier {
     _trustPending.removeAll(changed);
     if (changed.isEmpty || !_alive || _node == null) return;
     _snapshotToken = Object();
-    unawaited(readSnapshot());
-    if (_checkingPeers) unawaited(probePeers());
+    unawaited(readCurrentSnapshot());
+    if (_checkingPeers) unawaited(requestPeerProbes());
   }
 
-  Future<void> readSnapshot() async {
+  Future<void> readCurrentSnapshot() async {
     final source = _node;
     if (source != null &&
         _alive &&
         _monitoringRequested &&
         _pendingSystemWakes == 0) {
-      await _readSnapshot(source);
+      await _readCurrentSnapshot(source);
     }
   }
-
-  Future<void> probePeers({bool userInitiated = false}) =>
-      _probePeers(userInitiated: userInitiated);
 
   Future<void> syncMonitoring({required bool enabled}) {
     _monitoringRequested = enabled;
@@ -152,10 +151,11 @@ class PresenceController extends ChangeNotifier {
         _queueInfo(source, entry.key, next.relationship, next.info);
       }
     }
-    unawaited(readSnapshot());
+    unawaited(readCurrentSnapshot());
   }
 
-  Future<void> networkChanged({required bool resumed}) async {
+  Future<void> handleNetworkEvent(PresenceNetworkEvent event) async {
+    final resumed = event == PresenceNetworkEvent.systemWake;
     final source = _node;
     if (source == null || !_alive) return;
     if (resumed) {
@@ -201,12 +201,12 @@ class PresenceController extends ChangeNotifier {
         if (_pendingSystemWakes == 0) {
           _snapshotToken = Object();
           _queuedRefresh = null;
-          unawaited(readSnapshot());
-          unawaited(probePeers());
+          unawaited(readCurrentSnapshot());
+          unawaited(requestPeerProbes());
         }
       }
     }
-    if (!resumed && _current(source)) unawaited(readSnapshot());
+    if (!resumed && _current(source)) unawaited(readCurrentSnapshot());
   }
 
   void reset() {
@@ -404,7 +404,7 @@ class PresenceController extends ChangeNotifier {
     }
   }
 
-  Future<void> _readSnapshot(VelaNode source) async {
+  Future<void> _readCurrentSnapshot(VelaNode source) async {
     final snapshotToken = _snapshotToken;
     try {
       final snapshot = await source.waitPresenceSnapshot(
@@ -425,12 +425,12 @@ class PresenceController extends ChangeNotifier {
     _snapshotRetry?.cancel();
     _snapshotRetry = Timer(delay, () {
       if (_alive && identical(_node, source)) {
-        unawaited(_readSnapshot(source));
+        unawaited(_readCurrentSnapshot(source));
       }
     });
   }
 
-  Future<void> _listen(VelaNode source) async {
+  Future<void> _watchSnapshotUpdates(VelaNode source) async {
     final lifetime = _lifetime;
     var revision = BigInt.zero;
     while (_current(source) && identical(lifetime, _lifetime)) {
@@ -469,7 +469,8 @@ class PresenceController extends ChangeNotifier {
       if (!_alive || !identical(_node, source)) return;
       _monitoringNode = source;
       _monitoringEnabled = enabled;
-      if (enabled && _monitoringRequested) unawaited(_readSnapshot(source));
+      if (enabled && _monitoringRequested)
+        unawaited(_readCurrentSnapshot(source));
     } finally {
       complete.complete();
     }
@@ -490,7 +491,7 @@ class PresenceController extends ChangeNotifier {
                 _monitoringRequested &&
                 _checkingPeers &&
                 !_probing) {
-              unawaited(_probePeers());
+              unawaited(requestPeerProbes());
             }
           })
           .catchError((Object e) {
@@ -517,7 +518,7 @@ class PresenceController extends ChangeNotifier {
     });
   }
 
-  Future<void> _probePeers({bool userInitiated = false}) async {
+  Future<void> requestPeerProbes({bool userInitiated = false}) async {
     final activeNode = _node;
     if (!_alive ||
         !_monitoringRequested ||
@@ -553,7 +554,7 @@ class PresenceController extends ChangeNotifier {
         await activeNode.checkPeerFresh(peerId: id);
       } catch (_) {
       } finally {
-        if (current()) await _readSnapshot(activeNode);
+        if (current()) await _readCurrentSnapshot(activeNode);
         if (current() &&
             _visibleChecks.contains(id) &&
             !_snapshotChecks.contains(id)) {
@@ -651,9 +652,9 @@ class PresenceController extends ChangeNotifier {
           final queued = _queuedRefresh;
           _queuedRefresh = null;
           if (queued == _RefreshRequest.probe) {
-            unawaited(_probePeers());
+            unawaited(requestPeerProbes());
           } else if (queued == _RefreshRequest.snapshot) {
-            unawaited(readSnapshot());
+            unawaited(readCurrentSnapshot());
           }
         } else {
           _probing = false;

@@ -24,7 +24,7 @@ void _registerDebugDriver() {
         });
       }
       if (data['action'] == 'refresh-auto-test') {
-        unawaited(state.presenceController.readSnapshot());
+        unawaited(state.presenceController.readCurrentSnapshot());
         return 'started';
       }
       if (data['action'] == 'notification-preview-test' && Platform.isAndroid) {

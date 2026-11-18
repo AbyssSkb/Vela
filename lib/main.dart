@@ -473,7 +473,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             startupRetry?.cancel();
             unawaited(_retryStartup());
           }
-          await presenceController.networkChanged(resumed: resumed);
+          await presenceController.handleNetworkEvent(
+            resumed
+                ? PresenceNetworkEvent.systemWake
+                : PresenceNetworkEvent.configurationChanged,
+          );
         }
         if (call.method == 'hidden') {
           windowVisibilityRevision++;
@@ -500,8 +504,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           )) {
             unawaited(
               (wasHidden
-                  ? presenceController.probePeers()
-                  : presenceController.readSnapshot()),
+                  ? presenceController.requestPeerProbes()
+                  : presenceController.readCurrentSnapshot()),
             );
           }
         }
@@ -656,8 +660,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         )) {
       unawaited(
         (!wasVisible
-            ? presenceController.probePeers()
-            : presenceController.readSnapshot()),
+            ? presenceController.requestPeerProbes()
+            : presenceController.readCurrentSnapshot()),
       );
     }
   }
@@ -1053,7 +1057,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         debugPrint('Could not update device monitoring: $e');
         presenceController.requestMonitoring(enabled: monitorPresence);
       }
-      unawaited(presenceController.probePeers());
+      unawaited(presenceController.requestPeerProbes());
     } catch (e) {
       if (mounted && error != e.toString()) _showStartupFailure(e);
       if (runtime.startupCleanupComplete &&
@@ -1185,7 +1189,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       );
       if (added && mounted) {
-        unawaited(presenceController.readSnapshot());
+        unawaited(presenceController.readCurrentSnapshot());
         _message(t.addedPeer(device.name), kind: NoticeKind.success);
       }
     } catch (e) {
@@ -1281,7 +1285,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await offer.decline();
         return;
       }
-      unawaited(presenceController.readSnapshot());
+      unawaited(presenceController.readCurrentSnapshot());
       String senderName() => devices.state.peers.containsKey(sender)
           ? devices.state.displayName(sender)
           : t.device;
@@ -1566,7 +1570,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } finally {
       if (mounted) {
         setState(() => activePairingPeer = null);
-        unawaited(presenceController.readSnapshot());
+        unawaited(presenceController.readCurrentSnapshot());
       }
     }
   }
@@ -2875,7 +2879,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           activity = message;
           if (identical(pendingShare, share)) pendingShare = null;
         });
-        unawaited(presenceController.readSnapshot());
+        unawaited(presenceController.readCurrentSnapshot());
         resultMessage = message;
       }
       try {
@@ -3225,7 +3229,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Icons.refresh_rounded,
           checkingPeers
               ? null
-              : () => presenceController.probePeers(userInitiated: true),
+              : () => presenceController.requestPeerProbes(userInitiated: true),
           key: const ValueKey('refresh-devices'),
           buttonIcon: checkingPeers
               ? const SizedBox(

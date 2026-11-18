@@ -23,6 +23,9 @@ use crate::protocol::{
     alpn,
     presence::{self as presence_wire, MessageKind, Nonce, Packet},
 };
+mod probe_stats;
+use probe_stats::ProbeStats;
+
 const LEASE: Duration = Duration::from_millis(2500);
 const RECOVERY_GRACE: Duration = Duration::from_secs(5);
 const CANDIDATE_RETRY: Duration = Duration::from_secs(1);
@@ -31,237 +34,7 @@ const CANDIDATE_ROTATE: Duration = Duration::from_millis(2500);
 const INTERVAL: Duration = Duration::from_millis(500);
 const INACTIVE: Duration = Duration::from_secs(4);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
-const STATS_REPORT_INTERVAL: Duration = Duration::from_secs(60);
 static NEXT_TRACE: AtomicU64 = AtomicU64::new(1);
-static NEXT_SESSION: AtomicU64 = AtomicU64::new(1);
-
-struct ProbeStats {
-    id: u64,
-    trace: u64,
-    attempt: u64,
-    role: &'static str,
-    generation: u64,
-    started: ProofInstant,
-    last_report: Instant,
-    ping_attempts: u64,
-    ping_queued: u64,
-    ping_received: u64,
-    pong_queued: u64,
-    pong_valid: u64,
-    pong_unmatched: u64,
-    pong_rejected: u64,
-    reject_stopped: u64,
-    reject_epoch_fresh: u64,
-    reject_epoch_expired: u64,
-    reject_expired: u64,
-    reject_invalid: u64,
-    reject_owner: u64,
-    max_rtt_ms: u64,
-    max_tick_lag_ms: u64,
-    first_ping_reported: bool,
-    first_pong_reported: bool,
-}
-
-impl ProbeStats {
-    fn new(trace: u64, attempt: u64, role: &'static str) -> Self {
-        Self {
-            id: NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
-            trace,
-            attempt,
-            role,
-            generation: crate::diagnostics::state().1,
-            started: proof_clock::now(),
-            last_report: Instant::now(),
-            ping_attempts: 0,
-            ping_queued: 0,
-            ping_received: 0,
-            pong_queued: 0,
-            pong_valid: 0,
-            pong_unmatched: 0,
-            pong_rejected: 0,
-            reject_stopped: 0,
-            reject_epoch_fresh: 0,
-            reject_epoch_expired: 0,
-            reject_expired: 0,
-            reject_invalid: 0,
-            reject_owner: 0,
-            max_rtt_ms: 0,
-            max_tick_lag_ms: 0,
-            first_ping_reported: false,
-            first_pong_reported: false,
-        }
-    }
-
-    fn recording_for(&mut self, enabled: bool, generation: u64) -> bool {
-        if self.generation != generation {
-            self.generation = generation;
-            self.started = proof_clock::now();
-            self.last_report = Instant::now();
-            self.ping_attempts = 0;
-            self.ping_queued = 0;
-            self.ping_received = 0;
-            self.pong_queued = 0;
-            self.pong_valid = 0;
-            self.pong_unmatched = 0;
-            self.pong_rejected = 0;
-            self.reject_stopped = 0;
-            self.reject_epoch_fresh = 0;
-            self.reject_epoch_expired = 0;
-            self.reject_expired = 0;
-            self.reject_invalid = 0;
-            self.reject_owner = 0;
-            self.max_rtt_ms = 0;
-            self.max_tick_lag_ms = 0;
-            self.first_ping_reported = false;
-            self.first_pong_reported = false;
-        }
-        enabled
-    }
-
-    fn recording(&mut self) -> bool {
-        let (enabled, generation) = crate::diagnostics::state();
-        self.recording_for(enabled, generation)
-    }
-
-    fn record(&mut self, update: impl FnOnce(&mut Self)) {
-        if self.recording() {
-            update(self);
-        }
-    }
-
-    fn probe_for(&mut self, queued: bool, enabled: bool, generation: u64) -> bool {
-        if !self.recording_for(enabled, generation) {
-            return false;
-        }
-        self.ping_attempts += 1;
-        if queued {
-            self.ping_queued += 1;
-        }
-        if !self.first_ping_reported {
-            self.first_ping_reported = true;
-            return true;
-        }
-        false
-    }
-
-    fn probe(&mut self, queued: bool) {
-        let (enabled, generation) = crate::diagnostics::state();
-        if self.probe_for(queued, enabled, generation) {
-            crate::diagnostics::first_ping_for_generation(
-                self.trace,
-                self.attempt,
-                queued,
-                self.started.elapsed().as_millis() as u64,
-                generation,
-            );
-        }
-    }
-
-    fn first_pong(&mut self, sent: ProofInstant) {
-        if !self.recording() || self.first_pong_reported || sent < self.started {
-            return;
-        }
-        self.first_pong_reported = true;
-        crate::diagnostics::first_pong_for_generation(
-            self.trace,
-            self.attempt,
-            self.started.elapsed().as_millis() as u64,
-            sent.elapsed().as_millis() as u64,
-            self.generation,
-        );
-    }
-
-    fn session_end(&mut self, outcome: crate::diagnostics::SessionOutcome) {
-        if !self.recording() {
-            return;
-        }
-        crate::diagnostics::session_end_for_generation(
-            outcome,
-            self.trace,
-            self.attempt,
-            self.started.elapsed().as_millis() as u64,
-            self.ping_attempts - self.ping_queued,
-            self.generation,
-        );
-    }
-
-    fn proof_expired(&mut self) {
-        if !self.recording() {
-            return;
-        }
-        crate::diagnostics::session_proof_expired_for_generation(
-            self.trace,
-            self.attempt,
-            self.started.elapsed().as_millis() as u64,
-            true,
-            self.generation,
-        );
-    }
-
-    fn candidate_end(&mut self, outcome: crate::diagnostics::BackupOutcome) {
-        if !self.recording() {
-            return;
-        }
-        crate::diagnostics::backup_end_for_generation(
-            outcome,
-            self.trace,
-            self.attempt,
-            self.started.elapsed().as_millis() as u64,
-            self.generation,
-        );
-    }
-
-    fn tick(&mut self, scheduled: tokio::time::Instant) {
-        if !self.recording() {
-            return;
-        }
-        self.max_tick_lag_ms = self.max_tick_lag_ms.max(
-            tokio::time::Instant::now()
-                .saturating_duration_since(scheduled)
-                .as_millis() as u64,
-        );
-        if self.last_report.elapsed() >= STATS_REPORT_INTERVAL {
-            self.report("periodic");
-        }
-    }
-
-    fn record_response(&mut self, response: &std::result::Result<(), PongRejection>) {
-        if !self.recording() {
-            return;
-        }
-        match response {
-            Ok(()) => {
-                self.pong_valid += 1;
-            }
-            Err(reason) => {
-                self.pong_rejected += 1;
-                match reason {
-                    PongRejection::Stopped => self.reject_stopped += 1,
-                    PongRejection::EpochFresh => self.reject_epoch_fresh += 1,
-                    PongRejection::EpochExpired => self.reject_epoch_expired += 1,
-                    PongRejection::Expired => self.reject_expired += 1,
-                    PongRejection::Invalid => self.reject_invalid += 1,
-                }
-            }
-        }
-    }
-
-    fn report(&mut self, phase: &str) {
-        if !self.recording() {
-            return;
-        }
-        crate::diagnostics::with_enabled(self.generation, || {
-            log::warn!("vela_presence_stats phase={} scope=cumulative rtt_scope=matched_pending unmatched_scope=unknown_late_or_duplicate tick_scope=interval_callback epoch_rejection_payload=unvalidated mono_ms={} session={} trace={} attempt={} role={} elapsed_ms={} ping_attempts={} ping_queued={} ping_received={} pong_queued={} pong_valid={} pong_unmatched={} pong_rejected={} reject_stopped={} reject_epoch_fresh={} reject_epoch_expired={} reject_expired={} reject_invalid={} reject_owner={} max_app_rtt_ms={} max_tick_lag_ms={}", phase, crate::diagnostics::monotonic_ms(), self.id, self.trace, self.attempt, self.role, self.started.elapsed().as_millis(), self.ping_attempts, self.ping_queued, self.ping_received, self.pong_queued, self.pong_valid, self.pong_unmatched, self.pong_rejected, self.reject_stopped, self.reject_epoch_fresh, self.reject_epoch_expired, self.reject_expired, self.reject_invalid, self.reject_owner, self.max_rtt_ms, self.max_tick_lag_ms)
-        });
-        self.last_report = Instant::now();
-    }
-}
-
-impl Drop for ProbeStats {
-    fn drop(&mut self) {
-        self.report("end");
-    }
-}
 
 #[derive(Clone, Default)]
 struct Status {
@@ -746,7 +519,7 @@ impl PresenceManager {
                     if !active { pending.clear(); continue; }
                     let peer = self.probes.lock().await.get(sender).cloned();
                     if let Some(peer) = peer.filter(|p| registered.as_ref().is_some_and(|session| Arc::ptr_eq(&p.session, session)) && !p.stopped.load(Ordering::Relaxed) && !p.inactive()) {
-                        if stats.trace != peer.trace { stats.trace = peer.trace; stats.first_ping_reported = false; stats.first_pong_reported = false; path = None; }
+                        if stats.set_trace(peer.trace) { path = None; }
                         if observe_path(conn, peer.trace, 0, &mut path) { stats.report("path_changed"); }
                         let now = proof_clock::now();
                         pending.retain(|_, (sent, _)| now.duration_since(*sent) < LEASE);
@@ -766,15 +539,15 @@ impl PresenceManager {
                             let status = trust.status(sender);
                             let paired_on_this_connection = registered.as_ref().is_some_and(|session| trust.is_current(sender, session));
                             if status == TrustStatus::Paired && !paired_on_this_connection { break; }
-                            stats.record(|s| s.ping_received += 1);
-                            if reply_ping(conn, &packet.nonce, info, status).await { stats.record(|s| s.pong_queued += 1); }
+                            stats.received_probe();
+                            if reply_ping(conn, &packet.nonce, info, status).await { stats.queued_response(); }
                         }
                         MessageKind::Paired | MessageKind::Pending | MessageKind::Unpaired => {
-                            let Some((sent, owner)) = pending.remove(&packet.nonce) else { stats.record(|s| s.pong_unmatched += 1); continue };
-                            stats.record(|s| { if sent >= s.started { s.max_rtt_ms = s.max_rtt_ms.max(sent.elapsed().as_millis() as u64); } });
-                            let Some(peer) = owner.upgrade() else { stats.record(|s| { s.pong_rejected += 1; s.reject_owner += 1; }); continue };
+                            let Some((sent, owner)) = pending.remove(&packet.nonce) else { stats.unmatched_response(); continue };
+                            stats.matched_response(sent);
+                            let Some(peer) = owner.upgrade() else { stats.rejected_owner(); continue };
                             let probes = self.probes.lock().await;
-                            if !trust.is_current(sender, &peer.session) || !probes.get(sender).is_some_and(|p| Arc::ptr_eq(p, &peer)) || peer.stopped.load(Ordering::Relaxed) { stats.record(|s| { s.pong_rejected += 1; s.reject_owner += 1; }); continue; }
+                            if !trust.is_current(sender, &peer.session) || !probes.get(sender).is_some_and(|p| Arc::ptr_eq(p, &peer)) || peer.stopped.load(Ordering::Relaxed) { stats.rejected_owner(); continue; }
                             let response = peer.accept_response(sent, &data);
                             stats.record_response(&response);
                             if response.is_ok() { stats.first_pong(sent); }
@@ -1269,9 +1042,9 @@ async fn connect_candidate(
                 let allowed = trust.read().await;
                 if !allowed.is_current(&id, &peer.session) { stats.candidate_end(crate::diagnostics::BackupOutcome::Revoked); guard.completed = true; return None; }
                 let Some(packet) = Packet::decode(&data) else { continue };
-                if packet.kind == MessageKind::Probe { stats.record(|s| s.ping_received += 1); if reply_ping(&conn, &packet.nonce, &info, TrustStatus::Paired).await { stats.record(|s| s.pong_queued += 1); } continue; }
-                let Some(sent) = pending.remove(&packet.nonce) else { stats.record(|s| s.pong_unmatched += 1); continue };
-                stats.record(|s| { if sent >= s.started { s.max_rtt_ms = s.max_rtt_ms.max(sent.elapsed().as_millis() as u64); } });
+                if packet.kind == MessageKind::Probe { stats.received_probe(); if reply_ping(&conn, &packet.nonce, &info, TrustStatus::Paired).await { stats.queued_response(); } continue; }
+                let Some(sent) = pending.remove(&packet.nonce) else { stats.unmatched_response(); continue };
+                stats.matched_response(sent);
                 let response = peer.accept_response(sent, &data);
                 stats.record_response(&response);
                 if response.is_ok() {
@@ -1364,7 +1137,7 @@ impl PeerMonitor {
             old.stats.session_end(SessionOutcome::Replaced);
             old.connection.close(0u32.into(), b"presence replaced");
         }
-        candidate.stats.role = "active";
+        candidate.stats.mark_active();
         Ok((candidate, self.peer.network_epoch.load(Ordering::Relaxed)))
     }
 
@@ -1438,19 +1211,17 @@ impl PeerMonitor {
                         let Some(packet) = Packet::decode(&data) else { continue };
                         let stats = &mut active.stats;
                         if packet.kind == MessageKind::Probe {
-                            stats.record(|s| s.ping_received += 1);
+                            stats.received_probe();
                             if reply_ping(&active.connection, &packet.nonce, &self.info, TrustStatus::Paired).await {
-                                stats.record(|s| s.pong_queued += 1);
+                                stats.queued_response();
                             }
                             continue;
                         }
                         let Some(sent) = pending.remove(&packet.nonce) else {
-                            stats.record(|s| s.pong_unmatched += 1);
+                            stats.unmatched_response();
                             continue;
                         };
-                        stats.record(|s| {
-                            if sent >= s.started { s.max_rtt_ms = s.max_rtt_ms.max(sent.elapsed().as_millis() as u64); }
-                        });
+                        stats.matched_response(sent);
                         let response = peer.accept_response(sent, &data);
                         stats.record_response(&response);
                         if response.is_err() { continue; }
