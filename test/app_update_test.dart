@@ -463,6 +463,23 @@ void main() {
       }
     });
 
+    testWidgets('installed version is visible when updates are disabled', (
+      tester,
+    ) async {
+      final preview = AppUpdateController(version: '1.0.0-beta.5', build: 10);
+      addTearDown(preview.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: AppUpdateTile(controller: preview)),
+        ),
+      );
+      expect(find.text('Installed version 1.0.0-beta.5'), findsOneWidget);
+      expect(
+        find.text('Updates are unavailable in this build'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('ready updates require explicit confirmation', (tester) async {
       await tester.runAsync(controller.start);
       await controller.setBusy(false);

@@ -328,6 +328,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnostics => '诊断';
 
   @override
+  String get diagnosticsStartupHelp => 'Vela 需要完成启动才能发送和接收。';
+
+  @override
+  String get diagnosticsDeviceHelp => '请在其他设备上打开 Vela，再刷新设备状态。';
+
+  @override
+  String get diagnosticsRetryStartup => '重试启动 Vela';
+
+  @override
+  String get diagnosticsRecoveryFailed => '未能完成检查，请重试。';
+
+  @override
+  String get diagnosticsClearEvents => '清空事件';
+
+  @override
+  String get diagnosticsClearQuestion => '清空诊断事件？';
+
+  @override
+  String get diagnosticsClearDetail => '这会清空本机的近期诊断事件。';
+
+  @override
   String diagnosticsUpdated(String time) {
     return '更新于 $time';
   }
@@ -834,6 +855,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get relaySettingsHint => '管理自定义中继';
+
+  @override
+  String get relayPurpose => '设备无法直连时，Vela 可能会通过中继传输。默认已配置公共中继。';
 
   @override
   String get relayEnabled => '使用自定义中继';

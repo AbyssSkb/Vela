@@ -360,6 +360,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get diagnostics => 'Diagnostics';
 
   @override
+  String get diagnosticsStartupHelp =>
+      'Vela must finish starting before it can send or receive.';
+
+  @override
+  String get diagnosticsDeviceHelp =>
+      'Open Vela on your other devices, then refresh their status.';
+
+  @override
+  String get diagnosticsRetryStartup => 'Try starting Vela again';
+
+  @override
+  String get diagnosticsRecoveryFailed =>
+      'Could not complete the check. Try again.';
+
+  @override
+  String get diagnosticsClearEvents => 'Clear events';
+
+  @override
+  String get diagnosticsClearQuestion => 'Clear diagnostic events?';
+
+  @override
+  String get diagnosticsClearDetail =>
+      'This clears the recent diagnostic events on this device.';
+
+  @override
   String diagnosticsUpdated(String time) {
     return 'Updated at $time';
   }
@@ -902,6 +927,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get relaySettingsHint => 'Manage custom relays';
+
+  @override
+  String get relayPurpose =>
+      'Vela may use a relay when a direct connection is unavailable. The default public relays are already configured.';
 
   @override
   String get relayEnabled => 'Use custom relays';

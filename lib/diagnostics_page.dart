@@ -113,12 +113,15 @@ class DiagnosticsPage extends StatefulWidget {
     required this.clear,
     required this.initialEnabled,
     required this.setEnabled,
+    this.retryStartup,
+    this.refreshDevices,
   });
 
   final Future<DiagnosticsSnapshot> Function() load;
   final Future<void> Function() clear;
   final bool initialEnabled;
   final Future<void> Function(bool) setEnabled;
+  final Future<void> Function()? retryStartup, refreshDevices;
 
   @override
   State<DiagnosticsPage> createState() => _DiagnosticsPageState();
@@ -134,6 +137,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
   bool failed = false;
   late bool enabled = widget.initialEnabled;
   bool changingEnabled = false;
+  bool recovering = false;
   int version = 0;
 
   bool get chinese => Localizations.localeOf(context).languageCode == 'zh';
@@ -175,6 +179,27 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
 
   Future<void> _clear() async {
     if (clearing) return;
+    final t = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: Text(t.diagnosticsClearQuestion),
+        content: Text(t.diagnosticsClearDetail),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.cancel),
+          ),
+          FilledButton(
+            key: const ValueKey('diagnostics-confirm-clear'),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t.diagnosticsClearEvents),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || clearing) return;
     setState(() => clearing = true);
     version++;
     try {
@@ -210,6 +235,29 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
       }
     } finally {
       if (mounted) setState(() => clearing = false);
+    }
+  }
+
+  Future<void> _recover(Future<void> Function() action) async {
+    setState(() => recovering = true);
+    try {
+      await action();
+      if (!mounted) return;
+      if (loading) {
+        reload = true;
+      } else {
+        await _load();
+      }
+    } catch (_) {
+      if (mounted) {
+        showNotice(
+          context,
+          AppLocalizations.of(context)!.diagnosticsRecoveryFailed,
+          kind: NoticeKind.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => recovering = false);
     }
   }
 
@@ -266,6 +314,13 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     final t = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     final current = snapshot;
+    final notStarted = current?.nodeReady == false;
+    final peersUnavailable =
+        current != null &&
+        current.nodeReady &&
+        current.peerCount > 0 &&
+        current.reachableCount == 0;
+    final recovery = notStarted ? widget.retryStartup : widget.refreshDevices;
     final updated = refreshedAt?.format(context);
     final titleStyle = Theme.of(context).textTheme.headlineSmall
         ?.copyWith(fontWeight: FontWeight.w700);
@@ -315,26 +370,60 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                             Expanded(
                               child: Text(t.diagnostics, style: titleStyle),
                             ),
-                            IconButton(
+                          ],
+                        ),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            TextButton.icon(
                               key: const ValueKey('diagnostics-copy'),
                               onPressed: current == null ? null : _copy,
-                              tooltip: text('复制报告', 'Copy report'),
                               icon: const Icon(Icons.copy_rounded),
+                              label: Text(text('复制报告', 'Copy report')),
                             ),
-                            IconButton(
-                              key: const ValueKey('diagnostics-clear'),
-                              onPressed:
-                                  clearing ||
-                                      current == null ||
-                                      current.events.isEmpty
-                                  ? null
-                                  : _clear,
-                              tooltip: text('清空事件', 'Clear events'),
-                              icon: const Icon(Icons.delete_outline_rounded),
-                            ),
+                            if (current != null && current.events.isNotEmpty)
+                              PopupMenuButton<void>(
+                                key: const ValueKey('diagnostics-actions'),
+                                enabled: !clearing,
+                                tooltip: t.moreOptions,
+                                itemBuilder: (_) => [
+                                  PopupMenuItem<void>(
+                                    key: const ValueKey('diagnostics-clear'),
+                                    onTap: _clear,
+                                    child: Text(t.diagnosticsClearEvents),
+                                  ),
+                                ],
+                              ),
                           ],
                         ),
                         const SizedBox(height: 16),
+                        if (notStarted || peersUnavailable)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  notStarted
+                                      ? t.diagnosticsStartupHelp
+                                      : t.diagnosticsDeviceHelp,
+                                ),
+                                if (recovery != null)
+                                  TextButton(
+                                    onPressed: recovering
+                                        ? null
+                                        : () => _recover(recovery),
+                                    child: Text(
+                                      recovering
+                                          ? t.checking
+                                          : notStarted
+                                          ? t.diagnosticsRetryStartup
+                                          : t.refreshDevices,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         Material(
                           color: colors.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(18),
@@ -365,10 +454,23 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                         if (current == null)
                           Padding(
                             padding: const EdgeInsets.all(18),
-                            child: Text(
-                              failed
-                                  ? text('无法获取诊断信息', 'Diagnostics unavailable')
-                                  : text('正在加载', 'Loading'),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  failed
+                                      ? text(
+                                          '无法获取诊断信息',
+                                          'Diagnostics unavailable',
+                                        )
+                                      : text('正在加载', 'Loading'),
+                                ),
+                                if (failed)
+                                  TextButton(
+                                    onPressed: _load,
+                                    child: Text(t.retry),
+                                  ),
+                              ],
                             ),
                           )
                         else ...[

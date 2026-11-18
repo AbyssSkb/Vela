@@ -710,6 +710,48 @@ abstract class AppLocalizations {
   /// **'Diagnostics'**
   String get diagnostics;
 
+  /// No description provided for @diagnosticsStartupHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Vela must finish starting before it can send or receive.'**
+  String get diagnosticsStartupHelp;
+
+  /// No description provided for @diagnosticsDeviceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Vela on your other devices, then refresh their status.'**
+  String get diagnosticsDeviceHelp;
+
+  /// No description provided for @diagnosticsRetryStartup.
+  ///
+  /// In en, this message translates to:
+  /// **'Try starting Vela again'**
+  String get diagnosticsRetryStartup;
+
+  /// No description provided for @diagnosticsRecoveryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete the check. Try again.'**
+  String get diagnosticsRecoveryFailed;
+
+  /// No description provided for @diagnosticsClearEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear events'**
+  String get diagnosticsClearEvents;
+
+  /// No description provided for @diagnosticsClearQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear diagnostic events?'**
+  String get diagnosticsClearQuestion;
+
+  /// No description provided for @diagnosticsClearDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'This clears the recent diagnostic events on this device.'**
+  String get diagnosticsClearDetail;
+
   /// No description provided for @diagnosticsUpdated.
   ///
   /// In en, this message translates to:
@@ -1657,6 +1699,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Manage custom relays'**
   String get relaySettingsHint;
+
+  /// No description provided for @relayPurpose.
+  ///
+  /// In en, this message translates to:
+  /// **'Vela may use a relay when a direct connection is unavailable. The default public relays are already configured.'**
+  String get relayPurpose;
 
   /// No description provided for @relayEnabled.
   ///
