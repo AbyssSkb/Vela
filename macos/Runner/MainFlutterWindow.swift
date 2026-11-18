@@ -230,6 +230,15 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         } catch {
           result(FlutterError(code: "login", message: error.localizedDescription, details: nil))
         }
+      case "settings":
+        guard #available(macOS 13.0, *),
+          let args = call.arguments as? [String: String], args["section"] == "login"
+        else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        SMAppService.openSystemSettingsLoginItems()
+        result(nil)
       case "isVisible":
         result(self.isVisible && NSApplication.shared.isActive)
       case "getWindowVisible":

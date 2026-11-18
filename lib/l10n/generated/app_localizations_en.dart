@@ -595,6 +595,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSystemSettings => 'System notification settings';
 
   @override
+  String get notificationOff => 'Off in system settings';
+
+  @override
   String get notificationRequests => 'Incoming requests';
 
   @override
@@ -656,6 +659,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Receives with the window closed while the Mac is awake.';
 
   @override
+  String get backgroundMacInactive => 'The Mac can still enter idle sleep.';
+
+  @override
   String get backgroundMacAwake =>
       'Receives with the window closed. Idle sleep is prevented.';
 
@@ -674,6 +680,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get backgroundAllowRequests =>
       'Allow incoming request notifications to accept in the background.';
+
+  @override
+  String get backgroundAppNotificationsOff =>
+      'Notifications for Vela are off in system settings.';
+
+  @override
+  String get backgroundOpenRequestSettings => 'Open incoming request settings';
+
+  @override
+  String get backgroundOpenBatterySettings => 'Open app settings';
+
+  @override
+  String get backgroundSettingsOpenFailed => 'Could not open system settings.';
 
   @override
   String get backgroundCheckBattery =>
@@ -699,7 +718,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundBattery => 'Battery optimization';
 
   @override
+  String get backgroundBatteryExempt =>
+      'Vela is exempt from battery optimization';
+
+  @override
+  String get backgroundBatteryOptimized =>
+      'Battery optimization is on for Vela';
+
+  @override
   String get backgroundRestricted => 'System background restrictions';
+
+  @override
+  String get backgroundRestrictedDetail =>
+      'Android restricts Vela in the background';
 
   @override
   String get backgroundRunning => 'Receiving service';
@@ -937,6 +968,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundLoginApproval => 'Approval required in System Settings';
+
+  @override
+  String get backgroundOpenLoginSettings => 'Open Login Items';
 
   @override
   String get backgroundLoginNotFound => 'Login item unavailable';

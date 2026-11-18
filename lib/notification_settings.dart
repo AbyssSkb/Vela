@@ -42,7 +42,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       if (mounted) {
         showNotice(
           context,
-          AppLocalizations.of(context)!.storageFailed,
+          AppLocalizations.of(context)!.unknown,
           kind: NoticeKind.error,
         );
       }
@@ -56,7 +56,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       if (mounted) {
         showNotice(
           context,
-          AppLocalizations.of(context)!.storageFailed,
+          AppLocalizations.of(context)!.backgroundSettingsOpenFailed,
           kind: NoticeKind.error,
         );
       }
@@ -79,7 +79,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       leading: Icon(icon, size: 22, color: colors.primary),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(
-        subtitle,
+        statusKey != 'liveAllowed' && status?[statusKey] == false
+            ? t.notificationOff
+            : subtitle,
         style: TextStyle(color: colors.onSurfaceVariant),
       ),
       trailing: enabled

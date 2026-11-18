@@ -40,6 +40,27 @@ enum BackgroundReceiving {
   Future<Map<Object?, Object?>> readStatus() async =>
       await channel.invokeMapMethod<Object?, Object?>(statusMethod) ?? {};
 
+  String? recoverySettings(
+    Map<Object?, Object?> status, {
+    required bool autoAccept,
+  }) {
+    if (this != androidService) return null;
+    return switch (status) {
+      {'allNotifications': false}
+          when !autoAccept || status['running'] == false =>
+        'notification_app',
+      {'notifications': false} when !autoAccept => 'notification_requests',
+      {'running': false} || {'nodeReady': false} => null,
+      {'restricted': true} ||
+      {'batteryExempt': false} ||
+      {
+        'lowPowerStandbyEnabled': true,
+        'lowPowerStandbyExempt': false,
+      } => 'battery',
+      _ => null,
+    };
+  }
+
   String statusText(
     AppLocalizations t,
     bool? enabled,
@@ -50,7 +71,7 @@ enum BackgroundReceiving {
     (macKeepAwake, false) => t.backgroundMacMaySleep,
     (macKeepAwake, true) => switch (status['active']) {
       true => t.backgroundMacAwake,
-      false => t.backgroundNeedsAttention,
+      false => t.backgroundMacInactive,
       _ => t.unknown,
     },
     (_, false) => t.backgroundStartHint,
@@ -59,19 +80,21 @@ enum BackgroundReceiving {
       true when status['running'] == true => t.backgroundTrayReady,
       _ => t.unknown,
     },
-    (androidService, true) => switch (status) {
-      {'running': false} || {'nodeReady': false} => t.backgroundServiceStopped,
-      {'notifications': false} when !autoAccept => t.backgroundAllowRequests,
-      {'restricted': true} ||
-      {'batteryExempt': false} ||
-      {
-        'lowPowerStandbyEnabled': true,
-        'lowPowerStandbyExempt': false,
-      } => t.backgroundCheckBattery,
-      {'running': true, 'nodeReady': true}
-          when status['notifications'] == true || autoAccept =>
-        t.backgroundServiceReady,
-      _ => t.unknown,
+    (androidService, true) => switch (recoverySettings(
+      status,
+      autoAccept: autoAccept,
+    )) {
+      'notification_app' => t.backgroundAppNotificationsOff,
+      'notification_requests' => t.backgroundAllowRequests,
+      'battery' => t.backgroundCheckBattery,
+      _ => switch (status) {
+        {'running': false} ||
+        {'nodeReady': false} => t.backgroundServiceStopped,
+        {'running': true, 'nodeReady': true}
+            when status['notifications'] == true || autoAccept =>
+          t.backgroundServiceReady,
+        _ => t.unknown,
+      },
     },
   };
 
@@ -232,6 +255,20 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     }
   }
 
+  Future<void> _openSettings(String section) async {
+    try {
+      await channel.invokeMethod<void>('settings', {'section': section});
+    } catch (_) {
+      if (mounted) {
+        showNotice(
+          context,
+          AppLocalizations.of(context)!.backgroundSettingsOpenFailed,
+          kind: NoticeKind.error,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
@@ -245,7 +282,33 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       status,
       autoAccept: autoAccept,
     );
-    Widget check(String title, bool? ok, String? section) => ListTile(
+    final recovery = enabled == true
+        ? setting.recoverySettings(status, autoAccept: autoAccept)
+        : null;
+    final recoveryLabel = switch (recovery) {
+      'notification_app' => t.notificationSystemSettings,
+      'notification_requests' => t.backgroundOpenRequestSettings,
+      'battery' => t.backgroundOpenBatterySettings,
+      _ => null,
+    };
+    final needsRetry =
+        setting == BackgroundReceiving.androidService &&
+        enabled == true &&
+        (status['running'] == false || status['nodeReady'] == false);
+    Widget recoveryButton(String label, VoidCallback? onPressed) => Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
+      child: Align(
+        alignment: AlignmentDirectional.centerEnd,
+        child: TextButton(onPressed: onPressed, child: Text(label)),
+      ),
+    );
+    Widget check(
+      String title,
+      bool? ok,
+      String? section, {
+      String? whenAllowed,
+      String? whenBlocked,
+    }) => ListTile(
       leading: Icon(
         ok == true
             ? Icons.check_circle_outline_rounded
@@ -257,15 +320,13 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
         ok == null
             ? t.backgroundUnknown
             : ok
-            ? t.backgroundAllowed
-            : t.backgroundNeedsAttention,
+            ? (whenAllowed ?? t.backgroundAllowed)
+            : (whenBlocked ?? t.backgroundNeedsAttention),
       ),
       trailing: section == null
           ? null
           : const Icon(Icons.chevron_right_rounded),
-      onTap: section == null
-          ? null
-          : () => channel.invokeMethod<void>('settings', {'section': section}),
+      onTap: section == null ? null : () => _openSettings(section),
     );
     return Scaffold(
       body: SafeArea(
@@ -273,7 +334,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              padding: EdgeInsets.fromLTRB(20, isMac ? 38 : 8, 20, 24),
               children: [
                 Row(
                   children: [
@@ -297,11 +358,27 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                 Material(
                   color: colors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(20),
-                  child: SwitchListTile(
-                    title: Text(isMac ? t.macKeepAwake : t.backgroundReceiving),
-                    subtitle: Text(summary),
-                    value: enabled ?? false,
-                    onChanged: changing || enabled == null ? null : _toggle,
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        title: Text(
+                          isMac ? t.macKeepAwake : t.backgroundReceiving,
+                        ),
+                        subtitle: Text(summary),
+                        value: enabled ?? false,
+                        onChanged: changing || enabled == null ? null : _toggle,
+                      ),
+                      if (recovery != null && recoveryLabel != null)
+                        recoveryButton(
+                          recoveryLabel,
+                          () => _openSettings(recovery),
+                        )
+                      else if (needsRetry)
+                        recoveryButton(
+                          t.retry,
+                          changing ? null : () => _toggle(true),
+                        ),
+                    ],
                   ),
                 ),
                 if (isMac || usesTray) ...[
@@ -309,25 +386,35 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                   Material(
                     color: colors.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(20),
-                    child: SwitchListTile(
-                      title: Text(t.backgroundLogin),
-                      subtitle: Text(switch (status['loginStatus']) {
-                        'enabled' => t.backgroundAllowed,
-                        'notRegistered' => t.backgroundOff,
-                        'requiresApproval' => t.backgroundLoginApproval,
-                        'notFound' => t.backgroundLoginNotFound,
-                        'unsupported' => t.backgroundLoginUnsupported,
-                        _ => t.backgroundUnknown,
-                      }),
-                      value:
-                          status['loginStatus'] == 'enabled' ||
-                          status['loginStatus'] == 'requiresApproval',
-                      onChanged:
-                          changing ||
-                              status['loginSupported'] != true ||
-                              status['loginStatus'] == 'notFound'
-                          ? null
-                          : _toggleLogin,
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          title: Text(t.backgroundLogin),
+                          subtitle: Text(switch (status['loginStatus']) {
+                            'enabled' => t.backgroundAllowed,
+                            'notRegistered' => t.backgroundOff,
+                            'requiresApproval' => t.backgroundLoginApproval,
+                            'notFound' => t.backgroundLoginNotFound,
+                            'unsupported' => t.backgroundLoginUnsupported,
+                            _ => t.backgroundUnknown,
+                          }),
+                          value:
+                              status['loginStatus'] == 'enabled' ||
+                              status['loginStatus'] == 'requiresApproval',
+                          onChanged:
+                              changing ||
+                                  status['loginSupported'] != true ||
+                                  status['loginStatus'] == 'notFound'
+                              ? null
+                              : _toggleLogin,
+                        ),
+                        if (isMac &&
+                            status['loginStatus'] == 'requiresApproval')
+                          recoveryButton(
+                            t.backgroundOpenLoginSettings,
+                            () => _openSettings('login'),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -357,12 +444,15 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                           t.macKeepAwakeActive,
                           status['active'] as bool?,
                           null,
+                          whenBlocked: t.backgroundMacInactive,
                         )
                       else ...[
                         check(
                           t.backgroundRunning,
                           status['running'] as bool?,
                           null,
+                          whenAllowed: t.backgroundOn,
+                          whenBlocked: t.backgroundOff,
                         ),
                         ListTile(
                           leading: Icon(
@@ -383,14 +473,19 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                           ),
                         ),
                         check(
-                          t.backgroundNotification,
+                          t.notificationRequests,
                           status['notifications'] as bool?,
-                          'notifications',
+                          status['allNotifications'] == false
+                              ? 'notification_app'
+                              : 'notification_requests',
+                          whenBlocked: t.notificationOff,
                         ),
                         check(
                           t.backgroundBattery,
                           status['batteryExempt'] as bool?,
                           'battery',
+                          whenAllowed: t.backgroundBatteryExempt,
+                          whenBlocked: t.backgroundBatteryOptimized,
                         ),
                         check(
                           t.backgroundRestricted,
@@ -398,6 +493,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                               ? status['restricted'] == false
                               : null,
                           'battery',
+                          whenBlocked: t.backgroundRestrictedDetail,
                         ),
                         if (status['lowPowerStandbyEnabled'] == true)
                           check(
@@ -413,16 +509,12 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                                 ? t.backgroundAutoStartOplusHint
                                 : t.backgroundAutoStartHint,
                           ),
-                          onTap: () => channel.invokeMethod<void>('settings', {
-                            'section': 'autostart',
-                          }),
+                          onTap: () => _openSettings('autostart'),
                         ),
                         ListTile(
                           leading: const Icon(Icons.open_in_new_rounded),
                           title: Text(t.backgroundVendorGuide),
-                          onTap: () => channel.invokeMethod<void>('settings', {
-                            'section': 'guide',
-                          }),
+                          onTap: () => _openSettings('guide'),
                         ),
                       ],
                     ],

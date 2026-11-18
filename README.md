@@ -73,6 +73,8 @@ For limited local disk space, use the GitHub workflows for full builds and tests
 
 Both apps need to be running and reachable. For background controls and troubleshooting, see the [user guide](docs/user-guide.md).
 
+In background receiving settings, Android shows a shortcut to the relevant system setting when a known restriction applies. On macOS, open Login Items from the page when login startup needs system approval.
+
 ## Connections and privacy
 
 Vela uses Iroh to attempt direct peer connections, with relay fallback when a direct path cannot be established. The default configuration uses Iroh's public discovery and relay services; custom relays can be configured in settings.

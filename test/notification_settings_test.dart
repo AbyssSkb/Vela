@@ -47,6 +47,14 @@ void main() {
         find.text('Not allowed; standard notifications are used'),
         findsOneWidget,
       );
+      final results = find.widgetWithText(ListTile, 'Transfer results');
+      expect(
+        find.descendant(
+          of: results,
+          matching: find.text('Off in system settings'),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Incoming requests'));
       await tester.tap(find.text('Transfer results'));
       await tester.ensureVisible(find.text('Live updates'));

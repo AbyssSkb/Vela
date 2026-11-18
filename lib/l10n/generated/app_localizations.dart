@@ -1118,6 +1118,12 @@ abstract class AppLocalizations {
   /// **'System notification settings'**
   String get notificationSystemSettings;
 
+  /// No description provided for @notificationOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off in system settings'**
+  String get notificationOff;
+
   /// No description provided for @notificationRequests.
   ///
   /// In en, this message translates to:
@@ -1220,6 +1226,12 @@ abstract class AppLocalizations {
   /// **'Receives with the window closed while the Mac is awake.'**
   String get backgroundMacMaySleep;
 
+  /// No description provided for @backgroundMacInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'The Mac can still enter idle sleep.'**
+  String get backgroundMacInactive;
+
   /// No description provided for @backgroundMacAwake.
   ///
   /// In en, this message translates to:
@@ -1249,6 +1261,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Allow incoming request notifications to accept in the background.'**
   String get backgroundAllowRequests;
+
+  /// No description provided for @backgroundAppNotificationsOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications for Vela are off in system settings.'**
+  String get backgroundAppNotificationsOff;
+
+  /// No description provided for @backgroundOpenRequestSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open incoming request settings'**
+  String get backgroundOpenRequestSettings;
+
+  /// No description provided for @backgroundOpenBatterySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open app settings'**
+  String get backgroundOpenBatterySettings;
+
+  /// No description provided for @backgroundSettingsOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open system settings.'**
+  String get backgroundSettingsOpenFailed;
 
   /// No description provided for @backgroundCheckBattery.
   ///
@@ -1292,11 +1328,29 @@ abstract class AppLocalizations {
   /// **'Battery optimization'**
   String get backgroundBattery;
 
+  /// No description provided for @backgroundBatteryExempt.
+  ///
+  /// In en, this message translates to:
+  /// **'Vela is exempt from battery optimization'**
+  String get backgroundBatteryExempt;
+
+  /// No description provided for @backgroundBatteryOptimized.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery optimization is on for Vela'**
+  String get backgroundBatteryOptimized;
+
   /// No description provided for @backgroundRestricted.
   ///
   /// In en, this message translates to:
   /// **'System background restrictions'**
   String get backgroundRestricted;
+
+  /// No description provided for @backgroundRestrictedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Android restricts Vela in the background'**
+  String get backgroundRestrictedDetail;
 
   /// No description provided for @backgroundRunning.
   ///
@@ -1747,6 +1801,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Approval required in System Settings'**
   String get backgroundLoginApproval;
+
+  /// No description provided for @backgroundOpenLoginSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Login Items'**
+  String get backgroundOpenLoginSettings;
 
   /// No description provided for @backgroundLoginNotFound.
   ///

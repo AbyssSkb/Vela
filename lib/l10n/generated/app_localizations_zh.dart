@@ -560,6 +560,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationSystemSettings => '系统通知设置';
 
   @override
+  String get notificationOff => '已在系统设置中关闭';
+
+  @override
   String get notificationRequests => '接收请求';
 
   @override
@@ -611,6 +614,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundMacMaySleep => '关闭窗口后仍可接收，Mac 睡眠时会中断。';
 
   @override
+  String get backgroundMacInactive => '当前未阻止 Mac 进入空闲睡眠。';
+
+  @override
   String get backgroundMacAwake => '关闭窗口后仍可接收，已阻止空闲睡眠。';
 
   @override
@@ -624,6 +630,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundAllowRequests => '请允许接收请求通知，以便在后台确认接收。';
+
+  @override
+  String get backgroundAppNotificationsOff => 'Vela 的通知已在系统设置中关闭。';
+
+  @override
+  String get backgroundOpenRequestSettings => '打开接收请求通知设置';
+
+  @override
+  String get backgroundOpenBatterySettings => '打开应用设置';
+
+  @override
+  String get backgroundSettingsOpenFailed => '无法打开系统设置。';
 
   @override
   String get backgroundCheckBattery => '请检查电池设置，以便在后台接收。';
@@ -647,7 +665,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundBattery => '电池优化';
 
   @override
+  String get backgroundBatteryExempt => 'Vela 已豁免电池优化';
+
+  @override
+  String get backgroundBatteryOptimized => '系统正在对 Vela 进行电池优化';
+
+  @override
   String get backgroundRestricted => '系统后台限制';
+
+  @override
+  String get backgroundRestrictedDetail => 'Android 限制了 Vela 在后台运行';
 
   @override
   String get backgroundRunning => '后台接收服务';
@@ -875,6 +902,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundLoginApproval => '需要在系统设置中允许';
+
+  @override
+  String get backgroundOpenLoginSettings => '打开登录项设置';
 
   @override
   String get backgroundLoginNotFound => '无法找到登录项';
