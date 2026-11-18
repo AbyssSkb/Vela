@@ -529,7 +529,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'The records for this batch are unavailable.';
 
   @override
-  String get showAllOfferedFiles => 'Show all files';
+  String showMoreOfferedFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show $count more files',
+      one: 'Show 1 more file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get showFewerOfferedFiles => 'Show fewer files';
 
   @override
   String receivedSavedTo(String folder) {
@@ -587,6 +598,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get transferHistoryEmptyHint =>
       'Files, text, and links you receive will appear here.';
+
+  @override
+  String get manageRecords => 'Manage records';
+
+  @override
+  String get selectRecords => 'Select records';
+
+  @override
+  String get clearSearch => 'Clear search';
 
   @override
   String get clearHistory => 'Clear history';

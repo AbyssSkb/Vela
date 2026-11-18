@@ -492,7 +492,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get receivedBatchUnavailable => '找不到本次接收的记录。';
 
   @override
-  String get showAllOfferedFiles => '查看全部文件';
+  String showMoreOfferedFiles(int count) {
+    return '查看另外 $count 个文件';
+  }
+
+  @override
+  String get showFewerOfferedFiles => '收起文件列表';
 
   @override
   String receivedSavedTo(String folder) {
@@ -549,6 +554,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get transferHistoryEmptyHint => '收到的文件、文字和链接会显示在这里。';
+
+  @override
+  String get manageRecords => '管理记录';
+
+  @override
+  String get selectRecords => '选择记录';
+
+  @override
+  String get clearSearch => '清除搜索';
 
   @override
   String get clearHistory => '清空记录';

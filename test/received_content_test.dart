@@ -272,11 +272,12 @@ void main() {
     );
     await tester.tap(find.text('Offer'));
     await tester.pumpAndSettle();
-    final allNames = find.text(names.join('\n'));
-    expect(allNames, findsNothing);
-    await tester.tap(find.text('Show all files'));
+    final extraNames = find.text(names.skip(3).join('\n'));
+    expect(extraNames, findsNothing);
+    await tester.tap(find.text('Show 17 more files'));
     await tester.pumpAndSettle();
-    expect(allNames, findsOneWidget);
+    expect(extraNames, findsOneWidget);
+    expect(find.text('Show fewer files'), findsOneWidget);
     expect(find.byType(Scrollable), findsOneWidget);
     final accept = find.byKey(const ValueKey('accept-offer'));
     expect(accept.hitTestable(), findsOneWidget);

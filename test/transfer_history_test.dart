@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/transfer_history.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -255,20 +256,27 @@ void main() {
         ),
       ),
     );
-    expect(find.byTooltip('Clear history'), findsOneWidget);
-    await tester.tap(find.byTooltip('Search history'));
+    final manage = find.byKey(const ValueKey('history-actions'));
+    expect(manage.hitTestable(), findsOneWidget);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Clear history'), findsNothing);
+    expect(find.text('Clear history'), findsNothing);
     await tester.enterText(find.byType(TextField), 'useful');
     await tester.pump();
     expect(find.text('A useful link'), findsOneWidget);
     expect(find.text('report.pdf'), findsNothing);
-    await tester.longPress(find.text('A useful link'));
-    await tester.pump();
-    await tester.tap(find.byTooltip('Select all'));
+    await tester.tap(manage);
+    await tester.pumpAndSettle();
+    expect(find.text('Clear history'), findsNothing);
+    await tester.tap(find.text('Select records'));
+    await tester.pumpAndSettle();
+    expect(find.text('0 selected'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Select all'));
     await tester.pump();
     expect(find.text('1 selected'), findsOneWidget);
-    await tester.tap(find.byTooltip('Remove record'));
+    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
     await tester.pumpAndSettle();
     expect(find.text('Remove 1 record?'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
@@ -278,10 +286,15 @@ void main() {
     await tester.enterText(find.byType(TextField), 'missing');
     await tester.pump();
     expect(find.text('No matching records'), findsOneWidget);
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
+    await tester.tap(find.text('Clear search'));
+    await tester.pumpAndSettle();
     expect(find.text('report.pdf'), findsOneWidget);
-    expect(find.byTooltip('Clear history'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('report.pdf'), findsOneWidget);
+    await tester.tap(manage);
+    await tester.pumpAndSettle();
+    expect(find.text('Clear history'), findsOneWidget);
   });
 
   testWidgets(
@@ -325,7 +338,10 @@ void main() {
       );
       expect(find.text('received.pdf'), findsOneWidget);
       expect(find.text('sent.pdf'), findsNothing);
-      await tester.tap(find.byTooltip('Clear history'));
+      final manage = find.byKey(const ValueKey('history-actions'));
+      await tester.tap(manage);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear history'));
       await tester.pumpAndSettle();
       await tester.tap(
         find.widgetWithText(FilledButton, 'Remove records only'),
@@ -333,7 +349,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('No received items yet'), findsOneWidget);
       expect(records.value, [sent]);
-      expect(find.byTooltip('Clear history'), findsNothing);
+      expect(find.text('Clear history'), findsNothing);
     },
   );
 
@@ -389,10 +405,10 @@ void main() {
     await tester.longPress(find.text('first.pdf'));
     await tester.pump();
     expect(find.text('1 selected'), findsOneWidget);
-    await tester.tap(find.byTooltip('Select all'));
+    await tester.tap(find.widgetWithText(TextButton, 'Select all'));
     await tester.pump();
     expect(find.text('2 selected'), findsOneWidget);
-    await tester.tap(find.byTooltip('Remove record'));
+    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
     await tester.pumpAndSettle();
     expect(
       tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
@@ -445,14 +461,15 @@ void main() {
       ),
     );
     expect(find.text('other.pdf'), findsNothing);
+    expect(find.text('2 files · From Phone'), findsOneWidget);
     expect(find.text('legacy.pdf'), findsNothing);
-    expect(find.byTooltip('Clear history'), findsNothing);
+    expect(find.text('Clear history'), findsNothing);
     await tester.longPress(find.text('one.pdf'));
     await tester.pump();
-    await tester.tap(find.byTooltip('Select all'));
+    await tester.tap(find.widgetWithText(TextButton, 'Select all'));
     await tester.pump();
     expect(find.text('2 selected'), findsOneWidget);
-    await tester.tap(find.byTooltip('Remove record'));
+    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
     await tester.pumpAndSettle();
@@ -500,7 +517,7 @@ void main() {
     );
     await tester.longPress(find.text('photo.png'));
     await tester.pump();
-    await tester.tap(find.byTooltip('Remove record'));
+    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
     await tester.pumpAndSettle();
     expect(
       tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
@@ -593,7 +610,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byTooltip('Open receive folder'));
+    await tester.tap(find.widgetWithText(TextButton, 'Open receive folder'));
     expect(openedFolder, isTrue);
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();

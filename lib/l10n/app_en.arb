@@ -274,7 +274,15 @@
   "viewReceivedBatch": "View this batch",
   "receivedBatch": "Received batch",
   "receivedBatchUnavailable": "The records for this batch are unavailable.",
-  "showAllOfferedFiles": "Show all files",
+  "showMoreOfferedFiles": "{count, plural, one{Show 1 more file} other{Show {count} more files}}",
+  "showFewerOfferedFiles": "Show fewer files",
+  "@showMoreOfferedFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "receivedSavedTo": "Saved to {folder}",
   "@receivedSavedTo": {
     "placeholders": {
@@ -298,6 +306,9 @@
   "transferNotificationTitle": "Transfer",
   "noTransferHistory": "No received items yet",
   "transferHistoryEmptyHint": "Files, text, and links you receive will appear here.",
+  "manageRecords": "Manage records",
+  "selectRecords": "Select records",
+  "clearSearch": "Clear search",
   "clearHistory": "Clear history",
   "clearHistoryConfirm": "Clear received history? Received files will not be deleted.",
   "historyReceivedFrom": "From {name}",
