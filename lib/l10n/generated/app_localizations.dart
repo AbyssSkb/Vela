@@ -794,6 +794,18 @@ abstract class AppLocalizations {
   /// **'Choose a file, then a device.'**
   String get selectFileFirst;
 
+  /// No description provided for @sendContentGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Send content'**
+  String get sendContentGroup;
+
+  /// No description provided for @sendContentType.
+  ///
+  /// In en, this message translates to:
+  /// **'Send {kind}'**
+  String sendContentType(String kind);
+
   /// No description provided for @noDevices.
   ///
   /// In en, this message translates to:

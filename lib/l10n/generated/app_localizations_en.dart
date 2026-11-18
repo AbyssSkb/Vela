@@ -403,6 +403,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectFileFirst => 'Choose a file, then a device.';
 
   @override
+  String get sendContentGroup => 'Send content';
+
+  @override
+  String sendContentType(String kind) {
+    return 'Send $kind';
+  }
+
+  @override
   String get noDevices => 'Add a device first.';
 
   @override

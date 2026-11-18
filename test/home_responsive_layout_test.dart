@@ -533,39 +533,27 @@ void main() {
           find.byKey(const ValueKey('toggle-device-view')),
           findsOneWidget,
         );
+        final received = find.widgetWithText(TextButton, 'Received');
+        final graphToggle = find.widgetWithText(TextButton, 'Show graph');
+        expect(received.hitTestable(), findsOneWidget);
+        expect(graphToggle.hitTestable(), findsOneWidget);
         expect(
-          tester.getTopLeft(find.byKey(const ValueKey('refresh-devices'))).dx,
-          lessThan(
-            tester
-                .getTopLeft(find.byKey(const ValueKey('toggle-device-view')))
-                .dx,
-          ),
+          tester.getTopLeft(received).dy,
+          lessThan(tester.getTopLeft(file).dy),
         );
         expect(
-          tester
-              .getTopLeft(find.byKey(const ValueKey('toggle-device-view')))
-              .dx,
-          lessThan(
-            tester
-                .getTopLeft(find.byKey(const ValueKey('transfer-history')))
-                .dx,
-          ),
-        );
-        expect(
-          tester.getTopLeft(find.byKey(const ValueKey('transfer-history'))).dx,
-          lessThan(
-            tester.getTopLeft(find.byKey(const ValueKey('add-device'))).dx,
-          ),
+          tester.getTopLeft(graphToggle).dx,
+          greaterThan(tester.getTopLeft(received).dx),
         );
         expect(tester.takeException(), isNull);
-        await resize(const Size(379, 844));
+        await resize(const Size(303, 844));
         await tester.pumpWidget(home(animations: true));
         await tester.pump();
-        await resize(const Size(380, 844));
+        await resize(const Size(304, 844));
         await tester.pump(const Duration(milliseconds: 80));
         final animatedSlot = find
             .descendant(
-              of: find.byKey(const ValueKey('toolbar-fade-view')),
+              of: find.byKey(const ValueKey('toolbar-fade-refresh')),
               matching: find.byType(Opacity),
             )
             .first;
@@ -808,6 +796,8 @@ void main() {
         }
         await tester.pumpWidget(home(scale: 2));
         await resize(const Size(320, 640));
+        expect(received.hitTestable(), findsOneWidget);
+        expect(find.text('Send content'), findsOneWidget);
         for (final text in [
           'Devices',
           'Files',

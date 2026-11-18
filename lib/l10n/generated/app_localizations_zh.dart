@@ -374,6 +374,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selectFileFirst => '选择文件后，再选择接收设备';
 
   @override
+  String get sendContentGroup => '发送内容';
+
+  @override
+  String sendContentType(String kind) {
+    return '发送$kind';
+  }
+
+  @override
   String get noDevices => '请先添加设备';
 
   @override

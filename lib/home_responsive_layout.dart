@@ -27,17 +27,21 @@ class HomeResponsiveLayout extends StatefulWidget {
     required bool largeText,
     required double width,
   }) {
-    if (!largeText) {
+    if (!_roomyActions(largeText, width)) {
       return wide ? count * 40.0 + (count - 1) * _railRowGap : 220.0;
     }
-    final columns = _largeColumns(width);
+    final columns = _roomyColumns(largeText, width);
     final rows = (count + columns - 1) ~/ columns;
     return wide
         ? count * _largeButtonHeight + (count - 1) * _railRowGap
         : rows * _largeButtonHeight + (rows - 1) * _gap + 120;
   }
 
-  static int _largeColumns(double width) => width < 280 ? 1 : 2;
+  static bool _roomyActions(bool largeText, double width) =>
+      largeText || width < 292;
+
+  static int _roomyColumns(bool largeText, double width) =>
+      width < (largeText ? 280 : 240) ? 1 : 2;
 
   @override
   State<HomeResponsiveLayout> createState() => _HomeLayoutState();
@@ -115,15 +119,17 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
     const gap = HomeResponsiveLayout._gap,
         railGap = 24.0,
         railRowGap = HomeResponsiveLayout._railRowGap;
-    final buttonHeight = largeText
-        ? HomeResponsiveLayout._largeButtonHeight
-        : 48.0;
+    final roomy = HomeResponsiveLayout._roomyActions(largeText, size.width);
+    final buttonHeight = roomy ? HomeResponsiveLayout._largeButtonHeight : 48.0;
     final railWidth = largeText ? 208.0 : 144.0;
     final movingDown = (progress * 3).clamp(0.0, 1.0);
     final movingSide = ((progress - 1 / 3) * 3).clamp(0.0, 1.0);
     final movingUp = ((progress - 2 / 3) * 3).clamp(0.0, 1.0);
-    final columns = largeText
-        ? math.min(HomeResponsiveLayout._largeColumns(size.width), count)
+    final columns = roomy
+        ? math.min(
+            HomeResponsiveLayout._roomyColumns(largeText, size.width),
+            count,
+          )
         : (count > 4 ? 3 : count);
     final railHeight = ((size.height - (count - 1) * railRowGap) / count).clamp(
       largeText ? buttonHeight : 40.0,

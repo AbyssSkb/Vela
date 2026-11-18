@@ -152,6 +152,15 @@
   "nameVisible": "其他设备会看到此名称",
   "deviceAliasHint": "只在本设备显示",
   "selectFileFirst": "选择文件后，再选择接收设备",
+  "sendContentGroup": "发送内容",
+  "sendContentType": "发送{kind}",
+  "@sendContentType": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
   "noDevices": "请先添加设备",
   "requestAccepted": "已添加设备",
   "deviceCodeShort": "设备码 {code}",
