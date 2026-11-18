@@ -136,6 +136,13 @@
   "writeClipboardFailed": "Received, but couldn't copy to the clipboard.",
   "startupFailed": "Vela could not start.",
   "diagnostics": "Diagnostics",
+  "diagnosticsStartupHelp": "Vela must finish starting before it can send or receive.",
+  "diagnosticsDeviceHelp": "Open Vela on your other devices, then refresh their status.",
+  "diagnosticsRetryStartup": "Try starting Vela again",
+  "diagnosticsRecoveryFailed": "Could not complete the check. Try again.",
+  "diagnosticsClearEvents": "Clear events",
+  "diagnosticsClearQuestion": "Clear diagnostic events?",
+  "diagnosticsClearDetail": "This clears the recent diagnostic events on this device.",
   "diagnosticsUpdated": "Updated at {time}",
   "@diagnosticsUpdated": {
     "placeholders": {
@@ -407,6 +414,7 @@
   "settingsDisplay": "Display",
   "relaySettings": "Relay servers",
   "relaySettingsHint": "Manage custom relays",
+  "relayPurpose": "Vela may use a relay when a direct connection is unavailable. The default public relays are already configured.",
   "relayEnabled": "Use custom relays",
   "relayEnabledDetail": "Uses public relays when no custom relay is configured",
   "relayCustomActive": "Currently using custom relays",

@@ -184,6 +184,13 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  child: Text(
+                    t.relayPurpose,
+                    style: TextStyle(color: colors.onSurfaceVariant),
+                  ),
+                ),
                 Material(
                   color: colors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(18),

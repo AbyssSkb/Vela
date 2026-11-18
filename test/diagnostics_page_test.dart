@@ -8,6 +8,52 @@ import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  Future<void> clearEvents(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('diagnostics-actions')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('diagnostics-confirm-clear')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'diagnostics offers the next action for an unavailable node or peer',
+    (tester) async {
+      var ready = false;
+      var reachable = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          home: DiagnosticsPage(
+            load: () async => DiagnosticsSnapshot(
+              nodeReady: ready,
+              peerCount: 1,
+              reachableCount: reachable,
+              relayCount: 1,
+              readyRelayCount: 1,
+              events: [],
+            ),
+            retryStartup: () async => ready = true,
+            refreshDevices: () async => reachable = 1,
+            clear: () async {},
+            initialEnabled: false,
+            setEnabled: (_) async {},
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Try starting Vela again'));
+      await tester.pumpAndSettle();
+      expect(find.text('0 / 1'), findsOneWidget);
+      await tester.tap(find.text('Refresh device status'));
+      await tester.pumpAndSettle();
+      expect(find.text('Refresh device status'), findsNothing);
+      expect(find.text('Try starting Vela again'), findsNothing);
+      expect(find.text('1 / 1'), findsNWidgets(2));
+    },
+  );
+
   test(
     'connection events show readable device status without internal fields',
     () {
@@ -193,7 +239,7 @@ void main() {
       lessThan(copied!.indexOf('00:02 status updated')),
     );
     expect(find.text('Copied'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
+    await clearEvents(tester);
     await tester.pump();
     expect(find.text('No events'), findsOneWidget);
     expect(
@@ -238,7 +284,7 @@ void main() {
     await tester.pump();
     expect(find.text('诊断'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
-    await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
+    await clearEvents(tester);
     await tester.pump();
     expect(find.text('暂无事件'), findsOneWidget);
     old.complete(

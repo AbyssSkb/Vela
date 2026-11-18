@@ -104,6 +104,13 @@ class AppUpdateTile extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (controller.version.isNotEmpty)
+              Text(
+                text(
+                  'Installed version ${controller.version}',
+                  '已安装版本 ${controller.version}',
+                ),
+              ),
             if (controller.availableVersion case final version?
                 when controller.state == AppUpdateState.ready)
               Text(text('Version $version', '版本 $version')),

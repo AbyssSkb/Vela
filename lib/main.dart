@@ -1013,6 +1013,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _retryFromUI() async {
+    if (!mounted || shuttingDown || node != null) return;
+    if (error != null) setState(() => error = null);
     final pending = startup;
     if (pending != null) {
       await pending;
@@ -2319,6 +2321,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     MaterialPageRoute<void>(
       builder: (_) => DiagnosticsPage(
         load: _diagnosticsSnapshot,
+        retryStartup: _retryFromUI,
+        refreshDevices: () =>
+            presenceController.requestPeerProbes(userInitiated: true),
         clear: () async {
           diagnosticEvents.clear();
           node?.clearDiagnostics();
@@ -3637,13 +3642,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   Wrap(
                     spacing: 8,
                     children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() => error = null);
-                          unawaited(_retryFromUI());
-                        },
-                        child: Text(t.retry),
-                      ),
+                      TextButton(onPressed: _retryFromUI, child: Text(t.retry)),
                       TextButton(
                         onPressed: _showDiagnostics,
                         child: Text(t.diagnostics),
