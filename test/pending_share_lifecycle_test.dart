@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +15,7 @@ import 'package:vela/src/rust/frb_generated.dart';
 
 import 'peer_test_utils.dart';
 import 'support/fakes.dart';
+import 'support/home_environment.dart';
 
 class SharedTextJob extends FakeTransferJob {
   String? text, kind, path;
@@ -47,7 +49,7 @@ void main() {
     testWidgets(
       send
           ? 'sending a macOS URL share cleans its stage and temporary snapshot'
-          : 'cancelling a macOS text share cleans its stage',
+          : 'inspecting a graph device keeps a share until it is cancelled',
       (tester) async {
         final directory = Directory.systemTemp.createTempSync('vela-share-');
         final node = SharedTextNode();
@@ -63,7 +65,9 @@ void main() {
           directory,
           PeerState(peers: {peerId: 'Phone'}),
         );
-        SharedPreferences.setMockInitialValues({});
+        SharedPreferences.setMockInitialValues({
+          'device_view_test': send ? 'list' : 'graph',
+        });
         RustLib.initMock(api: FakeRustApi(node));
         const path = MethodChannel('plugins.flutter.io/path_provider');
         const secure = MethodChannel(
@@ -139,14 +143,12 @@ void main() {
           expect(state.pendingShare.stage, stage);
           expect(find.text('Ready to send: Text'), findsOneWidget);
           expect(find.text(text), findsOneWidget);
-          expect(
-            find.descendant(
-              of: find.byKey(const ValueKey('peer-$peerId')),
-              matching: find.text('Send to Phone'),
-            ),
-            findsOneWidget,
-          );
+          final device = find.byKey(const ValueKey('peer-$peerId'));
           if (send) {
+            expect(
+              find.descendant(of: device, matching: find.text('Send to Phone')),
+              findsOneWidget,
+            );
             final choose = find.byKey(const ValueKey('choose-share-device'));
             await tester.tap(choose);
             await waitUntil(() => preparing.isCompleted);
@@ -160,9 +162,21 @@ void main() {
                   .onPressed,
               isNull,
             );
-            await tester.tap(find.byKey(const ValueKey('peer-$peerId')));
+            await tester.tap(device);
             release.complete();
           } else {
+            await tester.pump(const Duration(milliseconds: 450));
+            expect(device.hitTestable(), findsOneWidget);
+            await tester.tap(device);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 350));
+            final sheet = find.byType(BottomSheet);
+            expect(sheet, findsOneWidget);
+            expect(node.job.sends, 0);
+            expect(state.pendingShare.text, text);
+            Navigator.of(tester.element(sheet)).pop();
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 350));
             await tester.tap(find.text('Cancel share'));
           }
           await waitUntil(
@@ -194,4 +208,48 @@ void main() {
       skip: !Platform.isMacOS,
     );
   }
+
+  testWidgets('a dropped file waits for a device to be added', (tester) async {
+    final node = SharedTextNode();
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(),
+      api: FakeRustApi(node),
+      run: (directory) async {
+        final file = File('${directory.path}/notes.txt')
+          ..writeAsStringSync('Notes');
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'light',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final target = find.byType(DropTarget);
+        await waitForHome(
+          tester,
+          () =>
+              target.evaluate().isNotEmpty &&
+              tester.widget<DropTarget>(target).enable,
+        );
+        tester.widget<DropTarget>(target).onDragDone!(
+          DropDoneDetails(
+            files: [DropItemFile(file.path)],
+            localPosition: Offset.zero,
+            globalPosition: Offset.zero,
+          ),
+        );
+        final pending = find.byKey(const ValueKey('pending-share'));
+        await waitForHome(tester, () => pending.evaluate().isNotEmpty);
+        expect(find.text('Ready to send: notes.txt'), findsOneWidget);
+        expect(find.text('Add a device to send this content.'), findsOneWidget);
+        expect(node.job.sends, 0);
+        await tester.tap(find.text('Cancel share'));
+        await tester.pump();
+        expect(pending, findsNothing);
+        expect(file.existsSync(), isTrue);
+      },
+    );
+  }, skip: !Platform.isMacOS && !Platform.isWindows && !Platform.isLinux);
 }

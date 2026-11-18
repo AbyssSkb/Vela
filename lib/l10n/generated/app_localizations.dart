@@ -848,12 +848,6 @@ abstract class AppLocalizations {
   /// **'Choose a file, then a device.'**
   String get selectFileFirst;
 
-  /// No description provided for @noDevices.
-  ///
-  /// In en, this message translates to:
-  /// **'Add a device first.'**
-  String get noDevices;
-
   /// No description provided for @requestAccepted.
   ///
   /// In en, this message translates to:
@@ -905,7 +899,7 @@ abstract class AppLocalizations {
   /// No description provided for @connectingTo.
   ///
   /// In en, this message translates to:
-  /// **'Sending to {name}'**
+  /// **'Connecting to {name}'**
   String connectingTo(String name);
 
   /// No description provided for @received.
@@ -2113,6 +2107,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'System tray'**
   String get desktopTray;
+
+  /// No description provided for @graphPairedDevicesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Lines show paired devices. Switch to the list for connection status.'**
+  String get graphPairedDevicesHint;
+
+  /// No description provided for @deviceRecheckHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Vela on the other device, then check its status again.'**
+  String get deviceRecheckHint;
+
+  /// No description provided for @addDeviceToContinueSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a device to send this content.'**
+  String get addDeviceToContinueSending;
+
+  /// No description provided for @sendAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get sendAction;
+
+  /// No description provided for @sendDeviceSelectAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'This device is no longer paired. Choose another device.'**
+  String get sendDeviceSelectAgain;
+
+  /// No description provided for @waitingForRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {name} to respond'**
+  String waitingForRecipient(String name);
+
+  /// No description provided for @sendDeclinedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} declined the transfer.'**
+  String sendDeclinedBy(String name);
 }
 
 class _AppLocalizationsDelegate

@@ -437,9 +437,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectFileFirst => 'Choose a file, then a device.';
 
   @override
-  String get noDevices => 'Add a device first.';
-
-  @override
   String get requestAccepted => 'Device added';
 
   @override
@@ -477,7 +474,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String connectingTo(String name) {
-    return 'Sending to $name';
+    return 'Connecting to $name';
   }
 
   @override
@@ -1155,4 +1152,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get desktopTray => 'System tray';
+
+  @override
+  String get graphPairedDevicesHint =>
+      'Lines show paired devices. Switch to the list for connection status.';
+
+  @override
+  String get deviceRecheckHint =>
+      'Open Vela on the other device, then check its status again.';
+
+  @override
+  String get addDeviceToContinueSending => 'Add a device to send this content.';
+
+  @override
+  String get sendAction => 'Send';
+
+  @override
+  String get sendDeviceSelectAgain =>
+      'This device is no longer paired. Choose another device.';
+
+  @override
+  String waitingForRecipient(String name) {
+    return 'Waiting for $name to respond';
+  }
+
+  @override
+  String sendDeclinedBy(String name) {
+    return '$name declined the transfer.';
+  }
 }

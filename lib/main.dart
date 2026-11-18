@@ -338,7 +338,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? activity;
   AppLocalizations get t => AppLocalizations.of(context)!;
   String? lastMessage;
-  ({String recipient, String content})? lastSuccessfulSend;
+  ({String message, String content, bool sent})? _sendReceipt;
   String? receivedPath;
   bool disposed = false;
   Timer? progressTimer;
@@ -364,7 +364,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? notificationPeerType;
   String? notificationTransferId;
   PendingShare? pendingShare;
-  PendingShare? handledAndroidShare;
+  bool _composingText = false;
   ({String peer, Object? revision, String message, SendRetry retry})?
   _failedSend;
   final List<Uint8List> dropBookmarks = [];
@@ -552,9 +552,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return;
       }
       final p = job?.progress();
-      if (p != null && p.path != connectionRoute) {
-        setState(() => connectionRoute = p.path);
-      }
+      final routeChanged = p != null && p.path != connectionRoute;
       final done = p?.done.toInt() ?? 0;
       final total = p?.total.toInt() ?? 0;
       final value = processingLocalContent || total == 0
@@ -578,16 +576,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ) ??
               false);
       if (!processingLocalContent &&
-          (value != transferProgress || updatedRate || started)) {
+          (value != transferProgress ||
+              updatedRate ||
+              started ||
+              routeChanged)) {
         setState(() {
+          if (routeChanged) connectionRoute = p.path;
           transferProgress = value;
           transferredBytes = done;
           totalBytes = total;
-          if (started) {
-            hasTransferred = true;
-            if (sendingTo != null) {
-              activity = t.sendingTo(sendingTo!);
-            }
+          if (started) hasTransferred = true;
+          if (sendingTo case final target?) {
+            activity = hasTransferred
+                ? t.sendingTo(target)
+                : connectionRoute.isNotEmpty
+                ? t.waitingForRecipient(target)
+                : t.connectingTo(target);
           }
         });
       }
@@ -600,7 +604,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             : processingLocalContent
             ? contentProcessingLabel!
             : sendingTo != null
-            ? t.notificationSending
+            ? activity ?? t.notificationSending
             : t.receiving('').trim();
         final details =
             !cancelling &&
@@ -826,10 +830,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _message(t.dropAlreadyPending, kind: NoticeKind.error);
       return;
     }
-    if (peers.isEmpty) {
-      _message(t.noDevices, kind: NoticeKind.info);
-      return;
-    }
     if (details.files.isEmpty) return;
     if (details.files.any((item) => item is! DropItemFile)) {
       _message(t.dropFilesOnly, kind: NoticeKind.error);
@@ -924,15 +924,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final share = await shareChannel.invokeMapMethod<String, dynamic>('take');
       if (mounted && share != null) {
         setState(() => pendingShare = PendingShare.fromMap(share));
-        if (!contentOperationActive &&
+        if (!_composingText &&
+            !contentOperationActive &&
             !outgoingPairingUiActive &&
             !awaitingOfferDecision) {
           Navigator.of(context).popUntil((route) => route.isFirst);
-        }
-        if (Platform.isAndroid) {
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _sendPendingAndroidShare(),
-          );
         }
       }
     } catch (e) {
@@ -1083,9 +1079,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         );
       }
       if (Platform.isAndroid) {
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _sendPendingAndroidShare(),
-        );
         unawaited(
           backgroundChannel
               .invokeMethod<void>('clearTransfer')
@@ -1765,7 +1758,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: Semantics(
         label: label,
         child: Icon(
-          value == null ? Icons.circle_outlined : Icons.circle,
+          switch (value) {
+            PeerPresence.reachable => Icons.check_circle_rounded,
+            PeerPresence.unavailable => Icons.error_outline_rounded,
+            null => Icons.circle_outlined,
+          },
           key: checking ? const ValueKey('device-presence-check') : null,
           size: 12,
           color: switch (value) {
@@ -1844,35 +1841,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _sendPendingAndroidShare() async {
-    final share = pendingShare;
-    if (!mounted ||
-        share == null ||
-        identical(share, handledAndroidShare) ||
-        node == null ||
-        changingRelay ||
-        peers.length <= 1 ||
-        _failedSend != null ||
-        contentOperationActive ||
-        outgoingPairingUiActive ||
-        awaitingOfferDecision) {
-      return;
-    }
-    handledAndroidShare = share;
-    final id = await _choosePeer(_sharedContentName(share));
-    if (changingRelay && identical(pendingShare, share)) {
-      handledAndroidShare = null;
-      return;
-    }
-    if (!mounted ||
-        id == null ||
-        !peers.containsKey(id) ||
-        !identical(pendingShare, share)) {
-      return;
-    }
-    await _sendShare(id, share);
-  }
-
   Future<void> _chooseAndSend({
     bool clipboard = false,
     bool media = false,
@@ -1906,16 +1874,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _composeAndSendText() async {
-    final onlyPeer = peers.keys.singleOrNull;
-    final selection = await showDialog<({String peer, String text})>(
-      context: context,
-      builder: (_) => _TextComposeDialog(
-        choosePeer: () async => onlyPeer ?? await _choosePeer(t.textContent),
-        recipientName: onlyPeer == null
-            ? null
-            : peerState.displayName(onlyPeer),
-      ),
-    );
+    _composingText = true;
+    final ({String peer, String text})? selection;
+    try {
+      selection = await showDialog<({String peer, String text})>(
+        context: context,
+        builder: (_) => _TextComposeDialog(
+          devices: {
+            for (final id in peers.keys)
+              id: (name: peerState.displayName(id), status: _presenceLabel(id)),
+          },
+          isPaired: (id) => peers.containsKey(id),
+        ),
+      );
+    } finally {
+      _composingText = false;
+    }
     if (selection != null && mounted && peers.containsKey(selection.peer)) {
       await _sendShare(
         selection.peer,
@@ -2177,69 +2151,89 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           contentPadding: const EdgeInsets.symmetric(horizontal: 24),
           minLeadingWidth: 24,
           horizontalTitleGap: 16,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                leading: Icon(_deviceIcon(id)),
-                title: Text(peerState.displayName(id)),
-                subtitle: Text(switch (peerTypes[id]) {
-                  'mobile' => t.mobile,
-                  'tablet' => t.tablet,
-                  'desktop' => t.desktop,
-                  _ => t.device,
-                }),
-                trailing: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Center(child: _presenceIcon(id)),
-                ),
-              ),
-              if (peerState.aliases.containsKey(id))
+          child: ListenableBuilder(
+            listenable: presenceController,
+            builder: (context, _) => ListView(
+              shrinkWrap: true,
+              children: [
                 ListTile(
-                  leading: const Icon(Icons.devices_outlined),
-                  title: Text(t.systemDeviceName),
-                  subtitle: Text(peers[id]!),
-                  trailing: IconButton(
-                    tooltip: t.useDeviceName,
-                    icon: const Icon(Icons.restore_rounded),
-                    onPressed: () => Navigator.pop(context, 'reset'),
+                  leading: Icon(_deviceIcon(id)),
+                  title: Text(peerState.displayName(id)),
+                  subtitle: Semantics(
+                    liveRegion: true,
+                    child: Text(_presenceLabel(id)),
+                  ),
+                  trailing: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Center(child: _presenceIcon(id)),
                   ),
                 ),
-              ListTile(
-                leading: const Icon(Icons.fingerprint_rounded),
-                title: Text(t.deviceCode),
-                subtitle: Text(
-                  id.length > 16
-                      ? '${id.substring(0, 8)}…${id.substring(id.length - 8)}'
-                      : id,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: IconButton(
-                    tooltip: t.copyDeviceCode,
-                    icon: const Icon(Icons.copy_rounded),
-                    onPressed: () => Navigator.pop(context, 'copy'),
+                if (peers.containsKey(id) &&
+                    presence[id] != PeerPresence.reachable &&
+                    !visiblePresenceChecks.contains(id))
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t.deviceRecheckHint),
+                        TextButton.icon(
+                          onPressed: () => presenceController.requestPeerProbes(
+                            userInitiated: true,
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: Text(t.refreshDevices),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (peerState.aliases.containsKey(id))
+                  ListTile(
+                    leading: const Icon(Icons.devices_outlined),
+                    title: Text(t.systemDeviceName),
+                    subtitle: Text(peers[id]!),
+                    trailing: IconButton(
+                      tooltip: t.useDeviceName,
+                      icon: const Icon(Icons.restore_rounded),
+                      onPressed: () => Navigator.pop(context, 'reset'),
+                    ),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.fingerprint_rounded),
+                  title: Text(t.deviceCode),
+                  subtitle: Text(
+                    id.length > 16
+                        ? '${id.substring(0, 8)}…${id.substring(id.length - 8)}'
+                        : id,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: IconButton(
+                      tooltip: t.copyDeviceCode,
+                      icon: const Icon(Icons.copy_rounded),
+                      onPressed: () => Navigator.pop(context, 'copy'),
+                    ),
                   ),
                 ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: Text(t.renameDevice),
-                subtitle: Text(t.deviceAliasHint),
-                onTap: () => Navigator.pop(context, 'rename'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.link_off_rounded),
-                title: Text(t.removeDevice),
-                onTap: () => Navigator.pop(context, 'remove'),
-              ),
-              const SizedBox(height: 8),
-            ],
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: Text(t.renameDevice),
+                  subtitle: Text(t.deviceAliasHint),
+                  onTap: () => Navigator.pop(context, 'rename'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.link_off_rounded),
+                  title: Text(t.removeDevice),
+                  onTap: () => Navigator.pop(context, 'remove'),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),
@@ -2459,7 +2453,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted && current != null) {
         presenceController.resumeInfoUpdates();
       }
-      if (mounted && Platform.isAndroid) unawaited(_sendPendingAndroidShare());
     }
   }
 
@@ -2964,6 +2957,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _ => _fileContentName(content.paths),
       };
 
+  String _sendReceiptContent(PreparedTransfer content) {
+    final preview = content.share?.text?.trim();
+    if (preview != null && preview.isNotEmpty) {
+      return String.fromCharCodes(preview.runes.take(160));
+    }
+    if (content.paths.length > 1) {
+      return '${File(content.paths.first).uri.pathSegments.last} · ${t.filesCount(content.paths.length)}';
+    }
+    return _preparedContentName(content);
+  }
+
   Future<void> _sendShare(String id, PendingShare share) =>
       _prepareAndSend(() => _prepareShare(share), id: id, share: share);
 
@@ -3033,7 +3037,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (identical(pendingShare, session.content.share)) pendingShare = null;
     });
     await _releaseSendSession(session);
-    if (Platform.isAndroid && mounted) await _sendPendingAndroidShare();
   }
 
   Future<void> _send(String id, String name, SendSession session) async {
@@ -3043,6 +3046,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     var transferStarted = false;
     TransferJob? sendingJob;
     var sendCompleted = false;
+    var declined = false;
     String? resultMessage;
     var resultKind = NoticeKind.success;
     SendRetry? retry;
@@ -3053,11 +3057,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         throw StateError(t.transferBusy);
       }
       if (!_canSendTo(id, revision)) throw StateError(t.sendDeviceChanged);
-      if (Platform.isAndroid &&
-          share != null &&
-          identical(pendingShare, share)) {
-        setState(() => pendingShare = null);
-      }
       final path = content.paths.first;
       if (!await File(path).exists()) throw StateError(t.fileUnavailable);
       if (!mounted) return;
@@ -3074,7 +3073,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         contentOperationActive = true;
         activity = t.connectingTo(name);
-        lastSuccessfulSend = null;
+        _sendReceipt = null;
         receivedPath = null;
       });
       transferStarted = true;
@@ -3094,7 +3093,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         setState(() {
           hasTransferred = true;
           activity = message;
-          lastSuccessfulSend = (recipient: name, content: contentName);
+          _sendReceipt = (
+            message: message,
+            content: _sendReceiptContent(content),
+            sent: true,
+          );
           if (identical(pendingShare, share)) pendingShare = null;
         });
         unawaited(presenceController.readCurrentSnapshot());
@@ -3105,14 +3108,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       debugPrint('Send failed: $e');
       if (mounted) {
         setState(() => activity = null);
-        final cancelled =
-            cancelling ||
-            classifyTransferFailure(e) == TransferFailure.cancelled;
+        final failure = classifyTransferFailure(e);
+        final cancelled = cancelling || failure == TransferFailure.cancelled;
+        declined =
+            !cancelled &&
+            transferStarted &&
+            failure == TransferFailure.declined;
         if (transferStarted) {
           _recordDiagnostic(cancelled ? 'sendCancelled' : 'sendFailed', id);
         }
         resultMessage = cancelled
             ? t.transferCancelled
+            : declined
+            ? t.sendDeclinedBy(name)
             : sendErrorMessage(
                 e,
                 transferStarted: transferStarted,
@@ -3121,7 +3129,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 translations: t,
               );
         resultKind = cancelled ? NoticeKind.info : NoticeKind.error;
-        if (!cancelled && transferStarted && !sendCompleted && !shuttingDown) {
+        if (declined) {
+          setState(() {
+            _sendReceipt = (
+              message: resultMessage!,
+              content: _sendReceiptContent(content),
+              sent: false,
+            );
+            if (identical(pendingShare, share)) pendingShare = null;
+          });
+        } else if (!cancelled &&
+            transferStarted &&
+            !sendCompleted &&
+            !shuttingDown) {
           retry = session.allowRetry();
         }
       }
@@ -3130,7 +3150,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!sendCompleted) sendingJob?.cancel();
       if (identical(activeTransfer, sendingJob)) activeTransfer = null;
       if (transferStarted) _setTransferring(false);
-      if (retry == null && !sendCompleted) {
+      if (declined) {
+        await _releaseSendSession(session);
+      } else if (retry == null && !sendCompleted) {
         await _discardPreparedSendFiles(session);
       }
       if (mounted) {
@@ -3150,7 +3172,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _finishSystemTransfer(resultMessage);
         }
         if (resultMessage != null) {
-          if (!sendCompleted && retryOffer == null) {
+          if (!sendCompleted && !declined && retryOffer == null) {
             _message(resultMessage, kind: resultKind);
           } else {
             lastMessage = resultMessage;
@@ -3576,7 +3598,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _tapDevice(String id) {
     if (selectingPeers) {
       _togglePeerSelection(id);
-    } else if (pendingShare case final share? when _failedSend == null) {
+    } else if (pendingShare case final share?
+        when _failedSend == null && deviceView != 'graph') {
       unawaited(_sendShare(id, share));
     } else {
       _showDeviceDetails(id);
@@ -3605,23 +3628,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 32),
-                    child: DeviceGraph(
-                      availableHeight: height,
-                      minimumScale: .5,
-                      peers: peers.keys.toList(),
-                      selfName: deviceName,
-                      selfLabel: t.myDevice,
-                      selfIcon: _iconForType(deviceType),
-                      name: peerState.displayName,
-                      icon: _deviceIcon,
-                      presence: _presenceIcon,
-                      selected: selectedPeers,
-                      selecting: selectingPeers,
-                      onSelfTap: _showMyDeviceDialog,
-                      enabled: !_deviceActionsBlocked,
-                      onTap: _tapDevice,
-                      onLongPress: _togglePeerSelection,
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DeviceGraph(
+                          availableHeight: height,
+                          minimumScale: .5,
+                          peers: peers.keys.toList(),
+                          selfName: deviceName,
+                          selfLabel: t.myDevice,
+                          selfIcon: _iconForType(deviceType),
+                          name: peerState.displayName,
+                          icon: _deviceIcon,
+                          presence: _presenceIcon,
+                          selected: selectedPeers,
+                          selecting: selectingPeers,
+                          onSelfTap: _showMyDeviceDialog,
+                          enabled: !_deviceActionsBlocked,
+                          onTap: _tapDevice,
+                          onLongPress: _togglePeerSelection,
+                        ),
+                        Text(
+                          t.graphPairedDevicesHint,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -3959,13 +3992,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget? _buildSendReceipt() {
-    final receipt = lastSuccessfulSend;
+    final receipt = _sendReceipt;
     if (receipt == null) return null;
     return ActivityNotice(
       child: Row(
         key: const ValueKey('send-receipt'),
         children: [
-          const Icon(Icons.check_circle_outline_rounded, size: 20),
+          Icon(
+            receipt.sent
+                ? Icons.check_circle_outline_rounded
+                : Icons.info_outline_rounded,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Semantics(
@@ -3974,7 +4012,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t.sentTo(receipt.recipient)),
+                  Text(receipt.message),
                   Text(
                     receipt.content,
                     maxLines: 2,
@@ -3987,7 +4025,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
           IconButton(
             tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-            onPressed: () => setState(() => lastSuccessfulSend = null),
+            onPressed: () => setState(() => _sendReceipt = null),
             icon: const Icon(Icons.close_rounded),
           ),
         ],
@@ -4018,7 +4056,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           ),
-        if (peers.isEmpty) Text(t.noDevices),
+        if (peers.isEmpty) Text(t.addDeviceToContinueSending),
         OverflowBar(
           alignment: MainAxisAlignment.end,
           spacing: 8,
@@ -4188,13 +4226,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 }
 
 class _TextComposeDialog extends StatefulWidget {
-  const _TextComposeDialog({
-    required this.choosePeer,
-    required this.recipientName,
-  });
+  const _TextComposeDialog({required this.devices, required this.isPaired});
 
-  final Future<String?> Function() choosePeer;
-  final String? recipientName;
+  final Map<String, ({String name, String status})> devices;
+  final bool Function(String) isPaired;
 
   @override
   State<_TextComposeDialog> createState() => _TextComposeDialogState();
@@ -4202,20 +4237,8 @@ class _TextComposeDialog extends StatefulWidget {
 
 class _TextComposeDialogState extends State<_TextComposeDialog> {
   final controller = TextEditingController();
-  bool tooLarge = false;
-
-  Future<void> _submit() async {
-    final text = controller.text;
-    if (utf8.encode(text).length > 1024 * 1024) {
-      setState(() => tooLarge = true);
-      return;
-    }
-    if (widget.recipientName == null) FocusScope.of(context).unfocus();
-    final peer = await widget.choosePeer();
-    if (mounted && peer != null && ModalRoute.of(context)?.isCurrent == true) {
-      Navigator.pop(context, (peer: peer, text: text));
-    }
-  }
+  String? selected;
+  String? error;
 
   @override
   void dispose() {
@@ -4223,26 +4246,89 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
     super.dispose();
   }
 
+  void _submit(String peer) {
+    final t = AppLocalizations.of(context)!;
+    final text = controller.text;
+    if (utf8.encode(text).length > 1024 * 1024) {
+      setState(() => error = t.textTooLarge);
+    } else if (!widget.isPaired(peer)) {
+      setState(() => error = t.sendDeviceSelectAgain);
+    } else {
+      Navigator.pop(context, (peer: peer, text: text));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
-    final recipient = widget.recipientName;
+    final onlyPeer = widget.devices.keys.singleOrNull;
+    final target = onlyPeer ?? selected;
     return AlertDialog(
       scrollable: true,
       title: Text(t.sendText),
       content: SizedBox(
         width: 480,
-        child: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 4,
-          maxLines: 12,
-          decoration: InputDecoration(
-            hintText: t.enterText,
-            errorText: tooLarge ? t.textTooLarge : null,
-            errorMaxLines: 3,
-          ),
-          onChanged: (_) => setState(() => tooLarge = false),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              minLines: 4,
+              maxLines: 12,
+              decoration: InputDecoration(hintText: t.enterText),
+              onChanged: (_) => setState(() => error = null),
+            ),
+            if (onlyPeer == null) ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                key: const ValueKey('text-recipient'),
+                isExpanded: true,
+                itemHeight: null,
+                decoration: InputDecoration(
+                  labelText: t.chooseDevice,
+                  border: const OutlineInputBorder(),
+                ),
+                selectedItemBuilder: (_) => [
+                  for (final device in widget.devices.values)
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(device.name, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                items: [
+                  for (final entry in widget.devices.entries)
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          '${entry.value.name} · ${entry.value.status}',
+                        ),
+                      ),
+                    ),
+                ],
+                onChanged: (id) => setState(() {
+                  selected = id;
+                  error = null;
+                }),
+              ),
+            ],
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
       actions: [
@@ -4251,9 +4337,13 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
           child: Text(t.cancel),
         ),
         FilledButton(
-          onPressed: controller.text.isEmpty ? null : _submit,
+          onPressed: controller.text.isEmpty || target == null
+              ? null
+              : () => _submit(target),
           child: Text(
-            recipient == null ? t.chooseDevice : t.sendToDevice(recipient),
+            target == null
+                ? t.sendAction
+                : t.sendToDevice(widget.devices[target]!.name),
           ),
         ),
       ],

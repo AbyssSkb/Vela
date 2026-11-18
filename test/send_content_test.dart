@@ -19,7 +19,8 @@ class RecordingNode extends fakes.FakeNode {
   String? sentName;
   String? attemptedPath;
   Completer<void>? sendGate;
-  bool failNext = false;
+  String? nextFailure;
+  TransferProgress? currentProgress;
   @override
   TransferJob newTransferJob() => RecordingTransferJob(this);
 }
@@ -28,6 +29,9 @@ class RecordingTransferJob extends fakes.FakeTransferJob {
   RecordingTransferJob(this.node);
   final RecordingNode node;
   @override
+  TransferProgress progress() => node.currentProgress ?? super.progress();
+
+  @override
   Future<void> sendFile({
     required String peerId,
     required String path,
@@ -35,9 +39,9 @@ class RecordingTransferJob extends fakes.FakeTransferJob {
   }) async {
     node.attemptedPath = path;
     await node.sendGate?.future;
-    if (node.failNext) {
-      node.failNext = false;
-      throw Exception('[vela:declined] Transfer declined');
+    if (node.nextFailure case final failure?) {
+      node.nextFailure = null;
+      throw Exception(failure);
     }
     node.sentText = await File(path).readAsString();
     node.sentKind = kind;
@@ -187,6 +191,22 @@ void main() {
           expect(node.attemptedPath, isNull);
           await tester.tap(send);
           await waitForHome(tester, () => node.attemptedPath != null);
+          expect(find.text('Connecting to Phone'), findsOneWidget);
+          node.currentProgress = TransferProgress(
+            done: BigInt.zero,
+            total: BigInt.from(80),
+            path: 'direct',
+            udpBytesSent: BigInt.zero,
+          );
+          await tester.pump(const Duration(milliseconds: 350));
+          expect(find.text('Waiting for Phone to respond'), findsOneWidget);
+          node.currentProgress = TransferProgress(
+            done: BigInt.from(40),
+            total: BigInt.from(80),
+            path: 'direct',
+            udpBytesSent: BigInt.from(42),
+          );
+          await tester.pump(const Duration(milliseconds: 350));
           expect(find.text('Sending to Phone'), findsOneWidget);
           expect(
             find.descendant(
@@ -204,7 +224,10 @@ void main() {
             findsOneWidget,
           );
           expect(
-            find.descendant(of: receipt, matching: find.text('Text')),
+            find.descendant(
+              of: receipt,
+              matching: find.text('Hello from Vela'),
+            ),
             findsOneWidget,
           );
           expect(find.text('Sent to Phone'), findsOneWidget);
@@ -236,33 +259,24 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.enterText(find.byType(TextField), 'Hello from Vela');
         await tester.pump();
-        final next = find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.byType(FilledButton),
-        );
-        await tester.tap(next);
+        final recipient = find.byKey(const ValueKey('text-recipient'));
+        await tester.tap(recipient);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(
-          find.descendant(
-            of: find.byType(BottomSheet),
-            matching: find.text('Choose a device'),
-          ),
-          findsOneWidget,
-        );
-        expect(find.text('Ready to send: Text'), findsOneWidget);
-        final sheet = find.byType(BottomSheet);
-        expect(
-          find.descendant(of: sheet, matching: find.text('Checking')),
-          findsWidgets,
-        );
+        expect(find.textContaining('Phone · '), findsOneWidget);
+        expect(find.byType(BottomSheet), findsNothing);
         await tester.binding.handlePopRoute();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('Hello from Vela'), findsOneWidget);
         expect(node.sentText, isNull);
-        await tester.tap(next);
-        await choosePhone(tester);
+        await tester.tap(recipient);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.textContaining('Phone · '));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
         await waitForSend(tester);
         expect(node.sentText, 'Hello from Vela');
         expect(node.sentKind, 'typed_text');
@@ -274,7 +288,7 @@ void main() {
   testWidgets('retry keeps the prepared send after another notice', (
     tester,
   ) async {
-    final node = RecordingNode()..failNext = true;
+    final node = RecordingNode()..nextFailure = 'Connection interrupted';
     await withHomeTestEnvironment(
       tester,
       devices: devices,
@@ -286,8 +300,13 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.enterText(find.byType(TextField), 'Original retry text');
         await tester.pump();
-        await tester.tap(find.widgetWithText(FilledButton, 'Choose a device'));
-        await choosePhone(tester);
+        await tester.tap(find.byKey(const ValueKey('text-recipient')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.textContaining('Phone · '));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
         final retry = find.text('Retry');
         await waitForHome(tester, () => retry.evaluate().isNotEmpty);
         final prepared = File(node.attemptedPath!);
@@ -305,6 +324,45 @@ void main() {
         expect(node.sentText, 'Original retry text');
         expect(node.attemptedPath, prepared.path);
         expect(prepared.existsSync(), isFalse);
+      },
+    );
+  });
+
+  testWidgets('explicit decline closes the send and preserves the result', (
+    tester,
+  ) async {
+    final node = RecordingNode()
+      ..nextFailure = '[vela:declined] Transfer declined';
+    await withHomeTestEnvironment(
+      tester,
+      devices: onlyPhone,
+      api: fakes.FakeRustApi(node),
+      run: (_) async {
+        await openHome(tester);
+        await tester.tap(find.byKey(const ValueKey('send-text')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.enterText(find.byType(TextField), 'Meeting notes');
+        await tester.pump();
+        await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
+        final rejected = find.text('Phone declined the transfer.');
+        await waitForHome(tester, () => rejected.evaluate().isNotEmpty);
+        expect(find.byKey(const ValueKey('retry-send')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('send-text')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('send-receipt')),
+            matching: find.text('Meeting notes'),
+          ),
+          findsOneWidget,
+        );
+        await waitForHome(
+          tester,
+          () => !File(node.attemptedPath!).existsSync(),
+        );
       },
     );
   });

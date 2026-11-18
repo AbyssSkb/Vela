@@ -161,7 +161,6 @@
   "nameVisible": "其他设备会看到此名称",
   "deviceAliasHint": "只在本设备显示",
   "selectFileFirst": "选择文件后，再选择接收设备",
-  "noDevices": "请先添加设备",
   "requestAccepted": "已添加设备",
   "deviceCodeShort": "设备码 {code}",
   "@deviceCodeShort": {
@@ -212,7 +211,7 @@
       }
     }
   },
-  "connectingTo": "正在发送给 {name}",
+  "connectingTo": "正在连接 {name}",
   "@connectingTo": {
     "placeholders": {
       "name": {
@@ -484,5 +483,26 @@
   "trayOpen": "打开 Vela",
   "trayQuit": "退出",
   "desktopBackgroundLimits": "退出 Vela 或电脑进入睡眠后会停止接收。托盘是否可用取决于桌面环境。",
-  "desktopTray": "系统托盘"
+  "desktopTray": "系统托盘",
+  "graphPairedDevicesHint": "连线表示已配对。切换到列表可查看连接状态。",
+  "deviceRecheckHint": "请在另一台设备上打开 Vela，再检查连接状态。",
+  "addDeviceToContinueSending": "添加设备后即可继续发送这份内容。",
+  "sendAction": "发送",
+  "sendDeviceSelectAgain": "此设备已解除配对。请选择另一台设备。",
+  "waitingForRecipient": "正在等待 {name} 响应",
+  "@waitingForRecipient": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendDeclinedBy": "{name} 已拒绝接收。",
+  "@sendDeclinedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }
