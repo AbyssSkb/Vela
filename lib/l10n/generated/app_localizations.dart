@@ -329,13 +329,13 @@ abstract class AppLocalizations {
   /// No description provided for @emptyDevices.
   ///
   /// In en, this message translates to:
-  /// **'Open Vela on both devices. Show the code on one, then add it on the other.'**
+  /// **'Open Vela on both devices. Choose Show device code on one and Add device on the other.'**
   String get emptyDevices;
 
   /// No description provided for @showMyCode.
   ///
   /// In en, this message translates to:
-  /// **'Show my QR code'**
+  /// **'Show device code'**
   String get showMyCode;
 
   /// No description provided for @deviceCode.
@@ -356,6 +356,12 @@ abstract class AppLocalizations {
   /// **'Device code copied'**
   String get deviceCodeCopied;
 
+  /// No description provided for @copyDeviceCodeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not copy the device code. You can select and copy it manually.'**
+  String get copyDeviceCodeFailed;
+
   /// No description provided for @showDeviceCode.
   ///
   /// In en, this message translates to:
@@ -365,13 +371,13 @@ abstract class AppLocalizations {
   /// No description provided for @enterOrScan.
   ///
   /// In en, this message translates to:
-  /// **'On the other device, open This device to show its code. Enter it here or scan its QR code.'**
+  /// **'On the other device, choose Show device code. Enter the code here or scan the QR code.'**
   String get enterOrScan;
 
   /// No description provided for @enterCode.
   ///
   /// In en, this message translates to:
-  /// **'On the other device, open This device and enter its code here.'**
+  /// **'On the other device, choose Show device code and enter its code here.'**
   String get enterCode;
 
   /// No description provided for @scanCode.
@@ -389,8 +395,14 @@ abstract class AppLocalizations {
   /// No description provided for @cameraError.
   ///
   /// In en, this message translates to:
-  /// **'Cannot open the camera. Check camera permission.'**
+  /// **'Could not open the camera. Enter the device code manually to continue.'**
   String get cameraError;
+
+  /// No description provided for @cameraPermissionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow camera access in app settings to scan a device code.'**
+  String get cameraPermissionNeeded;
 
   /// No description provided for @enterCodeManually.
   ///
@@ -401,7 +413,7 @@ abstract class AppLocalizations {
   /// No description provided for @invalidDeviceQr.
   ///
   /// In en, this message translates to:
-  /// **'Scan the QR code shown in This device on the other device.'**
+  /// **'Choose Show device code on the other device and scan its QR code.'**
   String get invalidDeviceQr;
 
   /// No description provided for @invalidDeviceCode.
@@ -437,7 +449,7 @@ abstract class AppLocalizations {
   /// No description provided for @confirmOwnDevice.
   ///
   /// In en, this message translates to:
-  /// **'Open This device on the device that sent this request. Check that its device code starts and ends with the characters below.'**
+  /// **'Choose Show device code on the device that sent this request. Check that the first and last characters match.'**
   String get confirmOwnDevice;
 
   /// No description provided for @reject.

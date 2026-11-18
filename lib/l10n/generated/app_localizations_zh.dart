@@ -128,10 +128,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectDevices => '连接你的设备';
 
   @override
-  String get emptyDevices => '在两台设备上打开 Vela。一台出示设备码，另一台添加。';
+  String get emptyDevices => '在两台设备上打开 Vela。一台选择「出示设备码」，另一台选择「添加设备」。';
 
   @override
-  String get showMyCode => '出示本机二维码';
+  String get showMyCode => '出示设备码';
 
   @override
   String get deviceCode => '设备码';
@@ -143,13 +143,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceCodeCopied => '设备码已复制';
 
   @override
+  String get copyDeviceCodeFailed => '无法复制设备码。你可以选中设备码并手动复制。';
+
+  @override
   String get showDeviceCode => '在另一台设备上选择「添加设备」，扫描二维码或输入设备码，再回到本机确认配对。';
 
   @override
-  String get enterOrScan => '在另一台设备上打开「我的设备」，在这里输入设备码或扫描二维码。';
+  String get enterOrScan => '在另一台设备上选择「出示设备码」。在这里输入设备码或扫描二维码。';
 
   @override
-  String get enterCode => '在另一台设备上打开「我的设备」，在这里输入它的设备码。';
+  String get enterCode => '在另一台设备上选择「出示设备码」，然后在这里输入它的设备码。';
 
   @override
   String get scanCode => '扫码填写设备码';
@@ -158,13 +161,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scanTitle => '扫描设备码';
 
   @override
-  String get cameraError => '无法打开相机，请检查相机权限';
+  String get cameraError => '无法打开相机。请手动输入设备码以继续。';
+
+  @override
+  String get cameraPermissionNeeded => '请在应用设置中允许相机权限，再扫描设备码。';
 
   @override
   String get enterCodeManually => '手动输入设备码';
 
   @override
-  String get invalidDeviceQr => '请扫描另一台设备在「我的设备」中显示的二维码。';
+  String get invalidDeviceQr => '请在另一台设备上选择「出示设备码」，再扫描它的二维码。';
 
   @override
   String get invalidDeviceCode => '请输入 64 位设备码';
@@ -182,7 +188,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pairRequest => '添加设备？';
 
   @override
-  String get confirmOwnDevice => '在发起请求的设备上打开「我的设备」，核对设备码开头和末尾的字符是否与下方一致。';
+  String get confirmOwnDevice => '在发起请求的设备上选择「出示设备码」，核对设备码开头和末尾的字符。';
 
   @override
   String get reject => '拒绝';

@@ -1,9 +1,12 @@
-import 'dart:io';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'l10n/generated/app_localizations.dart';
+import 'notice.dart';
 
 class AddDeviceDialog extends StatefulWidget {
   const AddDeviceDialog({super.key});
@@ -45,6 +48,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
+    final canScan = defaultTargetPlatform == TargetPlatform.android;
     return AlertDialog(
       title: Text(t.addDevice),
       content: SizedBox(
@@ -55,7 +59,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                Platform.isAndroid ? t.enterOrScan : t.enterCode,
+                canScan ? t.enterOrScan : t.enterCode,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
@@ -78,15 +82,16 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                     vertical: 14,
                   ),
                   border: const OutlineInputBorder(),
-                  suffixIcon: Platform.isAndroid
-                      ? IconButton(
-                          tooltip: t.scanCode,
-                          onPressed: _scan,
-                          icon: const Icon(Icons.qr_code_scanner_rounded),
-                        )
-                      : null,
                 ),
               ),
+              if (canScan) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _scan,
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  label: Text(t.scanCode),
+                ),
+              ],
             ],
           ),
         ),
@@ -119,9 +124,50 @@ class _ScanDevicePage extends StatefulWidget {
   State<_ScanDevicePage> createState() => _ScanDevicePageState();
 }
 
-class _ScanDevicePageState extends State<_ScanDevicePage> {
+class _ScanDevicePageState extends State<_ScanDevicePage>
+    with WidgetsBindingObserver {
+  final scanner = MobileScannerController();
+  bool openedSettings = false;
   bool scanned = false;
   bool invalidCode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(scanner.dispose());
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && openedSettings) {
+      openedSettings = false;
+      unawaited(scanner.start());
+    }
+  }
+
+  Future<void> _openAppSettings() async {
+    openedSettings = true;
+    try {
+      await const MethodChannel('vela/background')
+          .invokeMethod<void>('settings', {'section': 'app'});
+    } catch (_) {
+      openedSettings = false;
+      if (mounted) {
+        showNotice(
+          context,
+          AppLocalizations.of(context)!.backgroundSettingsOpenFailed,
+          kind: NoticeKind.error,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,12 +175,30 @@ class _ScanDevicePageState extends State<_ScanDevicePage> {
     return Scaffold(
       appBar: AppBar(title: Text(t.scanTitle)),
       body: MobileScanner(
-        errorBuilder: (_, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(t.cameraError, textAlign: TextAlign.center),
-          ),
-        ),
+        controller: scanner,
+        errorBuilder: (_, error) {
+          final denied =
+              error.errorCode == MobileScannerErrorCode.permissionDenied;
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    denied ? t.cameraPermissionNeeded : t.cameraError,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (denied)
+                    TextButton(
+                      onPressed: _openAppSettings,
+                      child: Text(t.backgroundOpenBatterySettings),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
         onDetect: (capture) {
           if (scanned) return;
           for (final barcode in capture.barcodes) {
