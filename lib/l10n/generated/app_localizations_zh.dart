@@ -744,7 +744,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoAccept => '自动接收';
 
   @override
-  String get autoAcceptHint => '收到内容时无需确认';
+  String get autoAcceptHint => '自动接收已配对设备发来的内容';
 
   @override
   String get retry => '重试';
@@ -777,7 +777,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get useDownloads => '使用下载目录';
 
   @override
-  String get saveLocationUnavailable => '无法访问保存位置，请重新选择';
+  String get saveLocationUnavailable => 'Vela 无法访问所选文件夹。';
+
+  @override
+  String get chooseSaveLocationAgain => '重新选择保存位置';
 
   @override
   String get savingFile => '正在保存';
@@ -801,7 +804,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get relayEnabledDetail => '未配置时使用 Iroh 官方中继';
 
   @override
-  String get relayDisabledDetail => '使用 Iroh 官方中继';
+  String get relayCustomActive => '当前使用自定义中继';
+
+  @override
+  String get relayPublicActive => '当前使用 Iroh 公共中继';
 
   @override
   String get relayToggleFailed => '无法更改中继设置';
@@ -811,12 +817,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get relayCustomOnly => '仅使用自定义中继。请在其他设备配置相同的中继列表。';
-
-  @override
-  String get relayPublic => '公共中继';
-
-  @override
-  String get relayPublicDetail => '默认候选';
 
   @override
   String get relayShowToken => '显示令牌';

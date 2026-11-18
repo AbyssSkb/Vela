@@ -361,23 +361,160 @@ class _SettingsPageState extends State<SettingsPage>
         ],
       ),
     );
+    final content = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          section(t.settingsDevice, [
+            row(Icons.devices_outlined, t.deviceName, name, _rename),
+          ]),
+          section(t.settingsReceiving, [
+            if (background != null) ...[
+              row(
+                Icons.notifications_active_outlined,
+                t.backgroundReceiving,
+                background.statusText(
+                  t,
+                  backgroundEnabled,
+                  backgroundStatus,
+                  autoAccept: autoAccept,
+                ),
+                _showBackgroundSettings,
+                maxLines: null,
+              ),
+              divider(),
+            ],
+            if (Platform.isAndroid ||
+                Platform.isMacOS ||
+                DesktopPlatform.isWindowsOrLinux) ...[
+              row(
+                Icons.folder_outlined,
+                saveLocationAvailable
+                    ? t.saveLocation
+                    : t.chooseSaveLocationAgain,
+                !saveLocationAvailable
+                    ? t.saveLocationUnavailable
+                    : defaultSaveLocation
+                    ? t.downloadsFolder
+                    : (saveLocationLabel ?? t.chooseFolder),
+                () => _chooseSaveLocation(),
+                maxLines: saveLocationAvailable ? 1 : null,
+                trailing: !defaultSaveLocation || !saveLocationAvailable
+                    ? IconButton(
+                        tooltip: t.useDownloads,
+                        onPressed: () => _chooseSaveLocation(reset: true),
+                        icon: const Icon(Icons.restart_alt_rounded),
+                      )
+                    : null,
+              ),
+              divider(),
+            ],
+            switchRow(
+              Icons.move_to_inbox_outlined,
+              t.autoAccept,
+              t.autoAcceptHint,
+              autoAccept,
+              (value) async {
+                final prefs = await SharedPreferences.getInstance();
+                if (await prefs.setBool(
+                      'auto_accept_${widget.profile}',
+                      value,
+                    ) &&
+                    mounted) {
+                  setState(() => autoAccept = value);
+                }
+              },
+            ),
+            if (Platform.isMacOS) ...[
+              divider(),
+              switchRow(
+                Icons.open_in_new_rounded,
+                t.focusOnReceive,
+                t.focusOnReceiveHint,
+                macFocus,
+                (value) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  if (await prefs.setBool(
+                        'mac_focus_on_offer_${widget.profile}',
+                        value,
+                      ) &&
+                      mounted) {
+                    setState(() => macFocus = value);
+                  }
+                },
+              ),
+            ],
+            if (Platform.isAndroid) ...[
+              divider(),
+              row(
+                Icons.notifications_outlined,
+                t.notificationSettings,
+                t.notificationChannelHint,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const NotificationSettingsPage(),
+                  ),
+                ),
+              ),
+            ],
+          ]),
+          section(t.settingsDisplay, [
+            row(
+              Icons.language_rounded,
+              t.language,
+              languages[language] ?? t.systemDefault,
+              () => _choose('language', language, languages),
+            ),
+            divider(),
+            row(
+              Icons.palette_outlined,
+              t.appearance,
+              appearances[appearance] ?? t.systemDefault,
+              () => _choose('appearance', appearance, appearances),
+            ),
+          ]),
+          section(t.settingsTroubleshooting, [
+            row(
+              Icons.dns_outlined,
+              t.relaySettings,
+              t.relaySettingsHint,
+              widget.relaySettings,
+            ),
+            divider(),
+            row(
+              Icons.monitor_heart_outlined,
+              t.diagnostics,
+              Localizations.localeOf(context).languageCode == 'zh'
+                  ? '查看连接状态与事件'
+                  : 'Connection status and events',
+              widget.diagnostics,
+            ),
+          ]),
+          if (widget.updates != null) ...[
+            const SizedBox(height: 12),
+            AppUpdateTile(controller: widget.updates!),
+          ],
+        ],
+      ),
+    );
     return Scaffold(
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                Platform.isMacOS ? 38 : 8,
-                20,
-                24,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    Platform.isMacOS ? 38 : 8,
+                    20,
+                    12,
+                  ),
+                  child: Row(
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
@@ -386,144 +523,18 @@ class _SettingsPageState extends State<SettingsPage>
                         icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        t.settings,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                      Expanded(
+                        child: Text(
+                          t.settings,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  section(t.settingsDevice, [
-                    row(Icons.devices_outlined, t.deviceName, name, _rename),
-                  ]),
-                  section(t.settingsReceiving, [
-                    if (background != null) ...[
-                      row(
-                        Icons.notifications_active_outlined,
-                        t.backgroundReceiving,
-                        background.statusText(
-                          t,
-                          backgroundEnabled,
-                          backgroundStatus,
-                          autoAccept: autoAccept,
-                        ),
-                        _showBackgroundSettings,
-                        maxLines: null,
-                      ),
-                      divider(),
-                    ],
-                    if (Platform.isAndroid ||
-                        Platform.isMacOS ||
-                        DesktopPlatform.isWindowsOrLinux) ...[
-                      row(
-                        Icons.folder_outlined,
-                        t.saveLocation,
-                        !saveLocationAvailable
-                            ? t.saveLocationUnavailable
-                            : defaultSaveLocation
-                            ? t.downloadsFolder
-                            : (saveLocationLabel ?? t.chooseFolder),
-                        () => _chooseSaveLocation(),
-                        trailing: !defaultSaveLocation || !saveLocationAvailable
-                            ? IconButton(
-                                tooltip: t.useDownloads,
-                                onPressed: () =>
-                                    _chooseSaveLocation(reset: true),
-                                icon: const Icon(Icons.restart_alt_rounded),
-                              )
-                            : null,
-                      ),
-                      divider(),
-                    ],
-                    switchRow(
-                      Icons.move_to_inbox_outlined,
-                      t.autoAccept,
-                      t.autoAcceptHint,
-                      autoAccept,
-                      (value) async {
-                        final prefs = await SharedPreferences.getInstance();
-                        if (await prefs.setBool(
-                              'auto_accept_${widget.profile}',
-                              value,
-                            ) &&
-                            mounted) {
-                          setState(() => autoAccept = value);
-                        }
-                      },
-                    ),
-                    if (Platform.isMacOS) ...[
-                      divider(),
-                      switchRow(
-                        Icons.open_in_new_rounded,
-                        t.focusOnReceive,
-                        t.focusOnReceiveHint,
-                        macFocus,
-                        (value) async {
-                          final prefs = await SharedPreferences.getInstance();
-                          if (await prefs.setBool(
-                                'mac_focus_on_offer_${widget.profile}',
-                                value,
-                              ) &&
-                              mounted) {
-                            setState(() => macFocus = value);
-                          }
-                        },
-                      ),
-                    ],
-                    if (Platform.isAndroid) ...[
-                      divider(),
-                      row(
-                        Icons.notifications_outlined,
-                        t.notificationSettings,
-                        t.notificationChannelHint,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => const NotificationSettingsPage(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ]),
-                  section(t.settingsDisplay, [
-                    row(
-                      Icons.language_rounded,
-                      t.language,
-                      languages[language] ?? t.systemDefault,
-                      () => _choose('language', language, languages),
-                    ),
-                    divider(),
-                    row(
-                      Icons.palette_outlined,
-                      t.appearance,
-                      appearances[appearance] ?? t.systemDefault,
-                      () => _choose('appearance', appearance, appearances),
-                    ),
-                  ]),
-                  section(t.settingsTroubleshooting, [
-                    row(
-                      Icons.dns_outlined,
-                      t.relaySettings,
-                      t.relaySettingsHint,
-                      widget.relaySettings,
-                    ),
-                    divider(),
-                    row(
-                      Icons.monitor_heart_outlined,
-                      t.diagnostics,
-                      Localizations.localeOf(context).languageCode == 'zh'
-                          ? '查看连接状态与事件'
-                          : 'Connection status and events',
-                      widget.diagnostics,
-                    ),
-                  ]),
-                  if (widget.updates != null) ...[
-                    const SizedBox(height: 12),
-                    AppUpdateTile(controller: widget.updates!),
-                  ],
-                ],
-              ),
+                ),
+                Expanded(child: content),
+              ],
             ),
           ),
         ),

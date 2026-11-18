@@ -41,6 +41,7 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
   late bool enabled = widget.enabled;
   bool changingEnabled = false;
   String? testingRelay;
+  final testResults = <String, String>{};
 
   Future<void> _setEnabled(bool value) async {
     if (changingEnabled) return;
@@ -71,19 +72,19 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
 
   Future<void> _testRelay(String url) async {
     if (testingRelay != null || changingEnabled) return;
-    setState(() => testingRelay = url);
+    setState(() {
+      testingRelay = url;
+      testResults.remove(url);
+    });
     var result = 'failed';
     try {
       result = await widget.test(url, await widget.readToken(url));
     } catch (_) {}
     if (!mounted) return;
-    setState(() => testingRelay = null);
-    final t = AppLocalizations.of(context)!;
-    showNotice(
-      context,
-      _relayTestMessage(t, result),
-      kind: result == 'connected' ? NoticeKind.success : NoticeKind.error,
-    );
+    setState(() {
+      testingRelay = null;
+      testResults[url] = result;
+    });
   }
 
   Future<void> _add() async {
@@ -98,7 +99,7 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
   Future<void> _edit(String oldUrl) async {
     try {
       final token = await widget.readToken(oldUrl);
-      if (!mounted) return;
+      if (!mounted || testingRelay == oldUrl) return;
       final result = await showDialog<String>(
         context: context,
         builder: (_) => _AddRelayDialog(
@@ -112,6 +113,7 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
       );
       if (result != null && mounted) {
         setState(() {
+          testResults.remove(oldUrl);
           final index = relays.indexOf(oldUrl);
           if (result.isEmpty) {
             relays.removeAt(index);
@@ -135,6 +137,7 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
+    final customActive = useCustomRelays(enabled, relays);
     Widget divider() => Divider(
       height: 1,
       indent: 60,
@@ -174,6 +177,13 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: Text(
+                    customActive ? t.relayCustomActive : t.relayPublicActive,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
                 Material(
                   color: colors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(18),
@@ -186,9 +196,11 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                       t.relayEnabled,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: Text(
-                      enabled ? t.relayEnabledDetail : t.relayDisabledDetail,
-                    ),
+                    subtitle: customActive
+                        ? Text(t.relayCustomOnly)
+                        : enabled
+                        ? Text(t.relayEnabledDetail)
+                        : null,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -198,26 +210,6 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      if (relays.isEmpty)
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 6,
-                          ),
-                          leading: Icon(
-                            Icons.public_rounded,
-                            size: 22,
-                            color: colors.primary,
-                          ),
-                          title: Text(
-                            t.relayPublic,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            t.relayPublicDetail,
-                            style: TextStyle(color: colors.onSurfaceVariant),
-                          ),
-                        ),
                       for (final url in relays) ...[
                         if (url != relays.first) divider(),
                         ListTile(
@@ -237,6 +229,13 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
+                          subtitle: switch (testResults[url]) {
+                            final result? => Semantics(
+                              liveRegion: true,
+                              child: Text(_relayTestMessage(t, result)),
+                            ),
+                            null => null,
+                          },
                           trailing: TextButton(
                             key: ValueKey('test-relay-$url'),
                             onPressed: testingRelay == null && !changingEnabled
@@ -252,10 +251,12 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                                   )
                                 : Text(t.relayTestShort),
                           ),
-                          onTap: changingEnabled ? null : () => _edit(url),
+                          onTap: changingEnabled || testingRelay == url
+                              ? null
+                              : () => _edit(url),
                         ),
                       ],
-                      divider(),
+                      if (relays.isNotEmpty) divider(),
                       ListTile(
                         key: const ValueKey('add-relay'),
                         contentPadding: const EdgeInsets.symmetric(
@@ -279,15 +280,6 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                     ],
                   ),
                 ),
-                if (enabled && relays.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: Text(
-                      t.relayCustomOnly,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: colors.onSurfaceVariant),
-                    ),
-                  ),
               ],
             ),
           ),

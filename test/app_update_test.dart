@@ -471,7 +471,9 @@ void main() {
           home: Scaffold(body: AppUpdateTile(controller: controller)),
         ),
       );
-      await tester.tap(find.byKey(const ValueKey('app-update')));
+      expect(find.text('Version 1.1.0'), findsOneWidget);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('install-update')));
       await tester.pumpAndSettle();
       expect(find.text('Install update?'), findsOneWidget);
       expect(calls.where((c) => c.method == 'installDownloaded'), isEmpty);
@@ -491,10 +493,10 @@ void main() {
           home: Scaffold(body: AppUpdateTile(controller: controller)),
         ),
       );
-      await tester.tap(find.byKey(const ValueKey('app-update')));
+      await tester.tap(find.byKey(const ValueKey('install-update')));
       await tester.pumpAndSettle();
       await controller.setBusy(true);
-      await tester.tap(find.text('Install'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Install').last);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(
