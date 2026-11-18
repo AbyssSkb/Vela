@@ -21,7 +21,7 @@ Vela connects your personal devices to share files, folders, text, and clipboard
 - **Send files and folders.** Select multiple files, or package a folder and restore it on the receiving device. See progress and speed, and cancel a transfer in flight.
 - **Share your clipboard.** Explicitly send text, an image, or a single file. You can also type a message or send a link.
 - **Use familiar sharing actions.** Send from other Android and macOS apps, or drag files into Vela on desktop.
-- **Keep trusted devices close.** Pair by device code or scan a QR code on Android. View paired devices as a list or a graph, and revoke trust by removing a device.
+- **Keep trusted devices close.** Pair by device code or scan a QR code on Android. View paired devices in the list, switch to the graph from the toolbar, or remove a device to revoke trust.
 - **Receive in the background.** Enable Android's receiver, use the Mac menu bar, or leave Windows/Linux running in the system tray. Incoming transfers ask for approval by default; automatic acceptance is optional.
 - **Keep Vela updated.** Release builds check and download verified updates automatically. You choose when to install; active transfers and pairing must finish first.
 - **Find what you received.** Search local history, open received files and links, and choose where files are saved. The interface supports English and Simplified Chinese.
