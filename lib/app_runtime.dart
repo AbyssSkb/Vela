@@ -38,7 +38,7 @@ class AppRuntime {
     required this.onStartupFailure,
     required this.onMembershipChanging,
     required this.onStateChanged,
-    required this.onMembershipSettled,
+    required this.onMembershipWriteFinished,
   });
 
   static const secureStorage = FlutterSecureStorage(
@@ -56,7 +56,7 @@ class AppRuntime {
   bool startupCleanupComplete = true;
   final void Function(PeerState, Set<String>) onMembershipChanging;
   final void Function(PeerState, Set<String>) onStateChanged;
-  final void Function(Set<String>) onMembershipSettled;
+  final void Function(Set<String>) onMembershipWriteFinished;
 
   VelaNode? get node => _node;
   PairedDevices? get devices => _devices;
@@ -187,7 +187,7 @@ class AppRuntime {
       openingNode = node;
       completed();
       entering('trust');
-      await node.replaceTrustedPeers(trusted: state.peers.keys.toList());
+      await node.replaceTrustedPeers(trusted: state.deviceIds.toList());
       completed();
       entering('nodeInfo');
       await node.setDeviceInfo(name: name, deviceType: type);
@@ -200,7 +200,7 @@ class AppRuntime {
         initialState: state,
         onMembershipChanging: onMembershipChanging,
         onStateChanged: onStateChanged,
-        onMembershipSettled: onMembershipSettled,
+        onMembershipWriteFinished: onMembershipWriteFinished,
       );
       openingNode = null;
       openingStore = null;

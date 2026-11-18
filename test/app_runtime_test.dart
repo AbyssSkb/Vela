@@ -129,7 +129,7 @@ void main() {
       onStartupFailure: (_) {},
       onMembershipChanging: (_, __) {},
       onStateChanged: (_, __) {},
-      onMembershipSettled: (_) {},
+      onMembershipWriteFinished: (_) {},
     );
   });
 

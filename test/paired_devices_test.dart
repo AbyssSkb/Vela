@@ -70,7 +70,7 @@ void main() {
       initialState: original,
       onMembershipChanging: (updated, changed) {
         expect(devices!.state, same(original));
-        expect(devices!.relationshipFor('old'), isNull);
+        expect(devices!.pairingRevisionFor('old'), isNull);
         expect(changed, {'old', 'new'});
         node.events.add('changing');
       },
@@ -78,7 +78,7 @@ void main() {
         expect(devices!.state, same(state));
         node.events.add('published:${state.peers.keys.join(',')}');
       },
-      onMembershipSettled: (_) => node.events.add('settled'),
+      onMembershipWriteFinished: (_) => node.events.add('settled'),
     );
 
     await devices!.update(
@@ -105,9 +105,9 @@ void main() {
       store: store,
       initialState: original,
       onStateChanged: (_, _) => node.events.add('published'),
-      onMembershipSettled: (_) => node.events.add('settled'),
+      onMembershipWriteFinished: (_) => node.events.add('settled'),
     );
-    final previous = devices!.relationshipFor('old');
+    final previous = devices!.pairingRevisionFor('old');
     final database = await databaseFactoryFfi.openDatabase(databasePath);
     await database.execute('PRAGMA query_only = ON');
     try {
@@ -119,8 +119,8 @@ void main() {
     expect(devices!.state, same(original));
     expect(PeerState.decode((await store.load())!).peers, original.peers);
     expect(node.events.take(2), ['trust:', 'trust:old']);
-    expect(devices!.relationshipFor('old'), isNotNull);
-    expect(devices!.isCurrentRelationship('old', previous), isFalse);
+    expect(devices!.pairingRevisionFor('old'), isNotNull);
+    expect(devices!.isCurrentPairingRevision('old', previous), isFalse);
     expect(node.events, isNot(contains('published')));
     expect(node.events.last, 'settled');
     await devices!.setAlias('old', 'Alias after failure');
@@ -135,7 +135,7 @@ void main() {
         store: store,
         initialState: PeerState(),
       );
-      final first = devices!.beginRelationship('new');
+      final first = devices!.beginPairingRevision('new');
       final gate = Completer<void>();
       node.trustGate = gate;
       final blockingSync = devices!.syncTrust();
@@ -144,19 +144,19 @@ void main() {
         'new',
         'Stale name',
         'desktop',
-        when: () => devices!.isCurrentRelationship('new', first),
+        when: () => devices!.isCurrentPairingRevision('new', first),
       );
-      final second = devices!.beginRelationship('new');
+      final second = devices!.beginPairingRevision('new');
       gate.complete();
       await blockingSync;
       expect(await stalePair, isFalse);
       expect(await store.load(), isNull);
       await devices!.pair('new', 'New name', 'desktop');
-      expect(devices!.isCurrentRelationship('new', second), isTrue);
+      expect(devices!.isCurrentPairingRevision('new', second), isTrue);
       await devices!.setAlias('new', 'Work');
-      expect(devices!.isCurrentRelationship('new', second), isTrue);
+      expect(devices!.isCurrentPairingRevision('new', second), isTrue);
       await devices!.close();
-      expect(devices!.isCurrentRelationship('new', second), isFalse);
+      expect(devices!.isCurrentPairingRevision('new', second), isFalse);
     },
   );
 

@@ -268,7 +268,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     onStartupFailure: _showStartupFailure,
     onMembershipChanging: _invalidatePeerMembership,
     onStateChanged: _publishPeerState,
-    onMembershipSettled: presenceController.membershipSettled,
+    onMembershipWriteFinished: presenceController.membershipWriteFinished,
   );
   VelaNode? get node => runtime.node;
   TransferJob? activeTransfer;
@@ -1276,17 +1276,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!currentNode()) return;
       final devices = pairedDevices!;
       final sender = info.sender;
-      final relationship = devices.relationshipFor(sender);
+      final pairingRevision = devices.pairingRevisionFor(sender);
       bool stillAuthorized() =>
           identical(pairedDevices, devices) &&
-          devices.state.peers.containsKey(sender) &&
-          devices.isCurrentRelationship(sender, relationship);
+          devices.state.containsDevice(sender) &&
+          devices.isCurrentPairingRevision(sender, pairingRevision);
       if (!stillAuthorized()) {
         await offer.decline();
         return;
       }
       unawaited(presenceController.readCurrentSnapshot());
-      String senderName() => devices.state.peers.containsKey(sender)
+      String senderName() => devices.state.containsDevice(sender)
           ? devices.state.displayName(sender)
           : t.device;
       final kind = TransferKind.fromWire(info.kind);
@@ -1481,7 +1481,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _invalidatePeerMembership(PeerState updated, Set<String> changed) {
     presenceController.membershipChanging(changed);
     for (final id in changed) {
-      if (!updated.peers.containsKey(id)) pairings.cancel(id);
+      if (!updated.containsDevice(id)) pairings.cancel(id);
     }
   }
 
@@ -1489,7 +1489,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     presenceController.membershipPublished(state, changed);
     if (mounted)
       setState(
-        () => selectedPeers.removeWhere((id) => !state.peers.containsKey(id)),
+        () => selectedPeers.removeWhere((id) => !state.containsDevice(id)),
       );
   }
 
@@ -1514,7 +1514,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _removeUnpaired(
     VelaNode source,
     String id,
-    Object relationship,
+    Object pairingRevision,
   ) => pairings.serialize(id, () async {
     final devices = pairedDevices;
     if (!mounted || devices == null || !identical(devices.node, source)) return;
@@ -1522,7 +1522,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final removed = await devices.removeIfUnpaired(
         id,
-        relationship,
+        pairingRevision,
         pairingActive: () => pairings.isActiveFor(id),
       );
       if (mounted && removed) _message(t.peerUnpaired(name));

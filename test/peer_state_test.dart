@@ -16,6 +16,11 @@ void main() {
       'types': {'a': 'mobile', 'b': 'desktop'},
       'aliases': {'a': 'My phone'},
     });
+    expect(state.deviceIds, ['a', 'b']);
+    expect(state.containsDevice('a'), isTrue);
+    expect(state.containsDevice('missing'), isFalse);
+    expect(state.reportedName('a'), 'Phone');
+    expect(state.deviceType('a'), 'mobile');
     final updated = state.updateInfo('a', 'New name', 'tablet');
     expect(updated.displayName('a'), 'My phone');
     expect(updated.setAlias('a', null).displayName('a'), 'New name');

@@ -36,15 +36,16 @@ class PairingCollisionArbitration {
 }
 
 class _PairingAttempt {
-  _PairingAttempt(this.devices, this.id, this.relationship);
+  _PairingAttempt(this.devices, this.id, this.pairingRevision);
 
   final PairedDevices devices;
   final String id;
-  final Object? relationship;
+  final Object? pairingRevision;
   final cancelled = Completer<void>();
 
   bool get current =>
-      !cancelled.isCompleted && devices.isCurrentRelationship(id, relationship);
+      !cancelled.isCompleted &&
+      devices.isCurrentPairingRevision(id, pairingRevision);
 
   void cancel() {
     if (!cancelled.isCompleted) cancelled.complete();
@@ -63,9 +64,9 @@ class _PairingAttempt {
 }
 
 class _OutgoingAttempt extends _PairingAttempt {
-  _OutgoingAttempt(PairedDevices devices, String id, Object? relationship)
+  _OutgoingAttempt(PairedDevices devices, String id, Object? pairingRevision)
     : arbitration = PairingCollisionArbitration(id),
-      super(devices, id, relationship);
+      super(devices, id, pairingRevision);
 
   final PairingCollisionArbitration arbitration;
   OutgoingPairing? handle;
@@ -119,10 +120,10 @@ class PairingSessions {
   }
 
   Object? _relationship(PairedDevices devices, String id) {
-    if (isActiveFor(id)) return devices.relationshipFor(id);
-    final relationship = devices.beginRelationship(id);
+    if (isActiveFor(id)) return devices.pairingRevisionFor(id);
+    final pairingRevision = devices.beginPairingRevision(id);
     onPairingStarted(id);
-    return relationship;
+    return pairingRevision;
   }
 
   Future<void> _isolate(_PairingAttempt attempt) => serialize(
@@ -137,8 +138,8 @@ class PairingSessions {
           await devices.syncTrust();
           if (!identical(devices, currentDevices())) return;
           await devices.node.endPairing(peerId: id);
-          if (!isActiveFor(id) && !devices.state.peers.containsKey(id)) {
-            devices.forgetRelationship(id);
+          if (!isActiveFor(id) && !devices.state.containsDevice(id)) {
+            devices.forgetPairingRevision(id);
           }
         } catch (e) {
           debugPrint('Could not finish pairing: $e');

@@ -34,7 +34,15 @@ class PeerState {
     'aliases': aliases,
   });
 
-  String displayName(String id) => aliases[id] ?? peers[id] ?? id;
+  Iterable<String> get deviceIds => peers.keys;
+
+  bool containsDevice(String id) => peers.containsKey(id);
+
+  String? reportedName(String id) => peers[id];
+
+  String? deviceType(String id) => types[id];
+
+  String displayName(String id) => aliases[id] ?? reportedName(id) ?? id;
 
   PeerState add(String id, String name, String type) => PeerState(
     peers: {...peers, id: name},
@@ -43,7 +51,7 @@ class PeerState {
   );
 
   PeerState setAlias(String id, String? alias) {
-    if (!peers.containsKey(id)) return this;
+    if (!containsDevice(id)) return this;
     final next = Map<String, String>.from(aliases)..remove(id);
     if (alias != null && alias.isNotEmpty) next[id] = alias;
     if (next[id] == aliases[id]) return this;
@@ -51,14 +59,15 @@ class PeerState {
   }
 
   PeerState updateInfo(String id, String name, String type) {
-    if (!peers.containsKey(id) || (peers[id] == name && types[id] == type)) {
+    if (!containsDevice(id) ||
+        (reportedName(id) == name && deviceType(id) == type)) {
       return this;
     }
     return add(id, name, type);
   }
 
   PeerState remove(String id) {
-    if (!peers.containsKey(id)) return this;
+    if (!containsDevice(id)) return this;
     return PeerState(
       peers: Map<String, String>.from(peers)..remove(id),
       types: Map<String, String>.from(types)..remove(id),
