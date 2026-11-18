@@ -92,7 +92,7 @@ jobs:
         run: |
           sudo apt-get update
           # AppImages use host graphics drivers; supply EGL/Mesa for this headless display.
-          sudo apt-get install -y xvfb x11-utils dbus-x11 libegl1 libgl1-mesa-dri
+          sudo apt-get install -y xvfb x11-utils dbus-x11 libegl1 libgl1-mesa-dri gnome-keyring
       - name: Extract and open the Linux package
         if: runner.os == 'Linux'
         shell: bash
@@ -111,8 +111,14 @@ jobs:
           export XDG_RUNTIME_DIR="$VELA_SMOKE_ROOT/runtime"
           mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
           chmod 700 "$XDG_RUNTIME_DIR"
-          export FLUTTER_LINUX_RENDERER=software LIBGL_ALWAYS_SOFTWARE=1
+          export LIBGL_ALWAYS_SOFTWARE=1
           xvfb-run -a -s '-screen 0 1280x720x24' dbus-run-session -- bash -euo pipefail <<'SMOKE'
+          # Create an unlocked test keyring in the isolated XDG directories.
+          mkdir -m 700 "$XDG_RUNTIME_DIR/keyring"
+          printf '%s' 'vela-smoke-fixture' | gnome-keyring-daemon --unlock --components=secrets \
+            --control-directory="$XDG_RUNTIME_DIR/keyring" > "$VELA_SMOKE_ROOT/keyring.log" 2>&1
+          dbus-send --session --print-reply --dest=org.freedesktop.DBus \
+            /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner string:org.freedesktop.secrets
           "$VELA_SMOKE_ROOT/squashfs-root/AppRun" > "$VELA_SMOKE_ROOT/app.log" 2>&1 &
           app_pid=$!
           cleanup() {
