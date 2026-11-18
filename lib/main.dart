@@ -1352,58 +1352,40 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         activity = t.receiving(contentName);
         receivedPath = null;
       });
-      final destination = await receivedStorage.receiveDirectory(
-        widget.profile,
-        kind,
-      );
-      if (!stillAuthorized()) {
-        await offer.decline();
-        return;
-      }
-      final staged = kind == TransferKind.batch
-          ? await offer.receiveFiles(
-              directory: destination.path,
-              job: receivingJob,
-            )
-          : [
-              await offer.receiveFile(
-                directory: destination.path,
-                job: receivingJob,
-              ),
-            ];
-      receivedFromPeer = true;
-      final publish = Platform.isAndroid && kind.isFile;
-      if (publish && mounted) {
-        setState(() {
-          contentProcessing = ContentProcessing.savingReceived;
-          activity = t.savingFile;
-          transferProgress = null;
-        });
-      }
-      final finalized = await receivedStorage.finishReceive(
-        staged,
-        publishFromStaging: publish,
-        isCancelled: () => cancelling,
-      );
-      if (publish) contentProcessing = null;
-      final content = await copyAndRecordReceivedContent(
-        files: finalized.files,
+      final received = await receiveAcceptedContent(
+        offer: offer,
+        job: receivingJob,
+        profile: widget.profile,
         kind: kind,
         offeredName: info.name,
         contentName: contentName,
         senderName: senderName,
         history: historyStore,
+        storage: receivedStorage,
+        stillAuthorized: stillAuthorized,
+        onTransportComplete: (savingFromStaging) {
+          receivedFromPeer = true;
+          if (savingFromStaging && mounted) {
+            setState(() {
+              contentProcessing = ContentProcessing.savingReceived;
+              activity = t.savingFile;
+              transferProgress = null;
+            });
+          }
+        },
+        onSaved: () => contentProcessing = null,
+        isCancelled: () => cancelling,
       );
+      if (received == null) return;
       releaseJob();
       _recordDiagnostic('received', sender);
       if (mounted) {
         final message = _showReceivedContent(
           kind,
           info.name,
-          finalized.files,
-          content,
-          savedPrivately:
-              destination.privateFallback || finalized.savedPrivately,
+          received.files,
+          received.content,
+          savedPrivately: received.savedPrivately,
         );
         await prompt.completed(message, foreground: foreground);
       }

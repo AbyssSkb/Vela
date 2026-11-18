@@ -8,6 +8,7 @@ import 'clipboard_content.dart';
 import 'content_kind.dart';
 import 'desktop_platform.dart';
 import 'received_storage.dart';
+import 'src/rust/api/node.dart';
 import 'transfer_history.dart';
 import 'transfer_history_store.dart';
 
@@ -17,6 +18,59 @@ typedef ReceivedContent = ({
   bool clipboardFailed,
   bool historySaved,
 });
+
+Future<
+  ({
+    List<SavedReceivedFile> files,
+    ReceivedContent content,
+    bool savedPrivately,
+  })?
+>
+receiveAcceptedContent({
+  required IncomingRequest offer,
+  required TransferJob job,
+  required String profile,
+  required TransferKind kind,
+  required String offeredName,
+  required String contentName,
+  required String Function() senderName,
+  required TransferHistoryStore history,
+  required ReceivedStorage storage,
+  required bool Function() stillAuthorized,
+  required void Function(bool savingFromStaging) onTransportComplete,
+  required VoidCallback onSaved,
+  required bool Function() isCancelled,
+}) async {
+  final destination = await storage.receiveDirectory(profile, kind);
+  if (!stillAuthorized()) {
+    await offer.decline();
+    return null;
+  }
+  final staged = kind == TransferKind.batch
+      ? await offer.receiveFiles(directory: destination.path, job: job)
+      : [await offer.receiveFile(directory: destination.path, job: job)];
+  final publish = Platform.isAndroid && kind.isFile;
+  onTransportComplete(publish);
+  final saved = await storage.finishReceive(
+    staged,
+    publishFromStaging: publish,
+    isCancelled: isCancelled,
+  );
+  if (publish) onSaved();
+  final content = await copyAndRecordReceivedContent(
+    files: saved.files,
+    kind: kind,
+    offeredName: offeredName,
+    contentName: contentName,
+    senderName: senderName,
+    history: history,
+  );
+  return (
+    files: saved.files,
+    content: content,
+    savedPrivately: destination.privateFallback || saved.savedPrivately,
+  );
+}
 
 Future<ReceivedContent> copyAndRecordReceivedContent({
   required List<SavedReceivedFile> files,
