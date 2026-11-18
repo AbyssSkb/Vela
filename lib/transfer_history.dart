@@ -140,6 +140,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
 
   Future<void> _confirmRemove(Iterable<TransferRecord> records) async {
     final t = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
     final items = records.toList();
     if (items.isEmpty) return;
     var deleteFiles = false;
@@ -147,6 +148,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
           title: Text(t.removeRecordsQuestion(items.length)),
           content: items.any((item) => item.fileReference != null)
               ? CheckboxListTile(
@@ -166,7 +168,15 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, deleteFiles),
-              child: Text(t.remove),
+              style: deleteFiles
+                  ? FilledButton.styleFrom(
+                      backgroundColor: colors.error,
+                      foregroundColor: colors.onError,
+                    )
+                  : null,
+              child: Text(
+                deleteFiles ? t.removeRecordAndFile : t.removeRecordsOnly,
+              ),
             ),
           ],
         ),
@@ -426,21 +436,22 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                     }),
                                   ),
                           ),
-                          ValueListenableBuilder<List<TransferRecord>>(
-                            valueListenable: widget.records,
-                            builder: (context, items, _) =>
-                                !items.any((item) => item.received)
-                                ? const SizedBox.shrink()
-                                : IconButton(
-                                    tooltip: t.clearHistory,
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
+                          if (!searching)
+                            ValueListenableBuilder<List<TransferRecord>>(
+                              valueListenable: widget.records,
+                              builder: (context, items, _) =>
+                                  !items.any((item) => item.received)
+                                  ? const SizedBox.shrink()
+                                  : IconButton(
+                                      tooltip: t.clearHistory,
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                      ),
+                                      onPressed: () => _confirmRemove(
+                                        items.where((item) => item.received),
+                                      ),
                                     ),
-                                    onPressed: () => _confirmRemove(
-                                      items.where((item) => item.received),
-                                    ),
-                                  ),
-                          ),
+                            ),
                         ],
                       ],
                     ),

@@ -81,7 +81,7 @@ Source/development builds without release configuration display **Updates are un
 ## Files and local data
 
 - Received files default to Downloads. Change the destination in settings.
-- Search received history to find text, files, and links. Deleting a history entry can optionally delete its received file.
+- Search received history to find text, files, and links. Select the entries you want to remove from the results. Removing history keeps the received files unless you choose to delete them too.
 - Device identity keys and relay credentials use platform secure storage. Paired-device records, history, and ordinary settings remain local.
 - Vela attempts direct peer connections and falls back to relays. The default setup uses public Iroh discovery and relay infrastructure. Custom relays can be configured in settings; when custom relays are enabled with a nonempty list, that list replaces the default relays.
 

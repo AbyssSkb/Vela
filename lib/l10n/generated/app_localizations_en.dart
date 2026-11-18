@@ -252,17 +252,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Removing records keeps the files. Deleted files cannot be recovered.';
 
   @override
-  String get removeRecordsOnly => 'Records only';
+  String get removeRecordsOnly => 'Remove records only';
 
   @override
   String get removeRecordsAndFiles => 'Also delete files';
 
   @override
-  String get removeRecordAndFile => 'Delete record and file';
+  String get removeRecordAndFile => 'Delete records and files';
 
   @override
-  String get deleteFilesWarning =>
-      'The file will be permanently deleted and cannot be recovered.';
+  String get deleteFilesWarning => 'Deleted files cannot be recovered.';
 
   @override
   String get deleteFilesFailed =>

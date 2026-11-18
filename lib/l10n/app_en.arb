@@ -101,10 +101,10 @@
     }
   },
   "removeRecordsBody": "Removing records keeps the files. Deleted files cannot be recovered.",
-  "removeRecordsOnly": "Records only",
+  "removeRecordsOnly": "Remove records only",
   "removeRecordsAndFiles": "Also delete files",
-  "removeRecordAndFile": "Delete record and file",
-  "deleteFilesWarning": "The file will be permanently deleted and cannot be recovered.",
+  "removeRecordAndFile": "Delete records and files",
+  "deleteFilesWarning": "Deleted files cannot be recovered.",
   "deleteFilesFailed": "Some files could not be deleted; their records were kept.",
   "removalSyncing": "Removed. Syncing to the other device.",
   "receive": "Accept",
