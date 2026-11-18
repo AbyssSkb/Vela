@@ -3,13 +3,29 @@ import 'dart:io';
 
 import 'package:flutter_driver/flutter_driver.dart';
 
-Future<String> readId(FlutterDriver driver) async {
+Future<void> showDeviceCode(FlutterDriver driver) async {
   await driver.waitFor(
-    find.byTooltip('我的设备'),
+    find.byValueKey('add-device'),
     timeout: const Duration(seconds: 30),
   );
-  await driver.tap(find.byTooltip('我的设备'));
-  final id = await driver.getText(find.byValueKey('device-id'));
+  final showCode = find.byValueKey('show-device-code');
+  try {
+    await driver.waitFor(showCode, timeout: const Duration(milliseconds: 500));
+  } on DriverError {
+    await driver.tap(find.byValueKey('home-more'));
+  }
+  await driver.tap(showCode);
+  await driver.waitFor(find.byValueKey('device-id'));
+}
+
+Future<String> readId(FlutterDriver driver) async {
+  await showDeviceCode(driver);
+  final id = await driver.getText(
+    find.descendant(
+      of: find.byValueKey('device-id'),
+      matching: find.byType('EditableText'),
+    ),
+  );
   await driver.tap(find.text('关闭'));
   return id;
 }

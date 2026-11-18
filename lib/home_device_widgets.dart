@@ -92,6 +92,7 @@ class EmptyDevicesSliver extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               TextButton.icon(
+                key: const ValueKey('show-device-code'),
                 onPressed: onShowCode,
                 icon: const Icon(Icons.qr_code_rounded),
                 label: Text(t.showMyCode, textAlign: TextAlign.center),

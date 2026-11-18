@@ -1213,11 +1213,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 const SizedBox(height: 8),
                 Text(t.confirmOwnDevice),
                 const SizedBox(height: 8),
-                Text(
+                SelectableText(
                   t.deviceCodeShort(
                     '${id.substring(0, 8)}…${id.substring(id.length - 8)}',
                   ),
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -2629,13 +2632,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _showMyDeviceDialog() {
     final id = node!.id();
+    String? copyStatus;
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.myDevice),
-        content: SizedBox(
-          width: 380,
-          child: SingleChildScrollView(
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(t.deviceCode),
+          scrollable: true,
+          content: SizedBox(
+            width: 380,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2650,34 +2655,56 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SelectableText(
-                  id,
-                  key: const ValueKey('device-id'),
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                SelectableText.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: id.substring(0, 8),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(text: id.substring(8, id.length - 8)),
+                      TextSpan(
+                        text: id.substring(id.length - 8),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
+                  key: const ValueKey('device-id'),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(fontFamily: 'monospace'),
                 ),
+                if (copyStatus != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(copyStatus!),
+                    ),
+                  ),
               ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(t.close),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                String message;
+                try {
+                  await Clipboard.setData(ClipboardData(text: id));
+                  message = t.deviceCodeCopied;
+                } catch (_) {
+                  message = t.copyDeviceCodeFailed;
+                }
+                if (context.mounted) update(() => copyStatus = message);
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: Text(t.copyDeviceCode),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t.close),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: id));
-              Navigator.pop(context);
-              _message(t.deviceCodeCopied, kind: NoticeKind.success);
-            },
-            icon: const Icon(Icons.copy_rounded, size: 18),
-            label: Text(t.copyDeviceCode),
-          ),
-        ],
       ),
     );
   }
@@ -3420,9 +3447,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (node != null && peers.isNotEmpty)
         HomeToolbarAction(
           'device',
-          t.myDevice,
+          t.showMyCode,
           Icons.qr_code_rounded,
           _showMyDeviceDialog,
+          key: const ValueKey('show-device-code'),
         ),
     ],
     received: node == null

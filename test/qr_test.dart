@@ -1,4 +1,5 @@
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vela/device_pair_dialog.dart';
 import 'package:vela/main.dart';
@@ -6,6 +7,61 @@ import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  testWidgets('Android scanner offers app settings after permission denial', (
+    tester,
+  ) async {
+    const scanner = 'dev.steenbakker.mobile_scanner/scanner';
+    final messenger = tester.binding.defaultBinaryMessenger;
+    var attempts = 0;
+    Object? settingsArguments;
+    final channels = <MethodChannel, Object? Function(MethodCall)>{
+      const MethodChannel('$scanner/method'): (call) {
+        if (call.method == 'state') {
+          attempts++;
+          return 0;
+        }
+        return call.method == 'request' ? false : null;
+      },
+      const MethodChannel('$scanner/event'): (_) => null,
+      const MethodChannel('$scanner/deviceOrientation'): (_) => null,
+      const MethodChannel('vela/background'): (call) {
+        settingsArguments = call.arguments;
+        return null;
+      },
+    };
+    for (final entry in channels.entries) {
+      messenger.setMockMethodCallHandler(
+        entry.key,
+        (call) async => entry.value(call),
+      );
+    }
+    addTearDown(() {
+      for (final channel in channels.keys) {
+        messenger.setMockMethodCallHandler(channel, null);
+      }
+    });
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: AddDeviceDialog()),
+      ),
+    );
+    final t = lookupAppLocalizations(const Locale('en'));
+    await tester.tap(find.text(t.scanCode));
+    await tester.pumpAndSettle();
+    expect(find.text(t.cameraPermissionNeeded), findsOneWidget);
+    await tester.tap(find.text(t.backgroundOpenBatterySettings));
+    expect(settingsArguments, {'section': 'app'});
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    await tester.tap(find.text(t.enterCodeManually));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('peer-id')), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   testWidgets('invalid device code feedback fits a narrow dialog', (
     tester,
   ) async {

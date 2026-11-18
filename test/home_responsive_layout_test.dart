@@ -73,13 +73,31 @@ void main() {
         );
         final add = find.byKey(const ValueKey('add-device'));
         await waitForHome(tester, () => add.evaluate().isNotEmpty);
-        final showCode = find.text('Show my QR code');
+        final showCode = find.text('Show device code');
         expect(add.hitTestable(), findsOneWidget);
         expect(showCode.hitTestable(), findsOneWidget);
         await tester.tap(showCode);
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('device-id')), findsOneWidget);
-        expect(find.text('Copy device code'), findsOneWidget);
+        String? copied;
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        await tester.tap(find.text('Copy device code'));
+        await tester.pumpAndSettle();
+        expect(copied, fakes.FakeNode().id());
+        expect(find.text('Device code copied'), findsOneWidget);
+        expect(find.byKey(const ValueKey('device-id')), findsOneWidget);
         await tester.tap(find.text('Close'));
         await tester.pumpAndSettle();
         await tester.tap(add);

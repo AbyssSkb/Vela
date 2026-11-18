@@ -130,10 +130,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emptyDevices =>
-      'Open Vela on both devices. Show the code on one, then add it on the other.';
+      'Open Vela on both devices. Choose Show device code on one and Add device on the other.';
 
   @override
-  String get showMyCode => 'Show my QR code';
+  String get showMyCode => 'Show device code';
 
   @override
   String get deviceCode => 'Device code';
@@ -145,16 +145,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceCodeCopied => 'Device code copied';
 
   @override
+  String get copyDeviceCodeFailed =>
+      'Could not copy the device code. You can select and copy it manually.';
+
+  @override
   String get showDeviceCode =>
       'On the other device, choose Add device and scan this QR code or enter the device code. Then approve the request here.';
 
   @override
   String get enterOrScan =>
-      'On the other device, open This device to show its code. Enter it here or scan its QR code.';
+      'On the other device, choose Show device code. Enter the code here or scan the QR code.';
 
   @override
   String get enterCode =>
-      'On the other device, open This device and enter its code here.';
+      'On the other device, choose Show device code and enter its code here.';
 
   @override
   String get scanCode => 'Scan device code';
@@ -163,14 +167,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanTitle => 'Scan device code';
 
   @override
-  String get cameraError => 'Cannot open the camera. Check camera permission.';
+  String get cameraError =>
+      'Could not open the camera. Enter the device code manually to continue.';
+
+  @override
+  String get cameraPermissionNeeded =>
+      'Allow camera access in app settings to scan a device code.';
 
   @override
   String get enterCodeManually => 'Enter device code manually';
 
   @override
   String get invalidDeviceQr =>
-      'Scan the QR code shown in This device on the other device.';
+      'Choose Show device code on the other device and scan its QR code.';
 
   @override
   String get invalidDeviceCode => 'Enter a 64-character device code';
@@ -190,7 +199,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmOwnDevice =>
-      'Open This device on the device that sent this request. Check that its device code starts and ends with the characters below.';
+      'Choose Show device code on the device that sent this request. Check that the first and last characters match.';
 
   @override
   String get reject => 'Decline';
