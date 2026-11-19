@@ -351,6 +351,8 @@
   "localBackgroundReceiving": "本机后台接收",
   "enableBackgroundReceiving": "允许后台接收",
   "notificationBackgroundBlocked": "通知已关闭。请打开 Vela 确认接收请求。",
+  "notificationAutoAcceptMuted": "后台服务运行时仍会自动接收。通知已关闭。",
+  "notificationAutoAcceptStopped": "通知已关闭。请检查「后台接收」以恢复自动接收。",
   "notificationSettings": "通知",
   "notificationSystemSettings": "系统通知设置",
   "notificationOff": "已在系统设置中关闭",

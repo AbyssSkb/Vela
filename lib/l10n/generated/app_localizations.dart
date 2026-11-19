@@ -1268,6 +1268,18 @@ abstract class AppLocalizations {
   /// **'Notifications are off. Open Vela to accept requests.'**
   String get notificationBackgroundBlocked;
 
+  /// No description provided for @notificationAutoAcceptMuted.
+  ///
+  /// In en, this message translates to:
+  /// **'Vela accepts transfers automatically while the service is running. Notifications are off.'**
+  String get notificationAutoAcceptMuted;
+
+  /// No description provided for @notificationAutoAcceptStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are off. Check Background receiving to resume automatic acceptance.'**
+  String get notificationAutoAcceptStopped;
+
   /// No description provided for @notificationSettings.
   ///
   /// In en, this message translates to:

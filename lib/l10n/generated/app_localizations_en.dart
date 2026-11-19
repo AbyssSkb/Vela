@@ -697,6 +697,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Notifications are off. Open Vela to accept requests.';
 
   @override
+  String get notificationAutoAcceptMuted =>
+      'Vela accepts transfers automatically while the service is running. Notifications are off.';
+
+  @override
+  String get notificationAutoAcceptStopped =>
+      'Notifications are off. Check Background receiving to resume automatic acceptance.';
+
+  @override
   String get notificationSettings => 'Notifications';
 
   @override

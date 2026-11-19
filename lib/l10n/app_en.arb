@@ -361,6 +361,8 @@
   "localBackgroundReceiving": "Background receiving on this device",
   "enableBackgroundReceiving": "Allow background receiving",
   "notificationBackgroundBlocked": "Notifications are off. Open Vela to accept requests.",
+  "notificationAutoAcceptMuted": "Vela accepts transfers automatically while the service is running. Notifications are off.",
+  "notificationAutoAcceptStopped": "Notifications are off. Check Background receiving to resume automatic acceptance.",
   "notificationSettings": "Notifications",
   "notificationSystemSettings": "System notification settings",
   "notificationOff": "Off in system settings",

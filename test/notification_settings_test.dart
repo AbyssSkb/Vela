@@ -38,6 +38,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('muted notification copy respects active automatic receiving', (
+    tester,
+  ) async {
+    const channel = MethodChannel('vela/background');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    var running = true;
+    messenger.setMockMethodCallHandler(
+      channel,
+      (_) async => {
+        'allNotifications': false,
+        'running': running,
+        'nodeReady': running,
+      },
+    );
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    const page = MaterialApp(
+      locale: Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: NotificationSettingsPage(autoAccept: true),
+    );
+    await tester.pumpWidget(page);
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Vela accepts transfers automatically'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Open Vela to accept requests'), findsNothing);
+    running = false;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining(
+        'Check Background receiving to resume automatic acceptance',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'notification categories open their corresponding system settings',
     (tester) async {

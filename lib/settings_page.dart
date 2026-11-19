@@ -454,7 +454,8 @@ class _SettingsPageState extends State<SettingsPage>
                 () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) => const NotificationSettingsPage(),
+                    builder: (_) =>
+                        NotificationSettingsPage(autoAccept: autoAccept),
                   ),
                 ),
               ),

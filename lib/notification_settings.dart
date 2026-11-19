@@ -5,7 +5,8 @@ import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
-  const NotificationSettingsPage({super.key});
+  const NotificationSettingsPage({super.key, this.autoAccept = false});
+  final bool autoAccept;
   @override
   State<NotificationSettingsPage> createState() =>
       _NotificationSettingsPageState();
@@ -69,6 +70,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     final colors = Theme.of(context).colorScheme;
     final largeText = MediaQuery.textScalerOf(context).scale(16) >= 24;
     final notificationsOff = status?['allNotifications'] == false;
+    final receivesAutomatically =
+        widget.autoAccept &&
+        status?['running'] == true &&
+        status?['nodeReady'] == true;
     Widget row(
       IconData icon,
       String title,
@@ -85,7 +90,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(
         statusKey == 'allNotifications' && notificationsOff
-            ? t.notificationBackgroundBlocked
+            ? receivesAutomatically
+                  ? t.notificationAutoAcceptMuted
+                  : widget.autoAccept
+                  ? t.notificationAutoAcceptStopped
+                  : t.notificationBackgroundBlocked
             : statusKey != 'liveAllowed' &&
                   (notificationsOff || status?[statusKey] == false)
             ? t.notificationOff
