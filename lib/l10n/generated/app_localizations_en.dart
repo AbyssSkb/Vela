@@ -326,7 +326,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendDeviceChanged =>
-      'The device pairing changed. Discard this send and select the device again.';
+      'The device pairing changed. Choose a device again.';
+
+  @override
+  String get reviewSendContent => 'Review content';
+
+  @override
+  String get preparingSendContent => 'Preparing content…';
 
   @override
   String get discardSend => 'Discard send';
@@ -672,7 +678,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewHistory => 'View history';
 
   @override
-  String get dropFilesHere => 'Drop files to send';
+  String get dropFilesHere => 'Drop to prepare files for sending';
 
   @override
   String get dropFilesOnly => 'Folders are not supported yet';

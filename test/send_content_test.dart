@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vela/main.dart';
 import 'package:vela/notice.dart';
@@ -17,6 +18,7 @@ class RecordingNode extends fakes.FakeNode {
   String? sentText;
   String? sentKind;
   String? sentName;
+  String? sentPeer;
   String? attemptedPath;
   Completer<void>? sendGate;
   String? nextFailure;
@@ -44,6 +46,7 @@ class RecordingTransferJob extends fakes.FakeTransferJob {
       throw Exception(failure);
     }
     node.sentText = await File(path).readAsString();
+    node.sentPeer = peerId;
     node.sentKind = kind;
     node.sentName = File(path).uri.pathSegments.last;
   }
@@ -141,9 +144,16 @@ Future<void> openHome(WidgetTester tester) async {
 }
 
 Future<void> choosePhone(WidgetTester tester) async {
+  await finishTransition(tester);
+  await tester.tap(
+    find.byKey(const ValueKey('send-recipient-${fakes.peerId}')),
+  );
+}
+
+Future<void> finishTransition(WidgetTester tester) async {
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 300));
-  await tester.tap(find.widgetWithText(ListTile, 'Phone').last);
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pump();
 }
 
 Future<void> waitForSend(WidgetTester tester) async {
@@ -191,6 +201,7 @@ void main() {
           expect(node.attemptedPath, isNull);
           await tester.tap(send);
           await waitForHome(tester, () => node.attemptedPath != null);
+          await tester.pump();
           expect(find.text('Connecting to Phone'), findsOneWidget);
           node.currentProgress = TransferProgress(
             done: BigInt.zero,
@@ -199,6 +210,7 @@ void main() {
             udpBytesSent: BigInt.zero,
           );
           await tester.pump(const Duration(milliseconds: 350));
+          await tester.pump();
           expect(find.text('Waiting for Phone to respond'), findsOneWidget);
           node.currentProgress = TransferProgress(
             done: BigInt.from(40),
@@ -207,6 +219,7 @@ void main() {
             udpBytesSent: BigInt.from(42),
           );
           await tester.pump(const Duration(milliseconds: 350));
+          await tester.pump();
           expect(find.text('Sending to Phone'), findsOneWidget);
           expect(
             find.descendant(
@@ -215,6 +228,15 @@ void main() {
             ),
             findsOneWidget,
           );
+          await tester.tap(find.byKey(const ValueKey('transfer-history')));
+          await finishTransition(tester);
+          expect(find.text('Sending to Phone').hitTestable(), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('cancel-transfer')).hitTestable(),
+            findsOneWidget,
+          );
+          await tester.binding.handlePopRoute();
+          await finishTransition(tester);
           gate.complete();
           await waitForSend(tester);
           await tester.pump(const Duration(seconds: 6));
@@ -396,6 +418,149 @@ void main() {
         } finally {
           FilePickerPlatform.instance = originalPicker;
         }
+      },
+    );
+  });
+
+  testWidgets('large text keeps a named recipient in view before scrolling', (
+    tester,
+  ) async {
+    final node = RecordingNode();
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(
+        peers: {fakes.peerId: 'Pixel 9', 'c' * 64: 'Pixel 9'},
+        types: {fakes.peerId: 'mobile', 'c' * 64: 'mobile'},
+      ),
+      api: fakes.FakeRustApi(node),
+      run: (directory) async {
+        final first = File(
+          '${directory.path}/Trip itinerary and accommodation confirmations.pdf',
+        )..writeAsStringSync('Report');
+        final picker = FilePickerPlatform.instance;
+        FilePickerPlatform.instance = FilesPicker([first.path]);
+        addTearDown(() => FilePickerPlatform.instance = picker);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await openHome(tester);
+        tester.view.physicalSize = const Size(320, 640);
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('send-file')));
+        final firstDevice = find.byKey(
+          const ValueKey('send-recipient-${fakes.peerId}'),
+        );
+        await waitForHome(tester, () => firstDevice.evaluate().isNotEmpty);
+        await finishTransition(tester);
+        expect(firstDevice.hitTestable(), findsOneWidget);
+        expect(find.textContaining('aaaaaaaa…aaaaaaaa'), findsOneWidget);
+        expect(node.attemptedPath, isNull);
+        await tester.tap(find.text('Review content'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(
+          find.text('Trip itinerary and accommodation confirmations.pdf'),
+          findsOneWidget,
+        );
+        final secondCode = find.textContaining('cccccccc…cccccccc');
+        await tester.scrollUntilVisible(
+          secondCode,
+          160,
+          scrollable: find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        expect(secondCode, findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  testWidgets('clipboard preview shows the captured text before sending', (
+    tester,
+  ) async {
+    final node = RecordingNode();
+    final messenger = tester.binding.defaultBinaryMessenger;
+    const pasteboard = MethodChannel('pasteboard');
+    messenger.setMockMethodCallHandler(pasteboard, (_) async => null);
+    messenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async => call.method == 'Clipboard.getData'
+          ? {'text': 'Original clipboard'}
+          : null,
+    );
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(pasteboard, null);
+      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+    await withHomeTestEnvironment(
+      tester,
+      devices: onlyPhone,
+      api: fakes.FakeRustApi(node),
+      run: (_) async {
+        await openHome(tester);
+        await tester.tap(find.byKey(const ValueKey('send-clipboard')));
+        final preview = find.text('Review content');
+        await waitForHome(tester, () => preview.evaluate().isNotEmpty);
+        await tester.pump(const Duration(milliseconds: 380));
+        expect(find.text('Original clipboard'), findsNothing);
+        await tester.tap(preview);
+        await finishTransition(tester);
+        expect(find.text('Original clipboard'), findsOneWidget);
+        expect(node.attemptedPath, isNull);
+        await choosePhone(tester);
+        await waitForSend(tester);
+        expect(node.sentText, 'Original clipboard');
+      },
+    );
+  });
+
+  testWidgets('a failed file can be resent after its device is removed', (
+    tester,
+  ) async {
+    final node = RecordingNode()..nextFailure = 'Connection interrupted';
+    await withHomeTestEnvironment(
+      tester,
+      devices: devices,
+      api: fakes.FakeRustApi(node),
+      run: (directory) async {
+        final file = File('${directory.path}/Report.txt')
+          ..writeAsStringSync('Report');
+        final picker = FilePickerPlatform.instance;
+        FilePickerPlatform.instance = FilesPicker([file.path]);
+        addTearDown(() => FilePickerPlatform.instance = picker);
+        await openHome(tester);
+        await tester.tap(find.byKey(const ValueKey('send-file')));
+        await choosePhone(tester);
+        final retry = find.byKey(const ValueKey('retry-send'));
+        await waitForHome(tester, () => retry.evaluate().isNotEmpty);
+        expect(find.text('Report.txt'), findsOneWidget);
+        final peer = find.byKey(const ValueKey('peer-${fakes.peerId}'));
+        await tester.tap(peer);
+        await finishTransition(tester);
+        await tester.tap(find.text('Remove device'));
+        await finishTransition(tester);
+        await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+        await waitForHome(tester, () => peer.evaluate().isEmpty);
+        final reselect = find.byKey(const ValueKey('choose-retry-device'));
+        expect(retry, findsNothing);
+        await tester.tap(reselect);
+        final laptop = find.text('Send to Laptop');
+        await finishTransition(tester);
+        expect(find.text('Ready to send: Report.txt'), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await finishTransition(tester);
+        expect(reselect.hitTestable(), findsOneWidget);
+        await tester.tap(reselect);
+        await finishTransition(tester);
+        await tester.tap(laptop);
+        await waitForHome(
+          tester,
+          () => find.text('Sent to Laptop').evaluate().isNotEmpty,
+        );
+        expect(node.sentPeer, 'c' * 64);
+        expect(node.attemptedPath, file.path);
+        expect(file.existsSync(), isTrue);
       },
     );
   });

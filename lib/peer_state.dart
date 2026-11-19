@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+String shortDeviceCode(String id) => id.length <= 16
+    ? id
+    : '${id.substring(0, 8)}…${id.substring(id.length - 8)}';
+
 class PeerState {
   PeerState({
     Map<String, String>? peers,
@@ -43,6 +47,18 @@ class PeerState {
   String? deviceType(String id) => types[id];
 
   String displayName(String id) => aliases[id] ?? reportedName(id) ?? id;
+
+  String? distinguishingCode(String id) {
+    final name = displayName(id);
+    final duplicates = deviceIds.where(
+      (other) => other != id && displayName(other) == name,
+    );
+    if (duplicates.isEmpty) return null;
+    final code = shortDeviceCode(id);
+    return duplicates.any((other) => shortDeviceCode(other) == code)
+        ? id
+        : code;
+  }
 
   PeerState add(String id, String name, String type) => PeerState(
     peers: {...peers, id: name},
