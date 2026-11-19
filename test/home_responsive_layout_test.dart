@@ -81,7 +81,10 @@ void main() {
           tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
             const MethodChannel('vela/background'),
             (call) async {
-              if (call.method == 'setTrayLabels') labels.add(call.arguments);
+              if (call.method == 'setTrayLabels' ||
+                  call.method == 'setMenuLanguage') {
+                labels.add(call.arguments);
+              }
               return call.method == 'getWindowVisible' ? true : null;
             },
           );
@@ -93,18 +96,25 @@ void main() {
               initialDiagnosticsEnabled: false,
             ),
           );
-          expect(labels.last, {'open': 'Open Vela', 'quit': 'Quit'});
+          final mac =
+              Theme.of(tester.element(find.byType(HomePage))).platform ==
+              TargetPlatform.macOS;
+          expect(
+            labels.last,
+            mac ? 'en' : {'open': 'Open Vela', 'quit': 'Quit'},
+          );
           await tester
               .widget<HomePage>(find.byType(HomePage))
               .changeSetting('language', 'zh');
           await tester.pump();
-          expect(labels.last, {'open': '打开 Vela', 'quit': '退出'});
+          expect(labels.last, mac ? 'zh' : {'open': '打开 Vela', 'quit': '退出'});
         },
       );
     },
     variant: const TargetPlatformVariant({
       TargetPlatform.windows,
       TargetPlatform.linux,
+      TargetPlatform.macOS,
     }),
   );
 

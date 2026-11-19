@@ -63,6 +63,8 @@ part 'debug_driver.dart';
 
 final _testHome = GlobalKey<_HomePageState>();
 bool _driverMode = false;
+const _troubleshootingGuide =
+    'https://github.com/AbyssSkb/Vela/blob/main/docs/user-guide.md#troubleshooting';
 
 Future<void> main(List<String> args) async {
   if (kDebugMode && args.contains('--driver-test')) {
@@ -424,7 +426,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (defaultTargetPlatform == TargetPlatform.windows ||
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      _updateDesktopStatus('setMenuLanguage', t.localeName);
+    } else if (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux) {
       _updateDesktopStatus('setTrayLabels', {
         'open': t.trayOpen,
@@ -2315,6 +2319,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       reachableCount: peers.keys
           .where((id) => presence[id] == PeerPresence.reachable)
           .length,
+      unreachableDeviceNames: [
+        for (final id in peers.keys)
+          if (presence[id] == PeerPresence.unavailable)
+            peerState.displayName(id),
+      ],
       relayCount: currentNode?.diagnosticsTotalRelayCount() ?? 0,
       readyRelayCount: currentNode?.diagnosticsConnectedRelayCount(),
       events: [
@@ -2332,6 +2341,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         retryStartup: _retryFromUI,
         refreshDevices: () =>
             presenceController.requestPeerProbes(userInitiated: true),
+        openGuide: () => _openLink(_troubleshootingGuide),
         clear: () async {
           diagnosticEvents.clear();
           node?.clearDiagnostics();
@@ -2406,6 +2416,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           changeSetting: widget.changeSetting,
           relaySettings: _showRelaySettings,
           diagnostics: _showDiagnostics,
+          openGuide: () => _openLink(_troubleshootingGuide),
           backgroundChanged: _backgroundPresenceChanged,
           updates: updates,
           rename: (name) async {

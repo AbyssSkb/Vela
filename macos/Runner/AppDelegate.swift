@@ -7,6 +7,10 @@ import UserNotifications
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   private var statusItem: NSStatusItem?
   private var backgroundActivity: NSObjectProtocol?
+  private var menuLanguage: String?
+  private var menuIsChinese: Bool {
+    (menuLanguage ?? Locale.preferredLanguages.first)?.hasPrefix("zh") == true
+  }
   private(set) var incoming = false
   private(set) var nodeStatus = "starting"
   private(set) var transferring = false
@@ -72,9 +76,9 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
       return
     }
     let menu = NSMenu()
-    let chinese = Locale.preferredLanguages.first?.hasPrefix("zh") == true
     let quit = menu.addItem(
-      withTitle: chinese ? "退出 Vela" : "Quit Vela", action: #selector(NSApplication.terminate(_:)),
+      withTitle: menuIsChinese ? "退出 Vela" : "Quit Vela",
+      action: #selector(NSApplication.terminate(_:)),
       keyEquivalent: "")
     quit.target = NSApplication.shared
     NSMenu.popUpContextMenu(menu, with: event, for: sender)
@@ -157,14 +161,19 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     updateMenuImage()
   }
 
+  func setMenuLanguage(_ language: String) {
+    menuLanguage = language
+    updateMenuImage()
+  }
+
   private func menuDescription(_ status: String) -> String {
-    let chinese = Locale.preferredLanguages.first?.hasPrefix("zh") == true
+    let chinese = menuIsChinese
     switch status {
     case "starting": return chinese ? "Vela — 正在启动" : "Vela — Starting"
-    case "failed": return chinese ? "Vela — 节点启动失败" : "Vela — Node failed to start"
+    case "failed": return chinese ? "Vela — 启动失败" : "Vela — Could not start"
     case "transferring": return chinese ? "Vela — 正在传输" : "Vela — Transferring"
     case "notification": return chinese ? "Vela — 有通知" : "Vela — Notification"
-    default: return chinese ? "Vela — 节点已就绪" : "Vela — Node ready"
+    default: return chinese ? "Vela — 可以接收" : "Vela — Ready to receive"
     }
   }
 

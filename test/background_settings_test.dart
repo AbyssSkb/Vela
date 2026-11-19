@@ -27,6 +27,41 @@ class FailingFirstWriteStore extends InMemorySharedPreferencesStore {
 void main() {
   const channel = MethodChannel('vela/background');
 
+  testWidgets('device name reports empty or whitespace-only input inline', (
+    tester,
+  ) async {
+    String? saved;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        home: Builder(
+          builder: (context) => TextButton(
+            child: const Text('Rename'),
+            onPressed: () async => saved = await showDialog<String>(
+              context: context,
+              builder: (_) =>
+                  const NameDialog(title: 'Device name', current: 'Phone'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    final field = find.byType(TextField);
+    await tester.enterText(field, '   ');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).decoration?.errorText, isNotNull);
+    expect(saved, isNull);
+    await tester.enterText(field, ' Travel phone ');
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).decoration?.errorText, isNull);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved, 'Travel phone');
+  });
+
   testWidgets('settings keep Back visible and repair an unavailable folder', (
     tester,
   ) async {

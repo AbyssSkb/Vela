@@ -734,6 +734,12 @@ abstract class AppLocalizations {
   /// **'Open Vela on your other devices, then refresh their status.'**
   String get diagnosticsDeviceHelp;
 
+  /// No description provided for @diagnosticsUnreachableDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporarily unreachable · {names}'**
+  String diagnosticsUnreachableDevices(String names);
+
   /// No description provided for @diagnosticsRetryStartup.
   ///
   /// In en, this message translates to:
@@ -1466,6 +1472,18 @@ abstract class AppLocalizations {
   /// **'Troubleshooting'**
   String get settingsTroubleshooting;
 
+  /// No description provided for @userGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'User guide'**
+  String get userGuide;
+
+  /// No description provided for @userGuideHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Find steps to fix pairing, transfers, and background receiving'**
+  String get userGuideHint;
+
   /// No description provided for @backgroundUnavailable.
   ///
   /// In en, this message translates to:
@@ -1859,7 +1877,7 @@ abstract class AppLocalizations {
   /// No description provided for @relayTestSuccess.
   ///
   /// In en, this message translates to:
-  /// **'Relay connected'**
+  /// **'This device can reach the relay.'**
   String get relayTestSuccess;
 
   /// No description provided for @relayTestAuth.

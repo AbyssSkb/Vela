@@ -22,6 +22,7 @@ void main() {
     (tester) async {
       var ready = false;
       var reachable = 0;
+      var guideOpened = false;
       await tester.pumpWidget(
         MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -33,12 +34,16 @@ void main() {
               relayCount: 1,
               readyRelayCount: 1,
               events: [],
+              unreachableDeviceNames: ready && reachable == 0
+                  ? ['Travel phone']
+                  : [],
             ),
             retryStartup: () async => ready = true,
             refreshDevices: () async => reachable = 1,
             clear: () async {},
             initialEnabled: false,
             setEnabled: (_) async {},
+            openGuide: () => guideOpened = true,
           ),
         ),
       );
@@ -46,6 +51,12 @@ void main() {
       await tester.tap(find.text('Try starting Vela again'));
       await tester.pumpAndSettle();
       expect(find.text('0 / 1'), findsOneWidget);
+      expect(
+        find.text('Temporarily unreachable · Travel phone'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('User guide'));
+      expect(guideOpened, isTrue);
       await tester.tap(find.text('Refresh device status'));
       await tester.pumpAndSettle();
       expect(find.text('Refresh device status'), findsNothing);

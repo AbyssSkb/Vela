@@ -80,6 +80,7 @@ class DiagnosticsSnapshot {
     required this.relayCount,
     required this.readyRelayCount,
     required this.events,
+    this.unreachableDeviceNames = const [],
   });
 
   final bool nodeReady;
@@ -88,6 +89,7 @@ class DiagnosticsSnapshot {
   final int relayCount;
   final int? readyRelayCount;
   final List<String> events;
+  final List<String> unreachableDeviceNames;
 
   String report(bool chinese) {
     final node = nodeReady
@@ -115,6 +117,7 @@ class DiagnosticsPage extends StatefulWidget {
     required this.setEnabled,
     this.retryStartup,
     this.refreshDevices,
+    this.openGuide,
   });
 
   final Future<DiagnosticsSnapshot> Function() load;
@@ -122,6 +125,7 @@ class DiagnosticsPage extends StatefulWidget {
   final bool initialEnabled;
   final Future<void> Function(bool) setEnabled;
   final Future<void> Function()? retryStartup, refreshDevices;
+  final VoidCallback? openGuide;
 
   @override
   State<DiagnosticsPage> createState() => _DiagnosticsPageState();
@@ -315,11 +319,12 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
     final colors = Theme.of(context).colorScheme;
     final current = snapshot;
     final notStarted = current?.nodeReady == false;
+    final unreachable = current?.unreachableDeviceNames ?? const <String>[];
     final peersUnavailable =
         current != null &&
         current.nodeReady &&
         current.peerCount > 0 &&
-        current.reachableCount == 0;
+        (current.reachableCount == 0 || unreachable.isNotEmpty);
     final recovery = notStarted ? widget.retryStartup : widget.refreshDevices;
     final updated = refreshedAt?.format(context);
     final titleStyle = Theme.of(context).textTheme.headlineSmall
@@ -403,24 +408,43 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                if (unreachable.isNotEmpty)
+                                  Text(
+                                    t.diagnosticsUnreachableDevices(
+                                      unreachable.join(', '),
+                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall,
+                                  ),
                                 Text(
                                   notStarted
                                       ? t.diagnosticsStartupHelp
                                       : t.diagnosticsDeviceHelp,
                                 ),
-                                if (recovery != null)
-                                  TextButton(
-                                    onPressed: recovering
-                                        ? null
-                                        : () => _recover(recovery),
-                                    child: Text(
-                                      recovering
-                                          ? t.checking
-                                          : notStarted
-                                          ? t.diagnosticsRetryStartup
-                                          : t.refreshDevices,
-                                    ),
-                                  ),
+                                Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    if (recovery != null)
+                                      TextButton(
+                                        onPressed: recovering
+                                            ? null
+                                            : () => _recover(recovery),
+                                        child: Text(
+                                          recovering
+                                              ? t.checking
+                                              : notStarted
+                                              ? t.diagnosticsRetryStartup
+                                              : t.refreshDevices,
+                                        ),
+                                      ),
+                                    if (widget.openGuide != null)
+                                      TextButton(
+                                        onPressed: widget.openGuide,
+                                        child: Text(t.userGuide),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),

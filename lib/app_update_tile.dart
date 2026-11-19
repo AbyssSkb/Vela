@@ -113,8 +113,8 @@ class AppUpdateTile extends StatelessWidget {
               ),
             if (controller.availableVersion case final version?
                 when controller.state == AppUpdateState.ready)
-              Text(text('Version $version', '版本 $version')),
-            Text(subtitle),
+              Text(text('Available version $version', '待安装版本 $version')),
+            Semantics(liveRegion: true, child: Text(subtitle)),
             if (controller.state == AppUpdateState.ready)
               FilledButton(
                 key: const ValueKey('install-update'),
