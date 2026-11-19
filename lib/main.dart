@@ -392,6 +392,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? notificationPeerType;
   String? notificationTransferId;
   PendingShare? pendingShare;
+  Future<void> _shareReads = Future.value();
   bool _composingText = false;
   ({
     String peer,
@@ -704,6 +705,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       presenceController.requestMonitoring(enabled: monitorPresence);
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
+      if (pairedDevices != null) unawaited(_publishShareTargets());
       unawaited(_refreshBackgroundAvailability());
       unawaited(_showLegacyPairingNotice());
       incomingPrompt?.becameVisible();
@@ -954,12 +956,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _takePendingShare() async {
+  Future<void> _takePendingShare() => _shareReads = _shareReads.then((_) async {
     if (!mounted || disposed || shuttingDown || pendingShare != null) return;
+    Map<String, dynamic>? payload;
     try {
-      final share = await shareChannel.invokeMapMethod<String, dynamic>('take');
-      if (mounted && share != null) {
-        setState(() => pendingShare = PendingShare.fromMap(share));
+      payload = await shareChannel.invokeMapMethod<String, dynamic>('take');
+      if (mounted && payload != null) {
+        final share = PendingShare.fromMap(payload);
+        setState(() => pendingShare = share);
         if (!_composingText &&
             !contentOperationActive &&
             !outgoingPairingUiActive &&
@@ -969,8 +973,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('Could not read shared content: $e');
+      if (mounted && payload != null) {
+        _message(t.readSharedFailed, kind: NoticeKind.error);
+      }
     }
-  }
+  });
 
   Future<void> _startNode() {
     if (!mounted || shuttingDown) return Future.value();
@@ -1098,6 +1105,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       startupFailures = 0;
       _setNodeStatus('ready');
       if (Platform.isAndroid) {
+        unawaited(_publishShareTargets());
         unawaited(
           backgroundChannel
               .invokeMethod<void>('nodeReady', {'message': t.backgroundReady})
@@ -1607,10 +1615,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _publishPeerState(PeerState state, Set<String> changed) {
     presenceController.membershipPublished(state, changed);
-    if (mounted)
+    if (mounted) {
       setState(
         () => selectedPeers.removeWhere((id) => !state.containsDevice(id)),
       );
+      unawaited(_publishShareTargets());
+    }
+  }
+
+  Future<void> _publishShareTargets() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await shareChannel.invokeMethod<void>('setTargets', {
+        for (final id in peers.keys) id: _sendDeviceName(id),
+      });
+    } catch (e) {
+      debugPrint('Could not update Android share shortcuts: $e');
+    }
   }
 
   void _recordDiagnostic(String kind, [String? peer]) {
@@ -3164,7 +3185,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         debugPrint('Could not remove shared content: $e');
       }
     }
-    if (share.drop || share.stage != null) await _takePendingShare();
+    if (Platform.isAndroid || share.drop || share.stage != null) {
+      await _takePendingShare();
+    }
   }
 
   SendSession _createSendSession(PreparedTransfer content) => SendSession(
@@ -4295,7 +4318,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildPendingShareNotice(PendingShare share) {
-    final onlyPeer = peers.keys.singleOrNull;
+    final recipient = share.quickSendRecipient(peers.keys);
     final preview = share.text?.trim();
     return Column(
       key: const ValueKey('pending-share'),
@@ -4318,6 +4341,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         if (peers.isEmpty) Text(t.addDeviceToContinueSending),
+        if (peers.isNotEmpty &&
+            share.preferredPeer != null &&
+            recipient == null)
+          Text(t.sendDeviceChanged),
         OverflowBar(
           alignment: MainAxisAlignment.end,
           spacing: 8,
@@ -4335,6 +4362,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     },
               child: Text(t.cancelShare),
             ),
+            if (share.preferredPeer != null &&
+                recipient != null &&
+                peers.length > 1)
+              TextButton(
+                onPressed: _sendUnavailable || activeSendOperations != 0
+                    ? null
+                    : () => _chooseAndSendShare(share),
+                child: Text(t.chooseDevice),
+              ),
             FilledButton(
               key: const ValueKey('choose-share-device'),
               onPressed:
@@ -4343,16 +4379,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   : () {
                       if (!identical(pendingShare, share)) return;
                       unawaited(
-                        onlyPeer != null
-                            ? _sendShare(onlyPeer, share)
+                        recipient != null
+                            ? _sendShare(recipient, share)
                             : _chooseAndSendShare(share),
                       );
                     },
               child: Text(
                 activeSendOperations != 0
                     ? t.preparingSendContent
-                    : onlyPeer != null
-                    ? t.sendToDevice(peerState.displayName(onlyPeer))
+                    : recipient != null
+                    ? t.sendToDevice(_sendDeviceName(recipient))
                     : t.chooseDevice,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

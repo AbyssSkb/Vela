@@ -39,6 +39,7 @@ class MainActivity : FlutterActivity() {
     private var pendingMedia: MethodChannel.Result? = null
     private val mediaPicker = ActivityResultContracts.PickMultipleVisualMedia(100)
     private var serviceMessage: String = "Ready to receive"
+    private val pendingShares = ArrayDeque<Map<String, Any>>()
 
     private fun inputFor(path: String) =
         if (path.startsWith("content:")) contentResolver.openInputStream(Uri.parse(path))
@@ -596,63 +597,40 @@ class MainActivity : FlutterActivity() {
             result.notImplemented()
             return
         }
-        val sharedIntent = intent
-        if (sharedIntent?.action == Intent.ACTION_SEND_MULTIPLE) {
-            @Suppress("DEPRECATION")
-            val uris =
-                (sharedIntent
-                        .getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-                        .orEmpty() +
-                        (sharedIntent.clipData?.let { clip ->
-                            (0 until clip.itemCount).mapNotNull {
-                                clip.getItemAt(it).uri
-                            }
-                        } ?: emptyList()))
-                    .filter { it.scheme == "content" }
-                    .distinct()
-            sharedIntent.action = null
-            result.success(
-                if (uris.isEmpty()) null
-                else mapOf("uris" to uris.map { it.toString() })
-            )
-            return
-        }
-        if (sharedIntent?.action != Intent.ACTION_SEND) {
-            result.success(null)
-            return
-        }
-        @Suppress("DEPRECATION")
-        val uri =
-            sharedIntent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-                ?: sharedIntent.clipData?.getItemAt(0)?.uri
-        val text = sharedIntent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+        enqueueShare()
+        result.success(pendingShares.removeFirstOrNull())
+    }
+
+    private fun enqueueShare() {
+        val sharedIntent = intent ?: return
+        if (!sharedIntent.isShare()) return
+        val uris = sharedIntent.sharedUris()
+        val text = sharedIntent.sharedText()
         sharedIntent.action = null
-        result.success(
-            when {
-                uri != null && uri.scheme == "content" -> mapOf("uri" to uri.toString())
-                !text.isNullOrEmpty() -> mapOf("text" to text)
-                else -> null
-            }
-        )
+        if (uris.isEmpty() && text == null) return
+        pendingShares.addLast(buildMap {
+            if (uris.isNotEmpty()) put("uris", uris.map(Uri::toString))
+            else if (text != null) put("text", text)
+            sharedIntent.sharedDevice()?.let { put("preferredPeer", it) }
+        })
     }
 
     override fun onNewIntent(intent: Intent) {
+        enqueueShare()
         super.onNewIntent(intent)
         setIntent(intent)
-        if (
-            intent.action == Intent.ACTION_SEND ||
-                intent.action == Intent.ACTION_SEND_MULTIPLE ||
-                intent.action == "com.example.vela.VIEW_TEXT" ||
-                intent.action == ACTION_VIEW_RECEIVED_BATCH
-        )
-            app.channels.shareAvailable()
+        notifyPendingShare()
     }
 
     override fun onPostResume() {
         super.onPostResume()
+        notifyPendingShare()
+    }
+
+    private fun notifyPendingShare() {
+        enqueueShare()
         if (
-            intent?.action == Intent.ACTION_SEND ||
-                intent?.action == Intent.ACTION_SEND_MULTIPLE ||
+            pendingShares.isNotEmpty() ||
                 intent?.action == "com.example.vela.VIEW_TEXT" ||
                 intent?.action == ACTION_VIEW_RECEIVED_BATCH
         )

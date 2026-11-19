@@ -454,9 +454,18 @@ class AppChannels(private val context: VelaApplication) {
         MethodChannel(messenger, "vela/clipboard").setMethodCallHandler(::handleClipboard)
         shareChannel = MethodChannel(messenger, "vela/share").also { channel ->
             channel.setMethodCallHandler { call, result ->
-                val activity = context.currentActivity
-                if (activity == null) result.success(null)
-                else activity.handleShareCall(call, result)
+                if (call.method == "setTargets") {
+                    try {
+                        publishShareShortcuts(context, call.arguments<Map<String, String>>().orEmpty())
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("shortcuts", e.message, null)
+                    }
+                } else {
+                    val activity = context.currentActivity
+                    if (activity == null) result.success(null)
+                    else activity.handleShareCall(call, result)
+                }
             }
         }
     }
