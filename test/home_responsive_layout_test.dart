@@ -95,7 +95,10 @@ void main() {
           tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
             const MethodChannel('vela/background'),
             (call) async {
-              if (call.method == 'setTrayLabels') labels.add(call.arguments);
+              if (call.method == 'setTrayLabels' ||
+                  call.method == 'setMenuLanguage') {
+                labels.add(call.arguments);
+              }
               return call.method == 'getWindowVisible' ? true : null;
             },
           );
@@ -107,20 +110,76 @@ void main() {
               initialDiagnosticsEnabled: false,
             ),
           );
-          expect(labels.last, {'open': 'Open Vela', 'quit': 'Quit'});
+          final mac =
+              Theme.of(tester.element(find.byType(HomePage))).platform ==
+              TargetPlatform.macOS;
+          expect(
+            labels.last,
+            mac ? 'en' : {'open': 'Open Vela', 'quit': 'Quit'},
+          );
           await tester
               .widget<HomePage>(find.byType(HomePage))
               .changeSetting('language', 'zh');
           await tester.pump();
-          expect(labels.last, {'open': '打开 Vela', 'quit': '退出'});
+          expect(labels.last, mac ? 'zh' : {'open': '打开 Vela', 'quit': '退出'});
         },
       );
     },
     variant: const TargetPlatformVariant({
       TargetPlatform.windows,
       TargetPlatform.linux,
+      TargetPlatform.macOS,
     }),
   );
+
+  testWidgets('settings opens troubleshooting in the selected language', (
+    tester,
+  ) async {
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(),
+      api: fakes.FakeRustApi(fakes.FakeNode()),
+      run: (_) async {
+        const files = MethodChannel('vela/files');
+        final opened = <Uri>[];
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(files, (call) async {
+          if (call.method == 'openUrl') {
+            opened.add(Uri.parse(call.arguments['url'] as String));
+          }
+          return null;
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(files, null));
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'light',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final settings = find.byTooltip('Settings');
+        await waitForHome(tester, () => settings.evaluate().isNotEmpty);
+        await tester.tap(settings);
+        await tester.pumpAndSettle();
+        final english = find.text('User guide');
+        await tester.ensureVisible(english);
+        await tester.tap(english);
+        expect(opened.single.path, endsWith('/docs/user-guide.md'));
+        expect(opened.single.fragment, 'troubleshooting');
+
+        await tester
+            .widget<HomePage>(find.byType(HomePage, skipOffstage: false))
+            .changeSetting('language', 'zh');
+        await tester.pumpAndSettle();
+        final chinese = find.text('使用指南');
+        await tester.ensureVisible(chinese);
+        await tester.tap(chinese);
+        expect(opened.last.path, endsWith('/README.zh-CN.md'));
+        expect(Uri.decodeComponent(opened.last.fragment), '故障排查');
+      },
+    );
+  });
 
   testWidgets('first launch offers both sides of pairing', (tester) async {
     await withHomeTestEnvironment(

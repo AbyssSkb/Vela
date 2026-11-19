@@ -231,11 +231,11 @@ void main() {
     await tester.enterText(find.byType(TextFormField).last, 'secret');
     await tester.tap(find.byKey(const ValueKey('test-relay-form')));
     await tester.pumpAndSettle();
-    expect(find.text('Relay connected'), findsOneWidget);
+    expect(find.text('This device can reach the relay.'), findsOneWidget);
     expect(saved, isFalse);
     await tester.enterText(find.byType(TextFormField).last, 'changed');
     await tester.pump();
-    expect(find.text('Relay connected'), findsNothing);
+    expect(find.text('This device can reach the relay.'), findsNothing);
   });
 
   testWidgets('add, edit and remove a relay', (tester) async {

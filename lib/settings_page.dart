@@ -29,6 +29,7 @@ class NameDialog extends StatefulWidget {
 
 class _NameDialogState extends State<NameDialog> {
   late final controller = TextEditingController(text: widget.current);
+  bool invalidName = false;
   @override
   void dispose() {
     controller.dispose();
@@ -37,7 +38,11 @@ class _NameDialogState extends State<NameDialog> {
 
   void _submit() {
     final value = _cleanDeviceName(controller.text);
-    if (value.isNotEmpty) Navigator.pop(context, value);
+    if (value.isEmpty) {
+      setState(() => invalidName = true);
+      return;
+    }
+    Navigator.pop(context, value);
   }
 
   @override
@@ -49,7 +54,14 @@ class _NameDialogState extends State<NameDialog> {
         controller: controller,
         autofocus: true,
         maxLength: 60,
-        decoration: InputDecoration(helperText: widget.hint),
+        decoration: InputDecoration(
+          helperText: widget.hint,
+          helperMaxLines: 3,
+          errorText: invalidName ? t.deviceNameRequired : null,
+        ),
+        onChanged: (_) {
+          if (invalidName) setState(() => invalidName = false);
+        },
         onSubmitted: (_) => _submit(),
       ),
       actions: [
@@ -76,6 +88,7 @@ class SettingsPage extends StatefulWidget {
     required this.relaySettings,
     required this.diagnostics,
     required this.backgroundChanged,
+    this.openGuide,
     this.updates,
   });
   final String profile, language, appearance, deviceName, systemDeviceName;
@@ -84,6 +97,7 @@ class SettingsPage extends StatefulWidget {
   final Future<void> Function() relaySettings;
   final Future<void> Function() diagnostics;
   final Future<void> Function() backgroundChanged;
+  final VoidCallback? openGuide;
   final AppUpdateController? updates;
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -399,7 +413,7 @@ class _SettingsPageState extends State<SettingsPage>
                     ? t.downloadsFolder
                     : (saveLocationLabel ?? t.chooseFolder),
                 () => _chooseSaveLocation(),
-                maxLines: saveLocationAvailable ? 1 : null,
+                maxLines: saveLocationAvailable ? 3 : null,
                 trailing: !defaultSaveLocation || !saveLocationAvailable
                     ? IconButton(
                         tooltip: t.useDownloads,
@@ -492,6 +506,16 @@ class _SettingsPageState extends State<SettingsPage>
                   : 'Connection status and events',
               widget.diagnostics,
             ),
+            if (widget.openGuide != null) ...[
+              divider(),
+              row(
+                Icons.help_outline_rounded,
+                t.userGuide,
+                t.userGuideHint,
+                widget.openGuide!,
+                maxLines: null,
+              ),
+            ],
           ]),
           if (widget.updates != null) ...[
             const SizedBox(height: 12),

@@ -243,6 +243,13 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         result(self.isVisible && NSApplication.shared.isActive)
       case "getWindowVisible":
         result(self.isVisible)
+      case "setMenuLanguage":
+        guard let language = call.arguments as? String else {
+          result(FlutterError(code: "language", message: "Missing menu language", details: nil))
+          return
+        }
+        (NSApplication.shared.delegate as? AppDelegate)?.setMenuLanguage(language)
+        result(nil)
       case "setNodeStatus":
         guard let status = call.arguments as? String else {
           result(FlutterError(code: "status", message: "Missing node status", details: nil))

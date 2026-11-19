@@ -389,6 +389,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Open Vela on your other devices, then refresh their status.';
 
   @override
+  String diagnosticsUnreachableDevices(String names) {
+    return 'Temporarily unreachable · $names';
+  }
+
+  @override
   String get diagnosticsRetryStartup => 'Try starting Vela again';
 
   @override
@@ -840,6 +845,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTroubleshooting => 'Troubleshooting';
 
   @override
+  String get userGuide => 'User guide';
+
+  @override
+  String get userGuideHint =>
+      'Find steps to fix pairing, transfers, and background receiving';
+
+  @override
   String get backgroundUnavailable =>
       'Could not change background receiving. Check system settings.';
 
@@ -1047,7 +1059,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get relayTestShort => 'Test';
 
   @override
-  String get relayTestSuccess => 'Relay connected';
+  String get relayTestSuccess => 'This device can reach the relay.';
 
   @override
   String get relayTestAuth => 'Access denied. Check the token.';

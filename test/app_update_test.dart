@@ -488,7 +488,7 @@ void main() {
           home: Scaffold(body: AppUpdateTile(controller: controller)),
         ),
       );
-      expect(find.text('Version 1.1.0'), findsOneWidget);
+      expect(find.text('Available version 1.1.0'), findsOneWidget);
       expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
       await tester.tap(find.byKey(const ValueKey('install-update')));
       await tester.pumpAndSettle();

@@ -354,6 +354,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnosticsDeviceHelp => '请在其他设备上打开 Vela，再刷新设备状态。';
 
   @override
+  String diagnosticsUnreachableDevices(String names) {
+    return '暂时无法连接 · $names';
+  }
+
+  @override
   String get diagnosticsRetryStartup => '重试启动 Vela';
 
   @override
@@ -768,6 +773,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsTroubleshooting => '故障排查';
 
   @override
+  String get userGuide => '使用指南';
+
+  @override
+  String get userGuideHint => '查看配对、传输和后台接收的排查步骤';
+
+  @override
   String get backgroundUnavailable => '无法更改后台接收，请检查系统设置。';
 
   @override
@@ -963,7 +974,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get relayTestShort => '测试';
 
   @override
-  String get relayTestSuccess => '中继连接成功';
+  String get relayTestSuccess => '本机已连接此中继。';
 
   @override
   String get relayTestAuth => '中继拒绝访问，请检查令牌';
