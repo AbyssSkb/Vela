@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/vela-mark.png" width="96" height="96" alt="Vela icon">
+  <img src="docs/assets/vela-mark.png" width="96" height="96" alt="">
 </p>
 
 <h1 align="center">Vela</h1>
@@ -7,52 +7,42 @@
 <p align="center"><strong>Share easily between your devices.</strong></p>
 
 <p align="center">
-  English · <a href="README.zh-CN.md">简体中文</a><br>
-  <a href="#download">Download</a> · <a href="docs/user-guide.md">User guide</a> · <a href="CONTRIBUTING.md">Contribute</a>
+  <a href="#download">Download</a> · <a href="docs/user-guide.md">User guide</a> · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-Vela lets you share between your personal devices, even when they run different operating systems. Start in Vela, use the system share menu where available, or drag files into the desktop app.
+Vela is an open-source app for sharing between your own devices, even across operating systems and networks. Send a photo from your phone to your computer, a folder from one computer to another, or a link you just copied. Once paired, either device can send or receive. No account required.
 
 ## Download
 
-Vela is available for Android, macOS, Windows, and Linux. Choose a release with a version number and download the installer for your device. Each release includes installation notes and SHA-256 checksums. [Download Vela](https://github.com/AbyssSkb/Vela/releases)
+Open a release with a version number and choose the package for each device. The release page includes installation notes and SHA-256 checksums. [Download Vela on GitHub](https://github.com/AbyssSkb/Vela/releases)
 
-## Sharing between devices
-
-- **Pair.** Show the device code on one device and enter it on the other. On Android, you can also scan the QR code. Compare the code through a trusted channel, then approve the request on the device showing it. Once paired, you can share again without an account.
-- **Send.** Share files, folders, text, or your clipboard. Check the content and destination before sending, then follow the transfer or cancel it.
-- **Receive.** The receiving device asks for approval by default. You can enable automatic acceptance in settings. Open **Received** to find files, text, and links. Choose where files are saved in settings.
-
-For background receiving, enable the service on Android, leave Vela in the menu bar on macOS, or keep it running in the system tray on Windows or Linux. [Background receiving setup](docs/user-guide.md#receive-in-the-background)
-
-## Connections and privacy
-
-You can share on the same network or across networks when both devices are running Vela and can reach each other. Vela uses a direct or relayed connection, with encryption between your devices on either path. Pairing records and receive history stay on your device. Identity keys are kept in your system's secure storage.
-
-## Build from source
-
-Install the Flutter and Rust versions listed in the [contributing guide](CONTRIBUTING.md), along with the build tools for your target.
-
-| Target | Build tools |
+| Platform | Package |
 | --- | --- |
-| Android | Android SDK and NDK, JDK 17, a connected device or emulator |
-| macOS | macOS 12+, Xcode with command line tools, CocoaPods |
-| Windows x64 | Visual Studio desktop C++ tools and CMake |
-| Linux x64 | Clang, CMake, Ninja, GTK 3, libsecret, libnotify, and Ayatana AppIndicator development packages |
+| Android | APK for ARM64 |
+| macOS | DMG for Apple silicon or Intel |
+| Windows | Setup EXE for x64 |
+| Linux | AppImage for x64 |
 
-Install dependencies and list the available devices.
+[Installation guide](docs/user-guide.md#install-a-build)
 
-```sh
-flutter pub get --enforce-lockfile
-flutter devices
-```
+## Pair once, then send
 
-Run `flutter run -d DEVICE_ID` with a device from the list. Flutter builds the Rust library through Cargokit.
+1. Open Vela on both devices. Choose **Show device code** on one and **Add device** on the other. Enter the code or scan the QR code on Android, then choose **Connect**. Compare the requesting device’s code through a trusted channel. Approve the pairing on the device that showed its code.
+2. Select what to send and choose the recipient. You can start in Vela, use the system share menu on Android or macOS, or drop files into the desktop app.
+3. The receiving device asks you to approve each transfer. Find what arrived under **Received**. To accept transfers from paired devices automatically, enable **Auto accept** in Settings.
+
+To receive while using other apps, enable background receiving on Android or keep Vela running in the menu bar or system tray on desktop. [Background receiving setup](docs/user-guide.md#receive-in-the-background)
+
+## How devices connect
+
+Choose the same paired device whether it’s on your network or another. Both devices need to be running Vela and able to reach each other. Vela establishes a direct connection when it can and uses a relay when needed. Content is encrypted between the devices on either path.
+
+Pairing records and receive history are stored on each device. Remove a device from your list to revoke the pairing. Vela uses public Iroh relays by default, and you can configure your own in Settings. [Connection troubleshooting](docs/user-guide.md#troubleshooting)
 
 ## Contribute
 
-Reports about how Vela works across devices, fixes, and translations are welcome. See the [contributing guide](CONTRIBUTING.md), [architecture](docs/architecture.md), and [release workflow](docs/releasing.md).
+You can help by reporting how transfers behave on your devices, improving translations, or submitting a fix. [Contributing guide and build instructions](CONTRIBUTING.md)
 
 ## License
 
-[MIT](LICENSE). Third-party components retain their own licenses, including [Cargokit](rust_builder/cargokit/LICENSE).
+[MIT](LICENSE). [Cargokit](rust_builder/cargokit/LICENSE) is distributed under its own license.

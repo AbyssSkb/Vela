@@ -1,108 +1,86 @@
-# 从哪里理解 Vela
+# Vela architecture
 
-Vela 在配对设备之间收发文件和剪贴板内容。Flutter 协调用户选择、确认和保存，Rust 负责连接、信任和传输，各平台提供通知、后台运行和文件访问。
+[简体中文](architecture.zh-CN.md)
 
-第一次读代码，先看 [Rust 双节点收发用例](../rust/src/api/node_tests.rs) 的 `sends_between_two_local_iroh_nodes`，再跟到 Flutter 的 [`receiveAcceptedContent`](../lib/received_content.dart)，最后看 [设备写入测试](../test/paired_devices_test.dart)。读完后应能回答：发送方什么时候看到成功？重新配对后哪个旧决定必须作废？放弃发送会删除什么？
+Flutter manages UI choices, confirmations, and application state. Rust owns device trust, connections, and transfers. Native code integrates with system sharing, notifications, background execution, file access, and update installation.
 
-## 先读这些文件
+```mermaid
+flowchart LR
+    UI["Flutter app"] -->|"Node, pairing, transfers"| Rust["Rust / Iroh"]
+    UI -->|"Sharing, notifications, files, installation"| Platform["Platform interfaces"]
+    UI -->|"Devices, settings, receive history"| Local["Local storage"]
+    Rust <-->|"Encrypted connection"| Peer["Other device"]
+```
 
-| 你要理解什么 | 入口 | 它拥有的状态 |
-|---|---|---|
-| 应用启动和主页 | `lib/main.dart`、`lib/home_toolbar.dart`、`lib/home_device_widgets.dart` | 首页选择、当前任务、设备视图和操作入口 |
-| 接收入站请求的决定 | `lib/incoming_offer_prompt.dart`、`lib/peer_confirmation.dart` | 本次通知的操作 ID、返回前台、对端断开和确认弹窗 |
-| 节点启动、身份和关闭 | `lib/app_runtime.dart` | 当前节点、设备存储、启动代次、资源接管与释放 |
-| 在线状态的展示与同步 | `lib/presence_controller.dart` | 快照订阅、探测、重试和定时器 |
-| 可信设备的持久化与同步 | `lib/paired_devices.dart` | 当前设备关系的标记、设备快照、写入队列、信任同步重试 |
-| 设备数据及保存 | `lib/peer_state.dart`、`lib/peer_store.dart` | 不可变设备数据、SQLite 完整快照 |
-| 配对 | `lib/pairing_session.dart` | `PairingSessions` 协调双向握手、同设备仲裁、取消和解除隔离 |
-| 分享来源、临时文件和重试 | `lib/pending_share.dart`、`lib/prepared_transfer.dart`、`lib/send_session.dart` | 平台来源、准备后的路径、应用拥有的临时文件、单次重试机会 |
-| 内容类型和错误结果 | `lib/content_kind.dart`、`lib/transfer_failure.dart` | 协议/历史类型转换、稳定错误码解析 |
-| 接收后的文件与记录 | `lib/received_content.dart`、`lib/received_storage.dart` | `receiveAcceptedContent` 编排传输完成、暂存文件保存、剪贴板和历史；首页负责确认、进度和通知 |
-| 更新检查、下载和安装编排 | `lib/app_update.dart`、`lib/app_update_tile.dart`、`lib/mac_update_feed.dart` | 控制器负责验证、缓存与安装门禁；设置组件负责确认，macOS feed 模块负责本机 HTTP 响应 |
-| 平台后台策略 | `lib/background_settings.dart` | Android 后台服务、macOS 防休眠和 Windows/Linux 托盘各自的设置键、默认值和系统调用 |
-| Windows/Linux 桌面基础能力 | `lib/desktop_platform.dart`、`lib/peer_store.dart` | 图片剪贴板入口、SQLite FFI 后端 |
-| Rust 对 Flutter 的接口 | `rust/src/api/node.rs` | 节点、请求、配对与传输任务的公开类型 |
-| 连接建立和请求分派 | `rust/src/api/node/runtime.rs` | Iroh endpoint、监听任务、入站请求队列 |
-| 单次传输 | `rust/src/api/node/transfer.rs`、`outgoing_transfer.rs`、`incoming_request.rs` | 任务的取消、连接、进度和单次执行权 |
-| 配对和信任会话 | `rust/src/api/node/pairing.rs`、`rust/src/trust.rs` | 配对尝试、可信会话和撤销规则 |
-| 在线监测与恢复 | `rust/src/presence.rs`、`rust/src/proof_clock.rs` | 在线证据、连接候选、网络代次与跨睡眠计时；`presence/probe_stats.rs` 只记录探测统计 |
-| 文件夹的安全文件操作 | `rust/src/api/folder.rs`、`folder_windows.rs` | 归档限制、拒绝链接、独占创建与不覆盖还原 |
-| Android 系统能力 | `VelaApplication.kt`、`AppChannels.kt`、`MainActivity.kt` | 共享 FlutterEngine、固定通道、Activity 交互 |
-| macOS 窗口与菜单 | `MainFlutterWindow.swift`、`AppDelegate.swift` | 窗口、通道注册、菜单显示优先级 |
-| macOS 接收目录与分享暂存 | `Runner/ReceiveDirectoryAccess.swift`、`Shared/ShareInbox.swift` | 目录授权、分享清单和暂存目录；分享扩展复用清单规则 |
-| 桌面托盘、通知与登录启动 | `windows/runner/desktop_integration.cpp`、`linux/runner/desktop_integration.cc` | 窗口可见性、托盘与通知、系统事件、正常退出握手 |
-| 原生更新安装 | `macos/Runner/VelaUpdater.swift`、`windows/runner/updater.cpp`、`linux/runner/updater.cc` | 平台更新接口、安装器与退出/重启配合 |
-| Android 覆盖安装 | `android/app/src/main/kotlin/com/example/vela/UpdateBridge.kt` | 安装来源许可、APK 身份检查和系统安装确认 |
-| 远端构建与发布 | `.github/workflows/`、`tool/release/`、`packaging/` | 目标构建、安装包、签名更新源与草稿发布 |
-| 调试驱动入口 | `lib/debug_driver.dart` | debug 模式下双实例测试的命令分派 |
+Start with a two-node Rust test to see how a send completes, then follow Dart's `receiveAcceptedContent` to see how the receiver saves the content. [Two-node transfer tests](../rust/src/api/node_tests.rs) · [Receive flow](../lib/received_content.dart)
 
-Android 文件位于 `android/app/src/main/kotlin/com/example/vela/`；macOS 主应用文件位于 `macos/Runner/`。`lib/src/rust/`、`rust/src/frb_generated.rs` 和 `lib/l10n/generated/` 是生成代码，从对应源文件修改后重新生成。
+## Find the entry point for a change
 
-## 五条流程
+| Change | Start here |
+| --- | --- |
+| Home screen, share actions, active task | [main.dart](../lib/main.dart), [home_toolbar.dart](../lib/home_toolbar.dart), [home_device_widgets.dart](../lib/home_device_widgets.dart) |
+| Node startup and shutdown | [app_runtime.dart](../lib/app_runtime.dart), [Rust runtime](../rust/src/api/node/runtime.rs) |
+| Pairing, device removal, trust sync | [pairing_session.dart](../lib/pairing_session.dart), [paired_devices.dart](../lib/paired_devices.dart), [Rust trust](../rust/src/trust.rs) |
+| Reachability, network changes, wake | [presence_controller.dart](../lib/presence_controller.dart), [Rust presence](../rust/src/presence.rs), [proof_clock.rs](../rust/src/proof_clock.rs) |
+| Sending, cancellation, retries | [pending_share.dart](../lib/pending_share.dart), [prepared_transfer.dart](../lib/prepared_transfer.dart), [send_session.dart](../lib/send_session.dart), [Rust transfer](../rust/src/api/node/transfer.rs) |
+| Receive approval, files, clipboard | [incoming_offer_prompt.dart](../lib/incoming_offer_prompt.dart), [received_content.dart](../lib/received_content.dart), [received_storage.dart](../lib/received_storage.dart) |
+| Background operation and system events | [background_settings.dart](../lib/background_settings.dart), [Android AppChannels](../android/app/src/main/kotlin/com/example/vela/AppChannels.kt), [macOS AppDelegate](../macos/Runner/AppDelegate.swift), [Windows integration](../windows/runner/desktop_integration.cpp), [Linux integration](../linux/runner/desktop_integration.cc) |
+| Update checks, downloads, installation | [app_update.dart](../lib/app_update.dart), [app_update_tile.dart](../lib/app_update_tile.dart), [macOS update feed](../lib/mac_update_feed.dart), [release tools](../tool/release/) |
 
-**启动：**`main` 初始化 Rust bridge，`AppRuntime.start` 加载身份、设备快照并启动节点，同步信任和设备信息，成功后接管节点与存储。页面接入入站请求，`PresenceController.attach` 接入在线快照。关闭时先使旧结果失效，排空设备事务，再关闭旧节点；启动中途被关闭的资源由启动流程自行释放。
+## Node and device relationships
 
-**配对。** 两端先隔离旧会话，分别执行以下步骤。同一设备的入站、出站尝试都结束后，才能解除隔离。
+`AppRuntime.start` reads the device identity and paired-device snapshot, starts the node, and synchronizes trust. After startup, the app owns the node, device store, and presence subscription. Shutdown invalidates results from outstanding tasks, waits for device transactions to finish, and closes the node. If startup is interrupted, the startup flow cleans up what it created.
 
-| 方向 | 本机操作顺序 |
-|---|---|
-| 接收方 | 检查配对冲突 → 等待本机用户同意 → 在写入队列内复核本次设备关系 → 持久化设备并同步信任 → 复核后发送同意回复 |
-| 发起方 | 创建可取消的出站请求并发送 → 收到接收方的同意回复 → 在写入队列内复核本次设备关系 → 持久化设备并同步信任 |
+Each side confirms and commits its local pairing. The initiator waits for the receiver to approve. The receiver saves its pairing after user approval and then replies. The session remains isolated until incoming and outgoing pairing attempts for that device have both finished.
 
-`PeerState` 的设备资料包括对端上报的名称、类型和本机别名。Dart 的配对版本（`pairingRevisionFor`）用于判定旧决定是否仍有效：配对、入站接收和异步撤销都要复核版本。Rust 的信任会话另行判断连接是否仍获授权。`onMembershipWriteFinished` 表示本次写入流程退出，不代表授信已同步成功。
+A change to the device set first revokes trust where needed, then saves the device snapshot, and finally grants new trust. A failed write restores the previous trust state. Pairing, receiving, and asynchronous revocation check the current relationship through `pairingRevisionFor`. Rust uses its trust session to decide whether a connection is still authorized.
 
-**发送与接收。** 来源转成 `PreparedTransfer` 后，每次通信创建一个 `TransferJob`。界面最多保留一次失败的发送，不随短提示消失。重试复用准备好的文件路径：剪贴板、归档或物化 URI 用应用的临时文件，普通文件仍读取用户原路径，不复制字节。`SendRetry` 只能领取一次，重试前复核设备的配对版本。成功或明确放弃后，`SendSession.release` 释放分享来源并删除应用临时文件，不删除用户原文件。
+## Reachability and background operation
 
-接收方完成用户确认后复核配对版本，选择接收目录后再复核一次，才交给 Rust。Rust 校验内容、刷新文件并发送传输回执；发送方此时可以看到传输成功，不必等 Android 将暂存文件保存到用户位置。保存成功就清理暂存，保存失败保留私有副本，用户取消保存则清理暂存。历史中的 `fileReference` 可以是本地路径或 Android 文档 URI，打开、删除和导出均通过 `ReceivedStorage`。
+Rust updates reachability evidence and its expiry after verifying a response. Flutter's `readCurrentSnapshot` reads it, `_watchSnapshotUpdates` listens for changes, and `requestPeerProbes` requests a probe. Wake handling invalidates stale evidence before recovering the connection. Probe statistics support diagnostics.
 
-**在线与后台：**Rust 验证响应后更新带有效期的在线证据，`PresenceController` 将其投影到界面。`readCurrentSnapshot` 读取当前证据，`_watchSnapshotUpdates` 等下一版，`requestPeerProbes` 请求主动探测；`handleNetworkEvent` 区分网络变更和系统唤醒，唤醒后先使旧证据失效。统计开关不控制探测与证据更新。Android 的 Service 可以启动无 Activity 的同一个 FlutterEngine；`AppChannels` 明确分派 `vela/background`：`start` 和 `settings` 需要 Activity，`resume` 有无 Activity 两条路径，通知更新不依赖 Activity。
+Android's receiving service can start the shared FlutterEngine without an Activity. `AppChannels` dispatches system actions according to whether the app is in the foreground or background. macOS stays available in the menu bar. Windows and Linux use the tray for window visibility, notifications, and quitting. An open connection, valid reachability evidence, and peer authorization are independent states.
 
-**更新：**`AppUpdateController` 在配置完整的发行版本中检查 JSON 签名清单，流式下载并核对长度和 SHA-256，再调用原生安装流程。macOS 仅在用户确认安装后，将缓存 ZIP 经临时本机 appcast 交给 Sparkle；确认前不让 SDK 暂存安装。Windows 运行已验证安装器，Linux 通过独立 helper 替换整个 AppImage，Android 调用系统安装器。当前传输、文件夹处理或配对会阻止安装，安装前排空节点与持久化事务。打包脚本先生成完整草稿 Release，发布版本资源后再刷新 `updates` 更新源。
+## Send and receive
 
-## 跨语言约定
+`PreparedTransfer` holds the content and any temporary files owned by the app. A single-use Rust `TransferJob` performs each transfer. Each node runs one transfer at a time, and cancellation and progress belong to the job that created them.
 
-- `TransferKind` 表达网络传输类型，`HistoryKind` 表达历史展示类型；转换集中在 `content_kind.dart`。持久化和线上字符串保持原格式，`batch` 的每个接收文件记录为 `file`，文件夹归档由文件类型和 `.vela-folder.zip` 后缀共同识别。
-- Rust 的 `failure_code.rs` 发出 `[vela:cancelled]`、`[vela:declined]`、`[vela:save_failed]`、`[vela:pairing_declined]`；Dart 在 `transfer_failure.dart` 解析。前缀是接口约定，后续说明文字可修改。保留现有 bridge 的 `anyhow` 返回方式，无需为此修改生成代码。
-- 在线报文在 `rust/src/protocol.rs` 编解码。业务循环处理消息类型，不重复解释字节偏移。
-- macOS 菜单分别接收 `setNodeStatus`、`setTransferring` 和入站通知事实；传输结束不会覆盖节点失败状态。
-- Windows/Linux 复用 `vela/background` 的可见性、网络/唤醒和退出事件；Linux 图片剪贴板通过 `vela/clipboard`，不依赖原有插件的空写入实现。原生更新通道为 `vela/update`。
+A retry reuses the prepared content and checks the target's pairing revision again. Regular files use their original paths. The app manages temporary clipboard content, archives, share staging, and files materialized from URIs. On success or discard, `SendSession.release` releases platform access and app-owned temporary files.
 
-## 修改时需要守住的规则
+The receiver rechecks the pairing revision after user approval and again after selecting the destination. Rust verifies the content, flushes the files, and replies to the sender. Android then saves the staged file to the chosen destination. The sender can see a successful transfer while that final local save is still in progress. A failed save keeps a private copy. Canceling the save removes the staged file.
 
-- 设备集合变化先收缩信任，再持久化，发布新快照后再授予新增信任；写失败恢复旧信任。旧异步结果不能用于重新配对后的新会话。
-- 一个节点同时只允许一个传输任务。任务单次使用，取消可以发生在异步执行开始之前；旧任务的取消和进度不能影响新任务。
-- 连接存在、在线证据有效、对方仍信任本机是不同事实。统计记录不负责更新这些事实。
-- 只删除应用拥有的临时文件，不能删除用户原文件。重试复用原准备结果，不重新读取剪贴板或重新归档；macOS 分享暂存和访问凭据、Android content URI 的物化与授权都需要显式清理。
-- `displayPath` 用于展示；桌面端的 `directoryPath` 才是可用于文件 IO 的目录。Android 文档 URI 不等于本地文件路径。
-- 更新公钥与设备身份密钥用途不同。发行密钥不能每次构建重建；安装包、数据目录和设备身份不能因更新被清空。失败的签名验证不得触发安装。
+A history record's `fileReference` can be a local path or an Android document URI. Open, export, and delete actions go through `ReceivedStorage`. The UI displays `displayPath`. Desktop file operations use `directoryPath`.
 
-## 数据放在哪里
+## App updates
 
-| 数据 | 保存位置与所有者 |
-|---|---|
-| 设备身份密钥、中继认证信息 | `AppRuntime` 使用系统安全存储 |
-| 可信设备、名称、类型和别名 | `PeerStore` 的 `peer_state_v2.sqlite3`，按 profile 保存完整快照 |
-| 历史记录与普通设置 | `SharedPreferences`；历史由 `TransferHistoryStore` 维护 |
-| 接收文件 | 用户选择的保存位置；Android 的 URI 操作由原生层处理 |
-| 分享和剪贴板临时内容 | 来源准备阶段创建，由发送内容的所有权信息及平台暂存凭据决定清理 |
+`AppUpdateController` reads the signed update manifest and checks the target, download size, and SHA-256. Installing requires user confirmation and waits for transfers, folder operations, and pairing to finish. The app completes storage transactions before closing the node.
 
-## 用哪些测试确认修改
+After confirmation, macOS passes the cached ZIP to Sparkle through a local appcast. Windows runs the verified installer, Linux uses a standalone helper to replace the AppImage, and Android hands off to the system installer. Publishing makes the version and its installers public before refreshing the rolling update feeds. [Release workflow](releasing.md)
 
-| 修改范围 | 优先阅读与运行 |
-|---|---|
-| 设备持久化、撤销信任、配对竞态 | `test/paired_devices_test.dart`、`test/pairing_*_test.dart`、`test/startup_*_test.dart` |
-| 节点与在线状态所有权 | `test/app_runtime_test.dart`、`test/presence_controller_test.dart` |
-| 来源解码、临时文件和发送 | `test/pending_share_test.dart`、`test/prepared_transfer_test.dart`、`test/send_content_test.dart` |
-| 接收确认、剪贴板和历史 | `test/incoming_offer_prompt_test.dart`、`test/peer_confirmation_test.dart`、`test/received_content_test.dart` |
-| 存储通道及 URI 访问 | `test/received_storage_test.dart` |
-| Windows/Linux 保存目录与后台设置 | `test/received_storage_desktop_test.dart`、`test/background_settings_test.dart`、`test/peer_store_test.dart` |
-| 更新清单、下载、忙碌与安装门禁 | `test/app_update_test.dart` |
-| 更新源和打包规则 | `tool/release/test_release.py`、`packaging/linux/test_package.py` |
-| Rust 传输、取消和协议验证 | `rust/src/api/node_tests.rs` |
-| 在线证据、候选竞速与恢复 | `rust/src/presence*_tests.rs`、`rust/src/proof_clock_tests.rs` |
-| Android 通道、后台与系统分享 | 原生单测以及 `test_driver/android_*.dart`、`notification_actions.dart` |
-| macOS 菜单、后台与分享数据 | `macos/RunnerTests/RunnerTests.swift` 和 `test_driver/mac_*.dart` |
+## Data and interfaces
 
-共享 Dart 测试替身在 `test/support/fakes.dart`。常规验证命令见 CONTRIBUTING；完整 Flutter/Rust 编译和安装包构建优先运行 GitHub 工作流，真实后台、升级和跨设备测试需要运行应用。
+| Data or contract | Owner |
+| --- | --- |
+| Device identity keys and relay credentials | `AppRuntime` uses the system's secure storage |
+| Paired devices, names, types, and local aliases | `PeerStore` saves per-profile snapshots in `peer_state_v2.sqlite3` |
+| Settings and receive history | `SharedPreferences`, with receive history managed by `TransferHistoryStore` |
+| Received files and share staging | Files are saved to the user's chosen location. The preparation and transfer flows clean temporary files according to ownership |
+| Network and history types | `TransferKind` and `HistoryKind` are translated in `content_kind.dart`. Preserve existing protocol and storage strings |
+| Stable error codes and presence messages | Rust's `failure_code.rs` defines error prefixes, and Dart's `transfer_failure.dart` parses them. `protocol.rs` encodes and decodes presence messages |
 
-磁盘空间受限时，可直接用已有 Dart SDK 执行 `dart --disable-dart-dev tool/check_core_contracts.dart`。它以内存替身检查内容类型、错误码和发送重试的清理规则，不创建测试文件或构建缓存；它不覆盖 Flutter、Rust 编译或平台行为。
+Platform code reports window visibility, wake, network, and quit events through `vela/background`. It installs updates through `vela/update`. Linux sends clipboard images through `vela/clipboard`. macOS updates node status, transfer status, and incoming notifications independently. Finishing a transfer preserves a node error.
+
+Generate `lib/src/rust/`, `rust/src/frb_generated.rs`, and `lib/l10n/generated/` from the Rust API or localization resources. [Generation and local checks](../CONTRIBUTING.md#make-a-change)
+
+## Find tests by feature
+
+| Change | First tests to run |
+| --- | --- |
+| Pairing and device writes | [paired_devices_test.dart](../test/paired_devices_test.dart), [pairing_session_test.dart](../test/pairing_session_test.dart) |
+| Node lifecycle and reachability | [app_runtime_test.dart](../test/app_runtime_test.dart), [presence_controller_test.dart](../test/presence_controller_test.dart) |
+| Content preparation, receiving, and saving | [prepared_transfer_test.dart](../test/prepared_transfer_test.dart), [received_content_test.dart](../test/received_content_test.dart), [received_storage_test.dart](../test/received_storage_test.dart) |
+| Protocol, transfers, and cancellation | [node_tests.rs](../rust/src/api/node_tests.rs), [proof_clock_tests.rs](../rust/src/proof_clock_tests.rs) |
+| Background behavior, desktop storage, and updates | [background_settings_test.dart](../test/background_settings_test.dart), [received_storage_desktop_test.dart](../test/received_storage_desktop_test.dart), [app_update_test.dart](../test/app_update_test.dart) |
+| Platform integration and real devices | [Debug drivers](../test_driver/), [Release acceptance checklist](launch-checklist.md) |
+
+Dart tests share [fakes.dart](../test/support/fakes.dart). Run the tests relevant to the change first. The contributing guide explains when to use CI, installers, or device testing. [Verification commands](../CONTRIBUTING.md#verify)

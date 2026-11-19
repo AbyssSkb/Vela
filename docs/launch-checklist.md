@@ -1,72 +1,46 @@
-# Vela 首发清单
+# Vela release acceptance checklist
 
-目标是让个人设备配对后能持续使用：下载安装、首次传输、后台接收、后续升级。10k star 是结果指标；先验证用户能否完成这条路径。
+[简体中文](launch-checklist.zh-CN.md)
 
-## 已确定的发行范围
+Record results for each candidate. For each check, note the devices, operating systems, app versions, networks, send direction, and actual result. Record installer checks and real-device transfers separately. [Release workflow](releasing.md)
 
-- 四平台预览：Android、macOS、Windows、Linux；iOS 放在桌面发行工作之后。
-- 使用 [AbyssSkb/Vela](https://github.com/AbyssSkb/Vela)，MIT，英文首页和中文说明。
-- 安装包、完整编译和测试优先在 GitHub 托管 runner 上完成。本地只做轻量检查，不要求完整平台构建。
-- GitHub Releases 提供安装包和更新源，首轮不维护额外下载服务器。
-- 自动检查并下载更新，由用户确认安装；传输、文件夹处理或配对期间禁止安装。
-- 首轮采用零成本发行签名方式；桌面包暂不提供 Apple 公证和 Windows Authenticode 发行签名。
+## Check the candidate
 
-## 已落地的源码与流程
+- [ ] Confirm the tag, commit, and version in `pubspec.yaml` agree.
+- [ ] Check CI, packaging, and installer startup results for that commit.
+- [ ] Confirm the build uses the existing Android signing key and update public key and can reuse application IDs and data locations.
+- [ ] Check the draft's installers, signed update feeds, payloads, and SHA-256 checksums.
+- [ ] Include steps for installation and upgrades. Android debug build users need to back up received files before uninstalling and installing the public build.
+- [ ] Check sample files, screenshots, logs, and third-party license notices in public materials.
 
-- [x] Windows/Linux 应用宿主，桌面 SQLite、保存目录、托盘、通知和登录启动入口。
-- [x] Windows 安全文件操作适配，以及 Linux 图片剪贴板写入入口。
-- [x] 六个远端打包目标：macOS ARM64/Intel、Windows x64、Linux x64、Android ARM64/x86_64 测试包。
-- [x] 预览构建与发行构建分开；预览关闭自动更新，Android 预览显式使用调试密钥。
-- [x] 更新公钥固定、签名清单/更新包验证、后台下载、安装确认与忙碌门禁。
-- [x] macOS Sparkle、Windows 安装器 helper、Linux 完整 AppImage 替换和 Android 系统安装器接入。
-- [x] 草稿 Release 汇总全部产物，先公开版本安装包，再刷新更新源。
-- [x] 三个外部中继测试独立为手动触发工作流，私有环境缺少凭据时明确失败。
+## Install and use Vela
 
-以上勾选表示实现和配置已存在；构建、升级和设备行为以实际运行结果验收。
-
-## 首个公开安装包前
-
-| 项目 | 验收要求 |
+| Platform | Check after installing |
 | --- | --- |
-| 远端检查 | [CI](https://github.com/AbyssSkb/Vela/actions/workflows/ci.yml)和[安装包工作流](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml)对应提交全部通过，检查实际产物 |
-| 密钥 | 持久 Android keystore、更新私钥及公钥变量配置正确，并在仓库之外安全备份；操作见[发行说明](releasing.md) |
-| 应用身份 | 保留现有 macOS/Android 标识和数据目录；后续升级沿用同一签名和标识 |
-| Android 首次迁移 | 调试包不能被不同发布密钥覆盖；说明先保存文件、卸载预览再安装公开版，以及身份/记录可能丢失的影响 |
-| macOS 安装 | Apple Silicon、Intel 分别安装 DMG 中的应用，验证菜单栏、分享扩展和钥匙串；说明未公证状态 |
-| Windows 安装 | 新用户安装、再次启动恢复已有实例、托盘退出、卸载与数据目录检查；说明系统信任提示 |
-| Linux 安装 | Ubuntu LTS 下验证 AppImage、依赖、Secret Service、X11/Wayland 的托盘/剪贴板；标明实测桌面环境 |
-| 更新 | 从上一发行版升级，身份、配对、历史和接收文件保留；篡改、失败和忙碌场景安全 |
-| 公开资源 | 安装包、更新资源、SHA256SUMS、安装说明与已知问题齐全；公开链接实际可用 |
-| 仓库卫生 | 最终提交和历史无凭据、身份密钥、私人内容、缓存和安装包；第三方许可完整 |
+| Android | Install the public ARM64 build. Pair, share from another app, receive through a background notification, and open what arrived. |
+| macOS | Install the DMG on Apple silicon and Intel. Check the menu bar, Keychain, system sharing, launch at login, and system prompts. |
+| Windows | Install as a normal user. Confirm a second launch opens the existing window, tray actions can open and quit Vela, and uninstall handles files and data as documented. |
+| Linux | Run the AppImage in the desktop environment you record. Check Secret Service, tray, notifications, and clipboard behavior on X11 and Wayland. |
 
-不要把旧的本地测试计数当作本轮跨平台验证结果。完整编译、远端检查、真实设备和升级验证需要分别记录。
+## Transfer matrix
 
-## 最小实测矩阵
+- [ ] Pair and transfer in both directions across supported device combinations. Cover a single file, a batch, an image, text, a link, clipboard content, and packaging and restoring a folder.
+- [ ] Test the same network, different networks, a network switch, and a VPN. Record whether each transfer used a direct or relayed connection. Test custom relay authentication and discovery as needed.
+- [ ] Cover pairing approval, rejection, and cancellation. Reconnect after revoking trust. Test transfer approval, rejection, automatic acceptance, and cancellation.
+- [ ] Check duplicate file names, low disk space, and failed saves. Change the save location, open a received file, remove a record while keeping its file, and remove both.
+- [ ] Test system sharing, drag and drop, and the file and image clipboard where supported.
+- [ ] On Android, test the lock screen, accepting from a notification, process reclamation, reboot and unlock, and reopening after force-stop.
+- [ ] On macOS, test closing the window, idle sleep, and wake. On Windows/Linux, test tray behavior, launch at login, a second launch, and recovery after sleep.
 
-每项记录设备型号、系统/桌面环境、应用版本、网络、方向和结果。CI 编译通过不等于真机行为通过。
+## Upgrade and publish
 
-- [ ] 四平台之间双向配对与传输：文件、多文件、图片、文字、链接、剪贴板、文件夹打包及还原。
-- [ ] 配对拒绝/取消、移除信任后重连、接收确认/拒绝/自动接收、传输取消、同名文件和空间不足。
-- [ ] 同网络、不同网络、网络切换和 VPN；私有发现、私有中继认证及强制公共中继分别记录。
-- [ ] Android 锁屏、后台、通知操作、服务回收、重启解锁和强制停止后重开。
-- [ ] macOS 菜单栏、睡眠恢复、登录启动及系统分享；Windows/Linux 托盘、登录启动、重复启动、睡眠恢复。
-- [ ] Windows/Linux 文件、图片和文字剪贴板，Linux X11/Wayland；桌面拖放，Android/macOS 系统分享。
-- [ ] 更换保存目录、历史打开/删除、仅删记录与同时删文件。
-- [ ] 更新就绪但仍在传输或配对时不能安装；拒绝被篡改的更新；安装失败后旧版可用。
-- [ ] 真实旧版到新版升级，包含本机身份、可信设备、记录和接收文件保留。
+- [ ] Upgrade from the previous public build. Check local identity, pairings, settings, history, and received files.
+- [ ] Check that pairing, transfers, and folder operations block installation. Verify rejection of a tampered package and confirm the installed version remains usable after a controlled installation failure.
+- [ ] Review the draft version, notes, assets, results, and fingerprint. Get the maintainer's approval to publish.
+- [ ] After publishing, open the release page and download links. Check that the rolling feeds point to the new version.
 
-## 展示与试用
+## User-facing materials
 
-首页主张：**Share files and clipboard across your devices.** 演示围绕长期配对的个人设备，展示系统分享、桌面拖放、后台接收和更新提示。
+Use the actual candidate and sample files for demos. Show the send action, receipt, and result, and identify the devices and network used. Include the file size and test environment with speed figures.
 
-- [ ] 录制 20–30 秒真实演示并截取桌面/手机界面，使用演示文件，不展示个人设备码、路径或内容。
-- [ ] 不同网络演示注明网络和中继条件；速度注明文件大小、设备和测试环境。
-- [ ] 确认录像、截图、安装包和 README 对应同一版本；下载表只链接已存在的版本产物。
-- [ ] 设置 About、topics 和真实截图 social preview，创建少量有入口和验收条件的贡献任务。
-- [ ] 邀请小范围用户先完成安装、配对、传输和升级，记录失败原因，再扩大公开曝光。
-
-建议 About：
-
-> Share files, folders, text, and clipboard across your personal devices. Android, macOS, Windows, and Linux. Flutter + Rust + Iroh.
-
-优先看安装和首次传输成功、升级保留数据、重复失败与外部贡献，再看 star 增长。
+When updating download links, instructions, and screenshots, check that they match the release. Reproduce reported problems against the install, pairing, sharing, or upgrade steps before deciding what to fix next. [Report a problem](../CONTRIBUTING.md#report-a-problem)

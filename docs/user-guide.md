@@ -1,117 +1,89 @@
-# Using Vela
+# Vela user guide
 
-[English overview](../README.md) · [中文说明](../README.zh-CN.md)
-
-Vela shares content between paired Android, macOS, Windows, and Linux devices. Keep both apps running and reachable while pairing and transferring. Windows/Linux are new preview targets; check the current [build results](https://github.com/AbyssSkb/Vela/actions) and the notes on the version you install.
+[简体中文](user-guide.zh-CN.md) · [Project overview](../README.md)
 
 ## Install a build
 
-Published installers are listed in [Releases](https://github.com/AbyssSkb/Vela/releases); choose a versioned release rather than the machine-readable `updates` entry. The [Installation packages workflow](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml) also produces temporary development previews, retained for seven days. Those previews disable automatic updates; Android previews use debug signing.
+Download the package for your device from a versioned release. The release page lists the installers, installation notes, and SHA-256 checksums. [Download Vela](https://github.com/AbyssSkb/Vela/releases)
 
-Choose the package matching your OS and CPU. On macOS, install the app from the DMG into a writable Applications location before updating. Windows uses a current-user installer. On Linux, keep the AppImage in a writable, stable location and make it executable; moving it later can invalidate its login-startup entry. Linux requires a desktop session with a Secret Service keyring for identity storage, and tray/notification support varies by desktop environment.
+| Platform | Install |
+| --- | --- |
+| Android | Open the ARM64 APK and follow the system prompts. If you are switching from a debug-signed build, save received files before uninstalling it. Uninstalling can remove your app-local identity, pairings, and history. |
+| macOS | Open the DMG for Apple silicon or Intel and copy Vela into a writable Applications folder. Follow the release notes for the system's first-open prompt. |
+| Windows | Run the x64 setup EXE to install Vela for your user account. |
+| Linux | Make the x64 AppImage executable and keep it in a writable location. Vela uses the desktop's Secret Service keyring for device identity. Keep the AppImage at the same path if you enable launch at login. |
 
-The current desktop distribution uses zero-cost signing and is not Apple-notarized or Authenticode-signed. Follow the release's system-specific installation notes; do not disable system security globally. Verify the published SHA-256 checksum before first use.
-
-An Android debug/preview install and the signed public install use different keys. Android cannot overwrite one with the other: save received files before uninstalling a preview to install the public version. Uninstalling can remove local identity, pairings, and history. Subsequent public releases must retain the same package ID and signing key.
+The installation workflow also provides seven-day development previews. They use debug signing on Android and have app updates disabled. [Development builds](https://github.com/AbyssSkb/Vela/actions/workflows/build.yml)
 
 ## Pair devices
 
-1. On one device, choose **Show device code** on the home screen or in its menu.
-2. Choose **Add device** on the other device and enter that code. Android can also scan the QR code.
-3. Verify the code through a trusted channel and approve the request on the device displaying its code.
+1. Open Vela on both devices. On one device, choose **Show device code**.
+2. On the other device, choose **Add device** and enter the code, or scan the QR code on Android. Choose **Connect**.
+3. Compare the requesting device's code through a trusted channel. Approve the request on the device displaying its code.
 
-Paired devices retain their names and types. The device area opens as a list by default. Use the toolbar to switch to the graph or back to the list. Vela remembers the view you choose. Use the desktop selection button, or long-press a device on mobile, to enter multi-selection.
+Your paired devices appear in a list by default. You can give a device a local alias or switch to the graph. Removing a device revokes trust on this device and closes its existing connections. A peer with online monitoring enabled can learn about the removal when it reconnects.
 
-Removing a device immediately revokes local trust and closes related connections. When the peer reconnects with online monitoring enabled, it can learn that trust was revoked; an unreachable peer is shown as offline. Versions using the previous pairing protocol must pair again after upgrading, while retaining device identity, received files, and history.
+If you upgrade from a build that used the previous pairing protocol, pair the devices again. The upgrade preserves device identity, received files, and history.
 
 ## Send content
 
-| Source | Behavior |
+Start in Vela, choose Vela from the system share menu on Android or macOS, or drop files into the desktop app.
+
+| What you want to send | Choose |
 | --- | --- |
-| Files | Select one or more files; a batch supports up to 100 files |
-| Folder | Packages a folder into a `.vela-folder.zip` archive; restore it manually after receiving |
-| Clipboard | Explicitly sends text, an image, or one file; multiple clipboard files are not supported |
-| Text | Type a message or link; receiving typed text does not automatically replace the clipboard |
-| Android photos and videos | Uses the system photo picker for multi-selection, without whole-library access |
-| System share menu | Choose Vela from another app on Android or macOS |
-| Desktop drag and drop | Drop files into Vela on macOS, Windows, or Linux |
+| One file or a batch | **Files**. A batch supports up to 100 files. |
+| A folder | **Folder**. Vela packages the folder for the receiver to restore. |
+| A message or link | **Text**. Going back from the recipient picker keeps the draft. |
+| Your current clipboard | **Clipboard**. Supports text, an image, or one file. |
+| Photos or videos on Android | **Photos**. Select items in the system photo picker. |
 
-Choose a sharing action, select the content, and confirm the receiving device. The recipient picker shows connection status and adds device codes when names match. Use **Review content** to check clipboard items or a batch of files. With one paired device, the text editor and pending share show a named send button. Going back from the recipient picker keeps typed text in the editor. The latest successful send stays on the home screen during the session until you dismiss it or start another send. If a transfer fails, retry with the same content, choose a different device, or discard the send.
+Check the destination before sending. If device names match, Vela adds a code to distinguish them. The recipient picker also shows the connection status and offers **Review content** for items such as a file batch or clipboard share.
 
-Incoming transfers request approval by default; settings include optional automatic acceptance. Transfers show progress and speed and can be cancelled.
+Vela handles one transfer at a time. Watch the progress or cancel from Vela. A successful send stays visible during the current session until you dismiss it or start another send. After a failure you can retry with the same content, choose another device, or discard the send.
 
-Clipboard shares are copied on receipt. For ordinary files, choose **Copy files** in Received when you want to put them on the system clipboard. Paste support depends on the destination app. Received HTTP(S) links can be opened in a browser.
+## Receive and find content
 
-Folder archives support at most 16 GiB of uncompressed content, 10,000 entries, and 64 levels of nesting. Symlinks are rejected. The app currently allows one active transfer per node.
+The receiving device asks for approval by default. You can enable automatic acceptance in **Settings → Receiving**.
+
+- **Files and links.** Open **Received** to find what arrived. Files go to Downloads by default. Change the destination in settings or choose **Copy files** in a received record when you want to paste files into another app.
+- **Clipboard.** An accepted clipboard share replaces the receiving device's clipboard, including when automatic acceptance is on. You can also find the content in **Received**. Typed messages remain in history and leave the clipboard as it is.
+- **Folders.** Open the received `.vela-folder.zip` record and choose **Restore folder** yourself. A folder archive supports up to 16 GiB uncompressed, 10,000 entries, and 64 levels of nesting. Use regular files and directories within the folder.
+- **Remove a record.** Select the entries in **Received**, including from search results. You can clear a record and keep its file, or delete both.
 
 ## Receive in the background
 
-**Settings → Receiving** shows the current background status and what to check next. Connection diagnostics and custom relays are under **Troubleshooting**.
+Open **Settings → Receiving** to check whether this device is ready and to find the relevant system settings.
 
-### Android
+| Platform | Keep Vela available |
+| --- | --- |
+| Android | Enable **Allow background receiving**. The receiving service shows a persistent notification. You can accept or decline requests from notifications. Vela tries to restore the enabled service after reboot and unlock. If the system stops it, reopen Vela and check notification and battery settings. |
+| macOS | Close the window to leave Vela in the menu bar. The optional **Keep available in background** setting prevents idle sleep. Closing the lid and manual sleep still suspend the connection. On macOS 13 or later, you can enable launch at login separately. |
+| Windows and Linux | With background receiving enabled and a tray available, closing the window leaves Vela in the system tray. Open or quit it from the tray menu. If the tray is unavailable, keep the window open. Sleep or logout stops reception. |
 
-Enable background reception in settings. Vela runs a foreground service with a persistent notification and holds a CPU wake lock. The background settings page shows notification permissions, battery restrictions, autostart controls where available, and node initialization status. When permissions or battery restrictions prevent reception, use the shortcut at the top of the page to open the relevant system setting.
-
-Incoming requests can be accepted or declined in notifications. Active transfers show progress notifications. Systems supporting live updates may promote them to a status-bar capsule; presentation depends on the OS and notification settings.
-
-Vela attempts to restore the enabled service after a reboot and unlock. Vendor restrictions, power-saving policies, and force-stop can still interrupt reception. Background reception increases power use; turn it off when unnecessary. There is no push wake-up service.
-
-### macOS
-
-Closing the window leaves Vela running in the menu bar. Choose **Quit** to end the process.
-
-The optional background availability setting prevents idle system sleep while allowing the display to turn off. It can increase power use and does not prevent lid-close or manual sleep from interrupting connectivity. On macOS 13+, login-at-start is a separate setting. Choose **Open Login Items** on the background receiving page if macOS requests approval.
-
-### Windows and Linux
-
-Background receiving keeps Vela in the system tray after closing its window. Open the tray menu to restore the window or choose **Quit** to stop the process. Settings include separate background-reception and login-startup controls. If no usable tray is available, closing the window quits through the normal shutdown flow instead of hiding an inaccessible app.
-
-Incoming notifications open Vela so you can approve a transfer. Desktop release builds restore the existing instance on a second launch. Sleep, logout, or quitting stops reception; the tray setting does not prevent system sleep. Linux tray and notification behavior must be tested in the desktop environment you use.
+On supported Android systems, transfer progress may also appear in a status-bar capsule. Keeping a device available in the background can increase power use.
 
 ## Update Vela
 
-Update-enabled releases check at startup and every 12 hours, download in the background, and show their state under **Settings → App updates**. You can also check there manually. Installation requires confirmation and remains unavailable while a transfer, folder operation, or pairing is active.
+In an update-enabled release, Vela checks for updates in the background. To check or install manually, open **Settings → About Vela → App updates**. When an update is ready, finish any transfer, pairing, or folder operation before confirming installation.
 
-All platforms verify a signed update manifest and download the candidate before installation. After your installation confirmation, macOS hands the cached ZIP to Sparkle for verification and replacement; Sparkle does not stage an update before that confirmation. Windows runs the verified EXE after orderly shutdown. Linux replaces a complete verified AppImage through its helper; a read-only location must be moved before updating. Android launches the system installer and may ask you to allow Vela to install apps, then asks for installation confirmation.
+Vela verifies the signed update and installer before handing off to the system. On Android, follow the system's installation and permission prompts. On Linux, move the AppImage to a writable location if the current one is read-only.
 
-Update manifests and payloads are checked against the public key bundled in the application, with size and content checks for downloaded packages. Failed verification leaves the installed version in place. Keep the current installation until the update succeeds; upgrades are designed to preserve identity, paired devices, history, and received files. Actual old-to-new upgrades remain part of release acceptance testing.
+## Connections and local data
 
-Source/development builds without release configuration display **Updates are unavailable in this build**. They can still share content. Maintainers configure keys, versions, and update feeds through [releasing.md](releasing.md).
+Keep Vela running on both devices. You can use the same sharing steps on one network or across networks. Vela connects directly when it can and uses a relay when needed. Traffic is encrypted between the devices on either path. Vela uses Iroh's public discovery and relay services by default. An enabled, nonempty custom relay list in **Settings → Troubleshooting** replaces the default relay list.
 
-## Files and local data
-
-- Received files default to Downloads. Change the destination in settings.
-- Search received history to find text, files, and links. Select the entries you want to remove from the results. Removing history keeps the received files unless you choose to delete them too.
-- Device identity keys and relay credentials use platform secure storage. Paired-device records, history, and ordinary settings remain local.
-- Vela attempts direct peer connections and falls back to relays. The default setup uses public Iroh discovery and relay infrastructure. Custom relays can be configured in settings; when custom relays are enabled with a nonempty list, that list replaces the default relays.
-
-Iroh encrypts endpoint traffic even when relayed; this protects content in transit. See [Iroh's transport documentation](https://docs.rs/iroh/1.4.1/iroh/#encryption).
+Pairings, app settings, and receive history stay on your device. Device identity keys and relay credentials are stored in the system's secure storage.
 
 ## Troubleshooting
 
-| Symptom | Check first |
+| Problem | What to try |
 | --- | --- |
-| Vela cannot start | Retry or open Diagnostics from the error screen. Diagnostics shows when the visible information was last updated |
-| Cannot pair | Use matching current versions, verify the device code, keep both apps open, and confirm the request on the other device |
-| Device appears offline | Check that the peer is running, its node initialized successfully, and its network is reachable; inspect any custom-relay configuration |
-| Android stops receiving in the background | Check the background page for service, notification, battery, and autostart status; a force-stopped app must be opened again |
-| Mac stops receiving | Check whether Vela was quit or the Mac entered system sleep |
-| Windows/Linux stops receiving | Check that Vela is still running, tray support is available, and the computer has not slept or logged out |
-| Received file cannot be found | Check the configured save location and the receive-history entry |
-| Cannot paste received content | Check that the destination app accepts that clipboard content type; use the saved file instead |
-| Folder is rejected | Check archive size, entry count, nesting depth, and symlinks |
-| AppImage cannot update | Move it to a writable location and check the update again |
-| Android update asks for permission | Allow app installation for Vela when prompted, then retry; Android still confirms installation |
+| Vela won't start | Retry from the error screen or open **Diagnostics** there. |
+| Pairing fails | Open Vela on both devices, use matching current versions, and confirm the request on the device displaying the code. |
+| A device is temporarily unreachable | Check that Vela is running on the other device and both devices have network access. Refresh device status. If you use custom relays, test the relay from settings. |
+| Background requests stop | Check the device's **Receiving** settings. Look at notification permissions and battery restrictions on Android, menu-bar and sleep state on macOS, or tray and sleep state on Windows/Linux. |
+| A received file is missing or won't paste | Open its record in **Received**, check the save location, and try opening the saved file. Apps differ in which clipboard types they accept. |
+| A folder archive is rejected | Check the uncompressed size, entry count, nesting depth, and whether the folder contains symbolic links. |
+| The update can't install | Check app-installation permission on Android or the AppImage location on Linux. Try again from **About Vela**. |
 
-For a bug report, include both device models, OS and app versions, transfer direction, network conditions, foreground/background state, and reproducible steps. Remove device codes, QR codes, relay credentials, personal paths, and content from logs and screenshots before sharing them. See [CONTRIBUTING.md](../CONTRIBUTING.md).
-
-## Local development signing on Mac
-
-The default macOS build uses ad-hoc signing, which may trigger renewed Keychain prompts after rebuilding. For a stable local development identity, create `macos/Runner/Configs/LocalSigning.xcconfig`:
-
-```xcconfig
-VELA_CODE_SIGN_IDENTITY = certificate SHA-1 fingerprint
-VELA_CODE_SIGN_STYLE = Manual
-```
-
-Runner and the share extension use this identity during normal builds. This file is ignored by Git. Keep the private key in Keychain; a local self-signed certificate is not a public distribution signature.
+Include both app versions, device models, operating systems, network, and transfer direction in a bug report. Add the steps that reproduce the problem and remove device codes, credentials, and private content from logs or screenshots. [Report a problem](../CONTRIBUTING.md#report-a-problem)
