@@ -297,7 +297,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get sendDeviceChanged => '配对已变更，请放弃本次发送后重新选择设备。';
+  String get sendDeviceChanged => '配对已变更，请重新选择设备。';
+
+  @override
+  String get reviewSendContent => '查看待发送内容';
+
+  @override
+  String get preparingSendContent => '正在准备内容…';
 
   @override
   String get discardSend => '放弃发送';
@@ -328,6 +334,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get writeClipboardFailed => '已接收，但未能复制到剪贴板';
+
+  @override
+  String get incomingClipboardHint => '接收后将替换本机剪贴板内容。';
 
   @override
   String get startupFailed => 'Vela 无法启动。';
@@ -610,6 +619,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historyCopied => '已复制';
 
   @override
+  String get historyCopyFiles => '复制文件';
+
+  @override
+  String get historyCopyFailed => '无法复制到剪贴板，请重试。';
+
+  @override
   String get historySaveFailed => '已传输，但无法保存记录';
 
   @override
@@ -626,7 +641,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get viewHistory => '查看记录';
 
   @override
-  String get dropFilesHere => '放开以发送文件';
+  String get dropFilesHere => '放开以准备发送文件';
 
   @override
   String get dropFilesOnly => '暂不支持拖入文件夹';
@@ -833,7 +848,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoAccept => '自动接收';
 
   @override
-  String get autoAcceptHint => '自动接收已配对设备发来的内容';
+  String get autoAcceptHint => '自动接收已配对设备发来的内容。对方分享的剪贴板会替换本机剪贴板内容。';
 
   @override
   String get retry => '重试';

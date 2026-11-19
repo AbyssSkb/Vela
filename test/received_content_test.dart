@@ -301,21 +301,23 @@ void main() {
   );
 
   testReceiving(
-    'link history keeps Open link and Copy on one row on a narrow screen',
+    'link history keeps Open link and Copy reachable on a narrow screen',
     link,
     (tester, _) async {
       await tester.tap(find.byKey(const ValueKey('transfer-history')));
       await waitFor(tester, find.text('https://example.com'));
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pump();
       await tester.tap(find.text('https://example.com'));
       final open = find.text('Open link'), copy = find.text('Copy');
       await waitFor(tester, open);
-      expect(copy, findsOneWidget);
-      expect(tester.getCenter(open).dy, closeTo(tester.getCenter(copy).dy, 1));
+      expect(copy.hitTestable(), findsOneWidget);
+      expect(open.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
-    macOnly: true,
   );
 
   testReceiving(
@@ -331,15 +333,28 @@ void main() {
   );
 
   testReceiving(
-    'restoring a received folder preserves the copied ZIP',
+    'restoring a received folder preserves its original ZIP and clipboard',
     ContentOffer('file', {'Photos.vela-folder.zip': utf8.encode('archive')}),
     (tester, effects) async {
-      final archive = effects.fileCopyAttempts.single.single;
+      expect(effects.fileCopyAttempts, isEmpty);
+      final prefs = await SharedPreferences.getInstance();
+      final archive = TransferRecord.decode(prefs.getString('history_test'))
+          .single
+          .fileReference!;
       expect(archive, endsWith('Photos.vela-folder.zip'));
       await tester.tap(find.text('Restore folder'));
       await waitFor(tester, find.text('Folder restored'));
       expect(effects.restored.archive, archive);
       expect(File(archive).readAsStringSync(), 'archive');
+    },
+    macOnly: true,
+  );
+
+  testReceiving(
+    'explicit clipboard files are still copied when accepted',
+    ContentOffer('clipboard_file', {'notes.txt': utf8.encode('Notes')}),
+    (_, effects) async {
+      expect(effects.fileCopyAttempts.single.single, endsWith('notes.txt'));
     },
     macOnly: true,
   );
@@ -420,37 +435,54 @@ void main() {
     tester,
     effects,
   ) async {
-    expect(
-      effects.fileCopyAttempts.single.map(
-        (path) => File(path).uri.pathSegments.last,
-      ),
-      ['one.txt', 'two.pdf'],
-    );
-    final saved = File(effects.fileCopyAttempts.single.first).parent.path;
+    expect(effects.fileCopyAttempts, isEmpty);
+    final prefs = await SharedPreferences.getInstance();
+    final records = TransferRecord.decode(prefs.getString('history_test'));
+    final saved = File(records.first.fileReference!).parent.path;
     expect(find.text('Saved to $saved'), findsOneWidget);
     await tester.tap(find.text('View this batch'));
     await waitFor(tester, find.text('one.txt'));
     expect(find.text('two.pdf'), findsOneWidget);
     expect(find.text('Received batch'), findsOneWidget);
-    final prefs = await SharedPreferences.getInstance();
-    final records = TransferRecord.decode(prefs.getString('history_test'));
     final batchIds = records.map((record) => record.batchId).toSet();
     expect(batchIds.single, isNotNull);
+    await tester.tap(find.text('Copy files'));
+    await waitFor(
+      tester,
+      find.descendant(
+        of: find.byType(TransferHistoryPage),
+        matching: find.text('Copied'),
+      ),
+    );
+    expect(
+      effects.fileCopyAttempts.single.map(
+        (path) => File(path).uri.pathSegments.last,
+      ),
+      unorderedEquals(['one.txt', 'two.pdf']),
+    );
   }, macOnly: true);
 
   testReceiving(
-    'clipboard failure leaves every file of the received batch intact',
+    'explicit copy failure leaves every file in the received batch intact',
     batch,
     (tester, effects) async {
-      expect(
-        find.text("Received, but couldn't copy to the clipboard."),
-        findsOneWidget,
+      expect(effects.fileCopyAttempts, isEmpty);
+      await tester.tap(find.text('View this batch'));
+      final copy = find.text('Copy files');
+      await waitFor(tester, copy);
+      await tester.tap(copy);
+      await waitFor(
+        tester,
+        find.descendant(
+          of: find.byType(TransferHistoryPage),
+          matching: find.text('Couldn’t copy to the clipboard. Try again.'),
+        ),
       );
       expect(
         effects.fileCopyAttempts.single.map(
           (path) => File(path).readAsStringSync(),
         ),
-        ['first', 'second'],
+        unorderedEquals(['first', 'second']),
       );
     },
     failClipboardFiles: true,

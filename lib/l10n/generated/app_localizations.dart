@@ -647,8 +647,20 @@ abstract class AppLocalizations {
   /// No description provided for @sendDeviceChanged.
   ///
   /// In en, this message translates to:
-  /// **'The device pairing changed. Discard this send and select the device again.'**
+  /// **'The device pairing changed. Choose a device again.'**
   String get sendDeviceChanged;
+
+  /// No description provided for @reviewSendContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Review content'**
+  String get reviewSendContent;
+
+  /// No description provided for @preparingSendContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing content…'**
+  String get preparingSendContent;
 
   /// No description provided for @discardSend.
   ///
@@ -709,6 +721,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Received, but couldn\'t copy to the clipboard.'**
   String get writeClipboardFailed;
+
+  /// No description provided for @incomingClipboardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepting replaces this device’s clipboard.'**
+  String get incomingClipboardHint;
 
   /// No description provided for @startupFailed.
   ///
@@ -1202,6 +1220,18 @@ abstract class AppLocalizations {
   /// **'Copied'**
   String get historyCopied;
 
+  /// No description provided for @historyCopyFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy files'**
+  String get historyCopyFiles;
+
+  /// No description provided for @historyCopyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t copy to the clipboard. Try again.'**
+  String get historyCopyFailed;
+
   /// No description provided for @historySaveFailed.
   ///
   /// In en, this message translates to:
@@ -1229,7 +1259,7 @@ abstract class AppLocalizations {
   /// No description provided for @dropFilesHere.
   ///
   /// In en, this message translates to:
-  /// **'Drop files to send'**
+  /// **'Drop to prepare files for sending'**
   String get dropFilesHere;
 
   /// No description provided for @dropFilesOnly.
@@ -1643,7 +1673,7 @@ abstract class AppLocalizations {
   /// No description provided for @autoAcceptHint.
   ///
   /// In en, this message translates to:
-  /// **'Accept transfers from paired devices without asking'**
+  /// **'Accept transfers from paired devices without asking. Clipboard shares replace this device’s clipboard.'**
   String get autoAcceptHint;
 
   /// No description provided for @retry.

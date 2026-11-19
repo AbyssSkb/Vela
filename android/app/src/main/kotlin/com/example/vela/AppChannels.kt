@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
@@ -210,6 +211,29 @@ class AppChannels(private val context: VelaApplication) {
     }
 
     private fun handleFiles(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method == "itemNames") {
+            val sources = call.argument<List<String>>("sources")
+            if (sources == null || sources.size !in 1..100) {
+                result.error("files", "Invalid item list", null)
+                return
+            }
+            executor.execute {
+                val names = sources.map { value ->
+                    runCatching {
+                        val uri = Uri.parse(value)
+                        val document =
+                            if (DocumentsContract.isTreeUri(uri) && uri.pathSegments.size == 2)
+                                DocumentsContract.buildDocumentUriUsingTree(
+                                    uri, DocumentsContract.getTreeDocumentId(uri),
+                                )
+                            else uri
+                        itemName(document)
+                    }.getOrNull()
+                }
+                main.post { result.success(names) }
+            }
+            return
+        }
         if (call.method == "cancelFolder") {
             folderCancelled.set(true)
             result.success(null)
@@ -316,6 +340,14 @@ class AppChannels(private val context: VelaApplication) {
         withActivity(result) { it.handleFilesCall(call, result) }
     }
 
+    private fun itemName(uri: Uri): String? =
+        context.contentResolver
+            .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+            ?.substringAfterLast('/')
+            ?.substringAfterLast('\\')
+            ?.takeIf { it.isNotBlank() && it != "." && it != ".." }
+
     private fun handleClipboard(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "writeText" -> {
@@ -350,22 +382,7 @@ class AppChannels(private val context: VelaApplication) {
                 executor.execute {
                     try {
                         val uri = Uri.parse(value)
-                        val name =
-                            context.contentResolver
-                                .query(
-                                    uri,
-                                    arrayOf(OpenableColumns.DISPLAY_NAME),
-                                    null,
-                                    null,
-                                    null,
-                                )
-                                ?.use { cursor ->
-                                    if (cursor.moveToFirst()) cursor.getString(0) else null
-                                }
-                                ?.substringAfterLast('/')
-                                ?.substringAfterLast('\\')
-                                ?.takeIf { it.isNotBlank() && it != "." && it != ".." }
-                                ?: "clipboard-file"
+                        val name = itemName(uri) ?: "clipboard-file"
                         val directory =
                             File(context.cacheDir, "clipboard/${UUID.randomUUID()}").apply {
                                 mkdirs()

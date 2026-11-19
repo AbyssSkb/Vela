@@ -36,11 +36,11 @@ Removing a device immediately revokes local trust and closes related connections
 | System share menu | Choose Vela from another app on Android or macOS |
 | Desktop drag and drop | Drop files into Vela on macOS, Windows, or Linux |
 
-Choose a sharing action, select the content, and confirm the receiving device. The recipient picker shows the content and each device's connection status. With one paired device, the text editor and pending share show a button naming that device. Going back from the recipient picker keeps typed text in the editor. The latest successful send stays on the home screen during the session until you dismiss it or start another send. If a transfer fails, retry with the same prepared content or discard it from the home screen.
+Choose a sharing action, select the content, and confirm the receiving device. The recipient picker shows connection status and adds device codes when names match. Use **Review content** to check clipboard items or a batch of files. With one paired device, the text editor and pending share show a named send button. Going back from the recipient picker keeps typed text in the editor. The latest successful send stays on the home screen during the session until you dismiss it or start another send. If a transfer fails, retry with the same content, choose a different device, or discard the send.
 
 Incoming transfers request approval by default; settings include optional automatic acceptance. Transfers show progress and speed and can be cancelled.
 
-Received files and images are offered to the system clipboard, although paste support depends on the destination app. Received HTTP(S) links can be opened in a browser.
+Clipboard shares are copied on receipt. For ordinary files, choose **Copy files** in Received when you want to put them on the system clipboard. Paste support depends on the destination app. Received HTTP(S) links can be opened in a browser.
 
 Folder archives support at most 16 GiB of uncompressed content, 10,000 entries, and 64 levels of nesting. Symlinks are rejected. The app currently allows one active transfer per node.
 

@@ -326,7 +326,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendDeviceChanged =>
-      'The device pairing changed. Discard this send and select the device again.';
+      'The device pairing changed. Choose a device again.';
+
+  @override
+  String get reviewSendContent => 'Review content';
+
+  @override
+  String get preparingSendContent => 'Preparing content…';
 
   @override
   String get discardSend => 'Discard send';
@@ -360,6 +366,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get writeClipboardFailed =>
       'Received, but couldn\'t copy to the clipboard.';
+
+  @override
+  String get incomingClipboardHint =>
+      'Accepting replaces this device’s clipboard.';
 
   @override
   String get startupFailed => 'Vela could not start.';
@@ -655,6 +665,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyCopied => 'Copied';
 
   @override
+  String get historyCopyFiles => 'Copy files';
+
+  @override
+  String get historyCopyFailed => 'Couldn’t copy to the clipboard. Try again.';
+
+  @override
   String get historySaveFailed => 'Transferred, but could not save history';
 
   @override
@@ -677,7 +693,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewHistory => 'View history';
 
   @override
-  String get dropFilesHere => 'Drop files to send';
+  String get dropFilesHere => 'Drop to prepare files for sending';
 
   @override
   String get dropFilesOnly => 'Folders are not supported yet';
@@ -910,7 +926,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoAcceptHint =>
-      'Accept transfers from paired devices without asking';
+      'Accept transfers from paired devices without asking. Clipboard shares replace this device’s clipboard.';
 
   @override
   String get retry => 'Retry';

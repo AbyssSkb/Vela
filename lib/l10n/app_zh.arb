@@ -134,7 +134,9 @@
       "name": { "type": "String" }
     }
   },
-  "sendDeviceChanged": "配对已变更，请放弃本次发送后重新选择设备。",
+  "sendDeviceChanged": "配对已变更，请重新选择设备。",
+  "reviewSendContent": "查看待发送内容",
+  "preparingSendContent": "正在准备内容…",
   "discardSend": "放弃发送",
   "receiveFailed": "接收失败",
   "transferInterrupted": "传输中断，请重试",
@@ -145,6 +147,7 @@
   "readSharedFailed": "无法读取分享的文件",
   "readClipboardFailed": "无法读取剪贴板，请重新复制后重试",
   "writeClipboardFailed": "已接收，但未能复制到剪贴板",
+  "incomingClipboardHint": "接收后将替换本机剪贴板内容。",
   "startupFailed": "Vela 无法启动。",
   "diagnostics": "诊断",
   "diagnosticsStartupHelp": "Vela 需要完成启动才能发送和接收。",
@@ -327,6 +330,8 @@
   "historyMissing": "文件不存在或无法访问",
   "historyCopy": "复制",
   "historyCopied": "已复制",
+  "historyCopyFiles": "复制文件",
+  "historyCopyFailed": "无法复制到剪贴板，请重试。",
   "historySaveFailed": "已传输，但无法保存记录",
   "filesCount": "{count} 个文件",
   "@filesCount": {
@@ -345,7 +350,7 @@
     }
   },
   "viewHistory": "查看记录",
-  "dropFilesHere": "放开以发送文件",
+  "dropFilesHere": "放开以准备发送文件",
   "dropFilesOnly": "暂不支持拖入文件夹",
   "dropAlreadyPending": "请先处理已选择的内容",
   "tooManyFiles": "一次最多发送 100 个文件",
@@ -414,7 +419,7 @@
   "focusOnReceive": "收到请求时显示窗口",
   "focusOnReceiveHint": "自动打开 Vela 并切到前台",
   "autoAccept": "自动接收",
-  "autoAcceptHint": "自动接收已配对设备发来的内容",
+  "autoAcceptHint": "自动接收已配对设备发来的内容。对方分享的剪贴板会替换本机剪贴板内容。",
   "retry": "重试",
   "fileUnavailable": "文件无法读取，请重新选择",
   "today": "今天",

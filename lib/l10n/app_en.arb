@@ -134,7 +134,9 @@
       "name": { "type": "String" }
     }
   },
-  "sendDeviceChanged": "The device pairing changed. Discard this send and select the device again.",
+  "sendDeviceChanged": "The device pairing changed. Choose a device again.",
+  "reviewSendContent": "Review content",
+  "preparingSendContent": "Preparing content…",
   "discardSend": "Discard send",
   "receiveFailed": "Could not receive",
   "transferInterrupted": "Transfer interrupted. Try again.",
@@ -145,6 +147,7 @@
   "readSharedFailed": "Could not read the shared file.",
   "readClipboardFailed": "Couldn't read the clipboard. Copy the content again and retry.",
   "writeClipboardFailed": "Received, but couldn't copy to the clipboard.",
+  "incomingClipboardHint": "Accepting replaces this device’s clipboard.",
   "startupFailed": "Vela could not start.",
   "diagnostics": "Diagnostics",
   "diagnosticsStartupHelp": "Vela must finish starting before it can send or receive.",
@@ -337,6 +340,8 @@
   "historyMissing": "File is missing or cannot be accessed",
   "historyCopy": "Copy",
   "historyCopied": "Copied",
+  "historyCopyFiles": "Copy files",
+  "historyCopyFailed": "Couldn’t copy to the clipboard. Try again.",
   "historySaveFailed": "Transferred, but could not save history",
   "filesCount": "{count, plural, one{1 file} other{{count} files}}",
   "@filesCount": {
@@ -355,7 +360,7 @@
     }
   },
   "viewHistory": "View history",
-  "dropFilesHere": "Drop files to send",
+  "dropFilesHere": "Drop to prepare files for sending",
   "dropFilesOnly": "Folders are not supported yet",
   "dropAlreadyPending": "Finish with the selected content first",
   "tooManyFiles": "You can send up to 100 files at once",
@@ -424,7 +429,7 @@
   "focusOnReceive": "Show window for incoming requests",
   "focusOnReceiveHint": "Bring Vela to the foreground automatically",
   "autoAccept": "Auto accept",
-  "autoAcceptHint": "Accept transfers from paired devices without asking",
+  "autoAcceptHint": "Accept transfers from paired devices without asking. Clipboard shares replace this device’s clipboard.",
   "retry": "Retry",
   "fileUnavailable": "Cannot read the file. Select it again.",
   "today": "Today",
