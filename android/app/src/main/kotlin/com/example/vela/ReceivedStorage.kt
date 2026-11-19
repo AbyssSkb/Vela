@@ -160,13 +160,12 @@ class ReceivedStorage(private val context: Context) {
             }
             if (cancelled.get()) error("save cancelled")
             for (index in results.indices) {
-                val path = results[index].getValue("path")
-                if (path.startsWith("content:"))
+                val saved = results[index]
+                val path = saved.getValue("path")
+                if (path.startsWith("content:")) {
                     results[index] =
-                        mapOf(
-                            "path" to path,
-                            "name" to displayName(Uri.parse(path), results[index].getValue("name")),
-                        )
+                        saved + ("name" to displayName(Uri.parse(path), saved.getValue("name")))
+                }
             }
             if (createdFiles.isNotEmpty())
                 MediaScannerConnection.scanFile(
