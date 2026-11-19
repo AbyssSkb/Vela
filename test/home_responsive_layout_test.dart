@@ -118,6 +118,55 @@ void main() {
     }),
   );
 
+  testWidgets('settings opens troubleshooting in the selected language', (
+    tester,
+  ) async {
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(),
+      api: fakes.FakeRustApi(fakes.FakeNode()),
+      run: (_) async {
+        const files = MethodChannel('vela/files');
+        final opened = <Uri>[];
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(files, (call) async {
+          if (call.method == 'openUrl') {
+            opened.add(Uri.parse(call.arguments['url'] as String));
+          }
+          return null;
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(files, null));
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'light',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final settings = find.byTooltip('Settings');
+        await waitForHome(tester, () => settings.evaluate().isNotEmpty);
+        await tester.tap(settings);
+        await tester.pumpAndSettle();
+        final english = find.text('User guide');
+        await tester.ensureVisible(english);
+        await tester.tap(english);
+        expect(opened.single.path, endsWith('/docs/user-guide.md'));
+        expect(opened.single.fragment, 'troubleshooting');
+
+        await tester
+            .widget<HomePage>(find.byType(HomePage, skipOffstage: false))
+            .changeSetting('language', 'zh');
+        await tester.pumpAndSettle();
+        final chinese = find.text('使用指南');
+        await tester.ensureVisible(chinese);
+        await tester.tap(chinese);
+        expect(opened.last.path, endsWith('/README.zh-CN.md'));
+        expect(Uri.decodeComponent(opened.last.fragment), '故障排查');
+      },
+    );
+  });
+
   testWidgets('first launch offers both sides of pairing', (tester) async {
     await withHomeTestEnvironment(
       tester,

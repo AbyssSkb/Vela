@@ -63,8 +63,6 @@ part 'debug_driver.dart';
 
 final _testHome = GlobalKey<_HomePageState>();
 bool _driverMode = false;
-const _troubleshootingGuide =
-    'https://github.com/AbyssSkb/Vela/blob/main/docs/user-guide.md#troubleshooting';
 
 Future<void> main(List<String> args) async {
   if (kDebugMode && args.contains('--driver-test')) {
@@ -2440,7 +2438,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         retryStartup: _retryFromUI,
         refreshDevices: () =>
             presenceController.requestPeerProbes(userInitiated: true),
-        openGuide: () => _openLink(_troubleshootingGuide),
+        openGuide: _openTroubleshootingGuide,
         clear: () async {
           diagnosticEvents.clear();
           node?.clearDiagnostics();
@@ -2515,7 +2513,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           changeSetting: widget.changeSetting,
           relaySettings: _showRelaySettings,
           diagnostics: _showDiagnostics,
-          openGuide: () => _openLink(_troubleshootingGuide),
+          openGuide: _openTroubleshootingGuide,
           backgroundChanged: _backgroundPresenceChanged,
           updates: updates,
           rename: (name) async {
@@ -3388,6 +3386,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (_) {
       if (mounted) _message(t.openLinkFailed, kind: NoticeKind.error);
     }
+  }
+
+  void _openTroubleshootingGuide() {
+    const repository = 'https://github.com/AbyssSkb/Vela/blob/main';
+    final guide = t.localeName.startsWith('zh')
+        ? '$repository/README.zh-CN.md#${Uri.encodeComponent('故障排查')}'
+        : '$repository/docs/user-guide.md#troubleshooting';
+    unawaited(_openLink(guide));
   }
 
   Future<void> _showTextContent(
