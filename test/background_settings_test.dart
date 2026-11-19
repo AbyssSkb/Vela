@@ -591,7 +591,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     var active = false;
-    var login = 'notRegistered';
+    var login = 'notFound';
     var changes = 0;
     String? opened;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
@@ -632,7 +632,9 @@ void main() {
     );
     expect(active, isTrue);
     expect(changes, 1);
-    await tester.tap(find.byType(SwitchListTile).last);
+    final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
+    expect(tester.widget<SwitchListTile>(loginSwitch).onChanged, isNotNull);
+    await tester.tap(loginSwitch);
     await tester.pumpAndSettle();
     expect(find.text('Approval required in System Settings'), findsOneWidget);
     await tester.tap(find.widgetWithText(TextButton, 'Open Login Items'));

@@ -258,10 +258,14 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       if (mounted) {
         await _refresh();
         if (mounted) {
+          final t = AppLocalizations.of(context)!;
+          final canOpenSettings = isMac && status['loginSupported'] == true;
           showNotice(
             context,
-            AppLocalizations.of(context)!.backgroundLoginFailed,
+            t.backgroundLoginFailed,
             kind: NoticeKind.error,
+            actionLabel: canOpenSettings ? t.backgroundOpenLoginSettings : null,
+            onAction: canOpenSettings ? () => _openSettings('login') : null,
           );
         }
       }
@@ -444,14 +448,13 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                               status['loginStatus'] == 'enabled' ||
                               status['loginStatus'] == 'requiresApproval',
                           onChanged:
-                              changing ||
-                                  status['loginSupported'] != true ||
-                                  status['loginStatus'] == 'notFound'
+                              changing || status['loginSupported'] != true
                               ? null
                               : _toggleLogin,
                         ),
                         if (isMac &&
-                            status['loginStatus'] == 'requiresApproval')
+                            (status['loginStatus'] == 'requiresApproval' ||
+                                status['loginStatus'] == 'notFound'))
                           recoveryButton(
                             t.backgroundOpenLoginSettings,
                             () => _openSettings('login'),
