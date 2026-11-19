@@ -6,6 +6,7 @@ class PendingShare {
     this.typed = false,
     this.drop = false,
     this.stage,
+    this.preferredPeer,
   }) : paths = paths == null ? null : List.unmodifiable(paths),
        uris = uris == null ? null : List.unmodifiable(uris) {
     final sources = [paths, uris, text].where((value) => value != null);
@@ -13,6 +14,7 @@ class PendingShare {
         !_validFiles(paths) ||
         !_validFiles(uris) ||
         stage == '' ||
+        preferredPeer == '' ||
         (typed && text == null) ||
         (drop && paths == null)) {
       throw const FormatException('Invalid shared content');
@@ -21,9 +23,16 @@ class PendingShare {
 
   final List<String>? paths, uris;
   final String? text, stage;
+  final String? preferredPeer;
   final bool typed, drop;
 
   bool get hasFiles => paths != null || uris != null;
+
+  String? quickSendRecipient(Iterable<String> pairedPeers) {
+    final peer = preferredPeer;
+    if (peer == null) return pairedPeers.singleOrNull;
+    return pairedPeers.contains(peer) ? peer : null;
+  }
 
   factory PendingShare.fromMap(Map<dynamic, dynamic> value) {
     String? string(String key) {
@@ -60,6 +69,7 @@ class PendingShare {
       typed: flag('typed'),
       drop: flag('drop'),
       stage: string('stage'),
+      preferredPeer: string('preferredPeer'),
     );
   }
 

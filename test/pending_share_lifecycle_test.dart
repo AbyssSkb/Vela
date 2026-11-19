@@ -18,7 +18,7 @@ import 'support/fakes.dart';
 import 'support/home_environment.dart';
 
 class SharedTextJob extends FakeTransferJob {
-  String? text, kind, path;
+  String? text, kind, path, peer;
   int sends = 0;
 
   @override
@@ -28,6 +28,7 @@ class SharedTextJob extends FakeTransferJob {
     required String kind,
   }) async {
     sends++;
+    peer = peerId;
     this.path = path;
     this.kind = kind;
     text = await File(path).readAsString();
@@ -44,6 +45,49 @@ class SharedTextNode extends FakeNode {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+
+  testWidgets('a device share shortcut waits for a named confirmation', (
+    tester,
+  ) async {
+    final node = SharedTextNode();
+    final other = 'b' * 64;
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(peers: {peerId: 'Phone', other: 'Laptop'}),
+      api: FakeRustApi(node),
+      run: (_) async {
+        var pending = true;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('vela/share'),
+          (call) async {
+            if (call.method != 'take' || !pending) return null;
+            pending = false;
+            return {'text': 'Shared from the system', 'preferredPeer': other};
+          },
+        );
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'light',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final send = find.widgetWithText(FilledButton, 'Send to Laptop');
+        await waitForHome(
+          tester,
+          () =>
+              send.evaluate().isNotEmpty &&
+              tester.widget<FilledButton>(send).onPressed != null,
+        );
+        expect(node.job.sends, 0);
+        await tester.tap(send);
+        await waitForHome(tester, () => node.job.text != null);
+        expect(node.job.peer, other);
+        expect(node.job.text, 'Shared from the system');
+      },
+    );
+  }, skip: !Platform.isMacOS);
 
   for (final send in [false, true]) {
     testWidgets(

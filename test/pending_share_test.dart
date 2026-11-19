@@ -43,6 +43,17 @@ void main() {
     }
   });
 
+  test('preselects a share shortcut only while its device is paired', () {
+    final share = PendingShare.fromMap({
+      'uris': ['content://media/1'],
+      'preferredPeer': 'laptop',
+    });
+    expect(share.quickSendRecipient(['phone', 'laptop']), 'laptop');
+    expect(share.quickSendRecipient(['phone']), isNull);
+    expect(share.quickSendRecipient([]), isNull);
+    expect(PendingShare(text: 'hi').quickSendRecipient(['phone']), 'phone');
+  });
+
   test('rejects malformed fields and conflicting content sources', () {
     final invalid = <Map<String, dynamic>>[
       {},
