@@ -427,6 +427,53 @@ void main() {
     macOnly: true,
   );
 
+  testReceiving(
+    'keeps one receipt above the gesture area during a send and receive',
+    ContentOffer('file', {
+      'a-very-long-screenshot-file-name-' * 4 + '.jpg': [1],
+    }),
+    (tester, effects) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetPadding);
+      await tester.pump();
+      final receiveNotice = find.byType(SnackBar);
+      final sendNotice = find.byKey(const ValueKey('send-receipt'));
+      expect(tester.getBottomLeft(receiveNotice).dy, lessThanOrEqualTo(616));
+
+      final completed = effects.menuStates
+          .where((state) => state == false)
+          .length;
+      await tester.tap(find.byKey(const ValueKey('send-text')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(find.byType(TextField), 'Reply from Vela');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
+      await waitForHome(
+        tester,
+        () =>
+            effects.menuStates.where((state) => state == false).length >
+            completed,
+      );
+      expect(receiveNotice, findsOneWidget);
+      expect(sendNotice, findsNothing);
+      expect(find.text('Open file').hitTestable(), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('notice-close')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(sendNotice, findsOneWidget);
+      expect(tester.getBottomLeft(sendNotice).dy, lessThan(616));
+      expect(tester.takeException(), isNull);
+    },
+    macOnly: true,
+  );
+
   final batch = ContentOffer('batch', {
     'one.txt': utf8.encode('first'),
     'two.pdf': utf8.encode('second'),

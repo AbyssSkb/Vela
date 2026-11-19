@@ -3,48 +3,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets(
-    'activity notice reaches the bottom and keeps its action accessible',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 640);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-      var cancelled = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            bottomNavigationBar: ActivityNotice(
-              child: Row(
-                children: [
-                  const Expanded(child: Text('正在发送给设备')),
-                  IconButton(
-                    onPressed: () => cancelled = true,
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
+  testWidgets('activity notice is inset and keeps its action accessible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    var cancelled = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: ActivityNotice(
+            child: Row(
+              children: [
+                const Expanded(child: Text('正在发送给设备')),
+                IconButton(
+                  onPressed: () => cancelled = true,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
             ),
           ),
         ),
-      );
-      expect(
-        tester.getBottomLeft(find.byKey(const ValueKey('activity-notice'))).dy,
-        640,
-      );
-      expect(
-        tester
-            .widget<Material>(find.byKey(const ValueKey('activity-notice')))
-            .elevation,
-        0,
-      );
-      await tester.tap(find.byIcon(Icons.close));
-      expect(cancelled, isTrue);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    expect(
+      tester.getBottomLeft(find.byKey(const ValueKey('activity-notice'))).dy,
+      628,
+    );
+    expect(
+      tester
+          .widget<Material>(find.byKey(const ValueKey('activity-notice')))
+          .elevation,
+      0,
+    );
+    await tester.tap(find.byIcon(Icons.close));
+    expect(cancelled, isTrue);
+    expect(tester.takeException(), isNull);
+  });
   for (final kind in NoticeKind.values) {
     testWidgets('$kind notice uses a bottom snackbar with its own icon', (
       tester,
@@ -71,7 +70,7 @@ void main() {
       await tester.tap(find.text('Show'));
       await tester.pumpAndSettle();
       final snack = tester.widget<SnackBar>(find.byType(SnackBar));
-      expect(snack.behavior, SnackBarBehavior.fixed);
+      expect(snack.behavior, SnackBarBehavior.floating);
       expect(snack.width, isNull);
       expect(snack.elevation, 0);
       expect(tester.getBottomLeft(find.byType(SnackBar)).dy, 640);
@@ -86,7 +85,7 @@ void main() {
       );
     });
   }
-  testWidgets('Android notice is flush with the bottom without a shadow', (
+  testWidgets('Android notice leaves an inset without a shadow', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -106,7 +105,7 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pumpAndSettle();
     final snack = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snack.behavior, SnackBarBehavior.fixed);
+    expect(snack.behavior, SnackBarBehavior.floating);
     expect(snack.width, isNull);
     expect(snack.elevation, 0);
     expect(find.text('Received'), findsOneWidget);
@@ -176,7 +175,7 @@ void main() {
     expect(find.byKey(const ValueKey('notice-action')), findsOneWidget);
     expect(
       tester.getSize(find.byType(SnackBar)).height,
-      lessThanOrEqualTo(120),
+      lessThanOrEqualTo(132),
     );
   });
 

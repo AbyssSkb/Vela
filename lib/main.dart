@@ -366,6 +366,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? activity;
   AppLocalizations get t => AppLocalizations.of(context)!;
   String? lastMessage;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _messageNotice;
   ({String message, String content, bool sent})? _sendReceipt;
   String? receivedPath;
   bool disposed = false;
@@ -3565,13 +3566,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }) {
     lastMessage = message;
     if (mounted) {
-      showNotice(
+      final notice = showNotice(
         context,
         message,
         kind: kind,
         detail: detail,
         actionLabel: actionLabel,
         onAction: onAction,
+      );
+      setState(() => _messageNotice = notice);
+      unawaited(
+        notice.closed.then((_) {
+          if (mounted && identical(_messageNotice, notice)) {
+            setState(() => _messageNotice = null);
+          }
+        }),
       );
     }
   }
@@ -4254,7 +4263,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget? _buildSendReceipt() {
     final receipt = _sendReceipt;
-    if (receipt == null) return null;
+    if (receipt == null || _messageNotice != null) return null;
     return ActivityNotice(
       child: Row(
         key: const ValueKey('send-receipt'),
@@ -4273,10 +4282,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(receipt.message),
+                  Text(
+                    receipt.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   Text(
                     receipt.content,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
