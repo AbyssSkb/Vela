@@ -368,6 +368,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Received, but couldn\'t copy to the clipboard.';
 
   @override
+  String get incomingClipboardHint =>
+      'Accepting replaces this device’s clipboard.';
+
+  @override
   String get startingVela => 'Starting Vela…';
 
   @override
@@ -659,6 +663,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyCopied => 'Copied';
 
   @override
+  String get historyCopyFiles => 'Copy files';
+
+  @override
+  String get historyCopyFailed => 'Couldn’t copy to the clipboard. Try again.';
+
+  @override
   String get historySaveFailed => 'Transferred, but could not save history';
 
   @override
@@ -907,7 +917,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoAcceptHint =>
-      'Accept transfers from paired devices without asking';
+      'Accept transfers from paired devices without asking. Clipboard shares replace this device’s clipboard.';
 
   @override
   String get retry => 'Retry';

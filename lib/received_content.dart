@@ -117,7 +117,7 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
 
   var clipboardFailed = false;
   try {
-    if (kind.copiesTextToClipboard) {
+    if (kind == TransferKind.text) {
       if (Platform.isAndroid) {
         await clipboardChannel.invokeMethod<void>('writeText', {'text': text});
       } else {
@@ -127,15 +127,8 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
       await DesktopPlatform.writeClipboardImage(
         await File(files.first.reference).readAsBytes(),
       );
-    } else if (kind.isFile) {
-      final references = files.map((file) => file.reference).toList();
-      if (Platform.isAndroid) {
-        await clipboardChannel.invokeMethod<void>('writeFiles', {
-          'paths': references,
-        });
-      } else if (!await Pasteboard.writeFiles(references)) {
-        throw StateError('Clipboard rejected received files');
-      }
+    } else if (kind == TransferKind.clipboardFile) {
+      await copyReceivedFiles(files.map((file) => file.reference).toList());
     }
   } catch (error) {
     clipboardFailed = true;
@@ -148,4 +141,13 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
     clipboardFailed: clipboardFailed,
     historySaved: historySaved,
   );
+}
+
+Future<void> copyReceivedFiles(List<String> references) async {
+  if (Platform.isAndroid) {
+    await const MethodChannel('vela/clipboard')
+        .invokeMethod<void>('writeFiles', {'paths': references});
+  } else if (!await Pasteboard.writeFiles(references)) {
+    throw StateError('Clipboard rejected received files');
+  }
 }

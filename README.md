@@ -71,6 +71,8 @@ For limited local disk space, use the GitHub workflows for full builds and tests
 3. Choose a file, folder, text, or clipboard sharing action, then confirm the receiving device.
 4. Approve the incoming transfer on the receiver. Received files go to Downloads by default; change the destination in settings.
 
+Use **Copy files** in Received to copy a file or batch to the system clipboard. Content shared through the Clipboard action is copied automatically when accepted.
+
 When searching received history, select the entries you want to remove.
 On Android, tap a batch completion notification to open the records for that transfer.
 

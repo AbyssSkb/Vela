@@ -42,9 +42,16 @@ Future<void> main() async {
     'Only file transfers are folder archives',
   );
   check(
-    TransferKind.text.copiesTextToClipboard &&
-        !TransferKind.typedText.copiesTextToClipboard,
-    'Typed text does not overwrite the clipboard',
+    TransferKind.values
+            .where((kind) => kind.updatesClipboard)
+            .toSet()
+            .containsAll({
+              TransferKind.text,
+              TransferKind.image,
+              TransferKind.clipboardFile,
+            }) &&
+        TransferKind.values.where((kind) => kind.updatesClipboard).length == 3,
+    'Only clipboard shares replace the clipboard',
   );
   for (final entry in {
     'cancelled': TransferFailure.cancelled,
