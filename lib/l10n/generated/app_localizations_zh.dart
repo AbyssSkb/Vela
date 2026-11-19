@@ -905,6 +905,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDisplay => '显示';
 
   @override
+  String get settingsAbout => '关于 Vela';
+
+  @override
+  String get appUpdateCheck => '检查更新';
+
+  @override
+  String get appUpdateFailed => '更新失败。';
+
+  @override
   String get relaySettings => '中继服务器';
 
   @override

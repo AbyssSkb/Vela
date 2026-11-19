@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_update.dart';
+import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
 
 class AppUpdateTile extends StatelessWidget {
@@ -12,14 +13,17 @@ class AppUpdateTile extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
+      final t = AppLocalizations.of(context)!;
+      final colors = Theme.of(context).colorScheme;
       final zh = Localizations.localeOf(context).languageCode == 'zh';
       String text(String en, String cn) => zh ? cn : en;
+      final failed = controller.state == AppUpdateState.error;
       final subtitle = switch (controller.state) {
         AppUpdateState.disabled => text(
           'Updates are unavailable in this build',
           '此版本暂不提供应用内更新',
         ),
-        AppUpdateState.idle => text('Check for updates', '检查更新'),
+        AppUpdateState.idle => null,
         AppUpdateState.checking => text('Checking for updates…', '正在检查更新…'),
         AppUpdateState.current => text('You are up to date', '已是最新版本'),
         AppUpdateState.downloading => text('Downloading update…', '正在下载更新…'),
@@ -31,10 +35,7 @@ class AppUpdateTile extends StatelessWidget {
                 )
               : text('Update ready to install', '更新已下载，可以安装'),
         AppUpdateState.installing => text('Installing update…', '正在安装更新…'),
-        AppUpdateState.error => text(
-          'Could not update; tap to retry',
-          '更新失败，点击重试',
-        ),
+        AppUpdateState.error => t.appUpdateFailed,
       };
       Future<void> confirmInstall() async {
         final accepted = await showDialog<bool>(
@@ -98,40 +99,56 @@ class AppUpdateTile extends StatelessWidget {
 
       return ListTile(
         key: const ValueKey('app-update'),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-        leading: const Icon(Icons.system_update_alt_rounded),
+        leading: const Icon(Icons.system_update_alt_rounded, size: 20),
+        titleAlignment: ListTileTitleAlignment.top,
         title: Text(text('App updates', '应用更新')),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        subtitle: OverflowBar(
+          alignment: MainAxisAlignment.spaceBetween,
+          spacing: 16,
+          overflowSpacing: 4,
           children: [
-            if (controller.version.isNotEmpty)
-              Text(
-                text(
-                  'Installed version ${controller.version}',
-                  '已安装版本 ${controller.version}',
-                ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (controller.version.isNotEmpty)
+                  Text(
+                    text(
+                      'Installed version ${controller.version}',
+                      '已安装版本 ${controller.version}',
+                    ),
+                  ),
+                if (controller.availableVersion case final version?
+                    when controller.state == AppUpdateState.ready)
+                  Text(text('Available version $version', '待安装版本 $version')),
+                if (subtitle != null)
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      subtitle,
+                      style: failed ? TextStyle(color: colors.error) : null,
+                    ),
+                  ),
+                if (controller.state == AppUpdateState.downloading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: LinearProgressIndicator(value: controller.progress),
+                  ),
+              ],
+            ),
+            if (controller.canCheck)
+              OutlinedButton(
+                onPressed: controller.check,
+                child: Text(failed ? t.retry : t.appUpdateCheck),
               ),
-            if (controller.availableVersion case final version?
-                when controller.state == AppUpdateState.ready)
-              Text(text('Available version $version', '待安装版本 $version')),
-            Semantics(liveRegion: true, child: Text(subtitle)),
             if (controller.state == AppUpdateState.ready)
               FilledButton(
                 key: const ValueKey('install-update'),
                 onPressed: controller.canInstall ? confirmInstall : null,
                 child: Text(text('Install', '安装')),
               ),
-            if (controller.state == AppUpdateState.downloading)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: LinearProgressIndicator(value: controller.progress),
-              ),
           ],
         ),
-        trailing: controller.canCheck
-            ? const Icon(Icons.chevron_right_rounded)
-            : null,
-        onTap: controller.canCheck ? controller.check : null,
       );
     },
   );

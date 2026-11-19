@@ -294,7 +294,8 @@ class _SettingsPageState extends State<SettingsPage>
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final background = this.background;
     final languages = {
       'system': t.systemDefault,
@@ -312,29 +313,23 @@ class _SettingsPageState extends State<SettingsPage>
       String value,
       VoidCallback onTap, {
       Widget? trailing,
-      int? maxLines = 1,
+      int? maxLines,
     }) => ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      leading: Icon(icon, color: colors.primary, size: 22),
-      minLeadingWidth: 24,
-      horizontalTitleGap: 16,
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      leading: Icon(icon, size: 20),
+      title: Text(title),
       subtitle: Text(
         value,
         maxLines: maxLines,
         overflow: maxLines == null ? null : TextOverflow.ellipsis,
-        style: TextStyle(color: colors.onSurfaceVariant),
       ),
-      trailing:
-          trailing ??
-          Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
+      trailing: trailing ?? const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: onTap,
     );
     Widget divider() => Divider(
       height: 1,
-      indent: 60,
-      endIndent: 20,
-      color: colors.outlineVariant.withValues(alpha: 0.45),
+      indent: 52,
+      endIndent: 16,
+      color: colors.outlineVariant.withValues(alpha: 0.55),
     );
     Widget switchRow(
       IconData icon,
@@ -343,42 +338,41 @@ class _SettingsPageState extends State<SettingsPage>
       bool value,
       ValueChanged<bool> onChanged,
     ) => SwitchListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      secondary: Icon(icon, color: colors.primary, size: 22),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(color: colors.onSurfaceVariant),
-      ),
+      secondary: Icon(icon, size: 20),
+      title: Text(title),
+      subtitle: Text(subtitle),
       value: value,
       onChanged: onChanged,
     );
-    Widget section(String title, List<Widget> children) => Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+    Widget section(String title, List<Widget> children) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 8,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Semantics(
+            header: true,
             child: Text(
               title,
-              style: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(color: colors.primary),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.primary,
+              ),
             ),
           ),
-          Material(
-            color: colors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(18),
-            clipBehavior: Clip.antiAlias,
-            child: Column(children: children),
-          ),
-        ],
-      ),
+        ),
+        Material(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: children),
+        ),
+      ],
     );
     final content = SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 20,
         children: [
           section(t.settingsDevice, [
             row(Icons.devices_outlined, t.deviceName, name, _rename),
@@ -395,7 +389,6 @@ class _SettingsPageState extends State<SettingsPage>
                   autoAccept: autoAccept,
                 ),
                 _showBackgroundSettings,
-                maxLines: null,
               ),
               divider(),
             ],
@@ -513,14 +506,12 @@ class _SettingsPageState extends State<SettingsPage>
                 t.userGuide,
                 t.userGuideHint,
                 widget.openGuide!,
-                maxLines: null,
+                trailing: const Icon(Icons.open_in_new_rounded, size: 20),
               ),
             ],
           ]),
-          if (widget.updates != null) ...[
-            const SizedBox(height: 12),
-            AppUpdateTile(controller: widget.updates!),
-          ],
+          if (widget.updates case final updates?)
+            section(t.settingsAbout, [AppUpdateTile(controller: updates)]),
         ],
       ),
     );
@@ -537,28 +528,53 @@ class _SettingsPageState extends State<SettingsPage>
                     20,
                     Platform.isMacOS ? 38 : 8,
                     20,
-                    12,
+                    8,
                   ),
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        tooltip: MaterialLocalizations.of(context)
-                            .backButtonTooltip,
-                        icon: const Icon(Icons.arrow_back_rounded),
+                      SizedBox.square(
+                        dimension: 48,
+                        child: IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          tooltip: MaterialLocalizations.of(context)
+                              .backButtonTooltip,
+                          icon: const Icon(Icons.arrow_back_rounded),
+                        ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
                       Expanded(
-                        child: Text(
-                          t.settings,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            t.settings,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                Expanded(child: content),
+                Expanded(
+                  child: ListTileTheme(
+                    data: ListTileThemeData(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      minLeadingWidth: 24,
+                      horizontalTitleGap: 12,
+                      minVerticalPadding: 10,
+                      minTileHeight: 64,
+                      visualDensity: VisualDensity.standard,
+                      iconColor: colors.onSurfaceVariant,
+                      titleTextStyle: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: content,
+                  ),
+                ),
               ],
             ),
           ),

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vela/app_update.dart';
 import 'package:vela/app_update_tile.dart';
+import 'package:vela/l10n/generated/app_localizations.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -463,33 +464,70 @@ void main() {
       }
     });
 
+    Widget updatePage(AppUpdateController controller, {double scale = 1}) =>
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Scaffold(body: AppUpdateTile(controller: controller)),
+        );
+
+    testWidgets('check and retry work in a narrow window with large text', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 480));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var checks = 0;
+      final offline = AppUpdateController(
+        version: '1.0.0',
+        readUrl: (_) {
+          checks++;
+          throw const SocketException('offline');
+        },
+      )..state = AppUpdateState.current;
+      addTearDown(offline.dispose);
+      await tester.pumpWidget(updatePage(offline, scale: 1.5));
+      expect(find.text('You are up to date'), findsOneWidget);
+      final check = find.widgetWithText(OutlinedButton, 'Check for updates');
+      expect(check.hitTestable(), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(checks, 1);
+      expect(find.text('Could not update.'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
+      await tester.pumpAndSettle();
+      expect(checks, 2);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
     testWidgets('installed version is visible when updates are disabled', (
       tester,
     ) async {
       final preview = AppUpdateController(version: '1.0.0-beta.5', build: 10);
       addTearDown(preview.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: AppUpdateTile(controller: preview)),
-        ),
-      );
+      await tester.pumpWidget(updatePage(preview));
       expect(find.text('Installed version 1.0.0-beta.5'), findsOneWidget);
       expect(
         find.text('Updates are unavailable in this build'),
         findsOneWidget,
       );
+      expect(find.byType(OutlinedButton), findsNothing);
     });
 
     testWidgets('ready updates require explicit confirmation', (tester) async {
       await tester.runAsync(controller.start);
       await controller.setBusy(false);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: AppUpdateTile(controller: controller)),
-        ),
-      );
+      await tester.pumpWidget(updatePage(controller));
       expect(find.text('Available version 1.1.0'), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(find.byType(OutlinedButton), findsNothing);
       await tester.tap(find.byKey(const ValueKey('install-update')));
       await tester.pumpAndSettle();
       expect(find.text('Install update?'), findsOneWidget);
@@ -505,11 +543,7 @@ void main() {
     ) async {
       await tester.runAsync(controller.start);
       await controller.setBusy(false);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: AppUpdateTile(controller: controller)),
-        ),
-      );
+      await tester.pumpWidget(updatePage(controller));
       await tester.tap(find.byKey(const ValueKey('install-update')));
       await tester.pumpAndSettle();
       await controller.setBusy(true);
@@ -523,6 +557,12 @@ void main() {
       expect(
         find.text('Finish the current transfer or pairing first'),
         findsWidgets,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const ValueKey('install-update')))
+            .onPressed,
+        isNull,
       );
       await tester.pumpWidget(const SizedBox.shrink());
     });

@@ -1784,6 +1784,24 @@ abstract class AppLocalizations {
   /// **'Display'**
   String get settingsDisplay;
 
+  /// No description provided for @settingsAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About Vela'**
+  String get settingsAbout;
+
+  /// No description provided for @appUpdateCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get appUpdateCheck;
+
+  /// No description provided for @appUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update.'**
+  String get appUpdateFailed;
+
   /// No description provided for @relaySettings.
   ///
   /// In en, this message translates to:
