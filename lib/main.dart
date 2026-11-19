@@ -3918,7 +3918,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             autoAccept: availability.autoAccept,
           )
         : null;
-    final showBackgroundStatus = viewport.maxHeight >= 500;
+    final backgroundNeedsAttention =
+        background != null &&
+        availability != null &&
+        background.needsAttention(
+          availability.enabled,
+          availability.status,
+          autoAccept: availability.autoAccept,
+        );
+    final showBackgroundStatus =
+        viewport.maxHeight >= 500 || backgroundNeedsAttention;
 
     final actions = _sendButtons();
     return CustomScrollView(
@@ -3943,9 +3952,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                tileColor: colors.surfaceContainerLow,
+                tileColor: backgroundNeedsAttention
+                    ? colors.errorContainer
+                    : colors.surfaceContainerLow,
+                textColor: backgroundNeedsAttention
+                    ? colors.onErrorContainer
+                    : null,
+                leading: backgroundNeedsAttention
+                    ? Icon(
+                        Icons.error_outline_rounded,
+                        color: colors.onErrorContainer,
+                      )
+                    : null,
                 title: Text(t.localBackgroundReceiving),
-                subtitle: Text(backgroundStatus),
+                subtitle: Semantics(
+                  liveRegion: true,
+                  child: Text(backgroundStatus),
+                ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: _showBackgroundSettings,
               ),

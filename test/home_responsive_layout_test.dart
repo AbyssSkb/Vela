@@ -17,7 +17,7 @@ import 'support/home_environment.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('home shows whether background confirmation is available', (
+  testWidgets('short home keeps blocked background receiving visible', (
     tester,
   ) async {
     await withHomeTestEnvironment(
@@ -25,6 +25,7 @@ void main() {
       devices: PeerState(peers: {fakes.peerId: 'Phone'}),
       api: fakes.FakeRustApi(fakes.FakeNode()),
       run: (_) async {
+        tester.view.physicalSize = const Size(390, 480);
         SharedPreferences.setMockInitialValues({
           'background_receive_test': true,
         });
@@ -51,6 +52,12 @@ void main() {
           const ValueKey('local-background-availability'),
         );
         await waitForHome(tester, () => availability.evaluate().isNotEmpty);
+        expect(availability.hitTestable(), findsOneWidget);
+        final colors = Theme.of(tester.element(availability)).colorScheme;
+        expect(
+          tester.widget<ListTile>(availability).tileColor,
+          colors.errorContainer,
+        );
         expect(
           find.text(
             'Allow incoming request notifications to accept in the background.',
@@ -64,7 +71,14 @@ void main() {
         await tester.pageBack();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
-        expect(find.text('Receiving service is running.'), findsOneWidget);
+        expect(availability, findsNothing);
+        await tester.tap(find.byKey(const ValueKey('home-more')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(
+          find.textContaining('Receiving service is running.'),
+          findsOneWidget,
+        );
       },
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));

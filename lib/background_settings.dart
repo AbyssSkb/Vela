@@ -61,6 +61,21 @@ enum BackgroundReceiving {
     };
   }
 
+  bool needsAttention(
+    bool? enabled,
+    Map<Object?, Object?> status, {
+    required bool autoAccept,
+  }) =>
+      enabled == true &&
+      switch (this) {
+        androidService =>
+          recoverySettings(status, autoAccept: autoAccept) != null ||
+              status['running'] == false ||
+              status['nodeReady'] == false,
+        macKeepAwake => status['active'] == false,
+        desktopTray => status['trayAvailable'] == false,
+      };
+
   String statusText(
     AppLocalizations t,
     bool? enabled,
@@ -295,6 +310,11 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
         setting == BackgroundReceiving.androidService &&
         enabled == true &&
         (status['running'] == false || status['nodeReady'] == false);
+    final needsAttention = setting.needsAttention(
+      enabled,
+      status,
+      autoAccept: autoAccept,
+    );
     Widget recoveryButton(String label, VoidCallback? onPressed) => Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
       child: Align(
@@ -356,11 +376,22 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                 ),
                 const SizedBox(height: 24),
                 Material(
-                  color: colors.secondaryContainer,
+                  color: needsAttention
+                      ? colors.errorContainer
+                      : colors.secondaryContainer,
                   borderRadius: BorderRadius.circular(20),
                   child: Column(
                     children: [
                       ListTile(
+                        textColor: needsAttention
+                            ? colors.onErrorContainer
+                            : null,
+                        leading: needsAttention
+                            ? Icon(
+                                Icons.error_outline_rounded,
+                                color: colors.onErrorContainer,
+                              )
+                            : null,
                         title: Text(t.localBackgroundReceiving),
                         subtitle: Semantics(
                           liveRegion: true,
