@@ -2204,17 +2204,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
-                if (peerState.aliases.containsKey(id))
-                  ListTile(
-                    leading: const Icon(Icons.devices_outlined),
-                    title: Text(t.systemDeviceName),
-                    subtitle: Text(peers[id]!),
-                    trailing: IconButton(
-                      tooltip: t.useDeviceName,
-                      icon: const Icon(Icons.restore_rounded),
-                      onPressed: () => Navigator.pop(context, 'reset'),
-                    ),
-                  ),
                 ListTile(
                   leading: const Icon(Icons.fingerprint_rounded),
                   title: Text(t.deviceCode),
@@ -2242,6 +2231,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   subtitle: Text(t.deviceAliasHint),
                   onTap: () => Navigator.pop(context, 'rename'),
                 ),
+                if (peers[id] case final original?
+                    when peerState.aliases.containsKey(id))
+                  ListTile(
+                    leading: const Icon(Icons.restore_rounded),
+                    title: Text(t.useDeviceName),
+                    subtitle: Text(original),
+                    onTap: () => Navigator.pop(context, 'reset'),
+                  ),
                 ListTile(
                   leading: const Icon(Icons.link_off_rounded),
                   title: Text(t.removeDevice),

@@ -207,8 +207,8 @@ void main() {
         expect(find.text('Only shown on this device.'), findsOneWidget);
         expect(
           find.descendant(
-            of: find.widgetWithText(ListTile, 'Original device name'),
-            matching: find.byTooltip('Restore device name'),
+            of: find.widgetWithText(ListTile, 'Restore device name'),
+            matching: find.text('Phone'),
           ),
           findsOneWidget,
         );
