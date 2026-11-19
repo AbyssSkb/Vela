@@ -2,50 +2,52 @@
 
 <!-- impeccable:product-schema 1 -->
 
+[简体中文](PRODUCT.zh-CN.md)
+
 ## Platform
 
 adaptive
 
 ## Users
 
-希望在自己的设备之间方便分享内容的人。所有受支持的设备组合具有同等设计优先级。
+People who want to share easily between their own devices. Every supported combination of devices has equal design priority.
 
 ## Product Purpose
 
-让个人设备之间的分享像 AirDrop 一样自然、方便，无论设备来自哪个生态。
+Make sharing between personal devices feel as natural and easy as AirDrop, whichever ecosystems the devices come from.
 
 ## Positioning
 
-用户无需注册账号，设备之间通过配对建立信任。连接可以直连或通过中继转发，两种路径都在端点之间加密。配对记录和接收记录保存在本机，设备身份密钥由系统安全存储保护。
+Sharing requires no account. Devices establish trust through pairing. They can connect directly or through a relay, with end-to-end encryption on either path. Pairings and receive history stay on the device. The system's secure storage protects device identity keys.
 
 ## Operating Context
 
-- **配对。** 一台设备出示设备码，另一台输入设备码。支持扫码的设备也可扫描二维码。用户通过可信渠道核对设备码，再确认配对。移除设备会撤销本机信任。
-- **发送。** 用户可在 Vela 内选择内容，也可通过系统分享或拖放把内容交给 Vela，再发给目标设备。传输时可以查看进度和速度，也可中途取消。
-- **接收。** 接收方默认逐次确认，可以在设置中主动开启自动接收。用户可从本机接收记录查找收到的内容，并在设置中选择文件保存位置。
-- **后台运行。** 用户在使用其他应用时，Vela 可以在后台接收。当前的启用方式取决于平台，用户可以查看本机的接收状态和可用的恢复步骤。
+- **Pair.** One device shows a code and the other enters it. Devices that support scanning can read the QR code. Users compare the code through a trusted channel before approving the pairing. Removing a device revokes trust locally.
+- **Send.** Users can choose content in Vela, hand it off through the system share menu, or drop files into the app and send them to the destination. They can see progress and speed or cancel the transfer.
+- **Receive.** The receiving device asks for approval by default. Users can turn on automatic acceptance in settings. They can find incoming content in local receive history and choose where files are saved.
+- **Run in the background.** Vela can receive while the user is in another app. Setup currently varies by platform. Users can check this device's receiving status and see what they can do to restore it.
 
 ## Capabilities and Constraints
 
-- 当前版本支持 Android、macOS、Windows 和 Linux，界面支持简体中文和英文。扫码、系统分享、拖放、通知和后台运行的可用性随平台而异。
-- 剪贴板由用户主动发送，支持文字、图片或单个文件。多个文件通过文件选择入口发送，文件夹打包后发送并在接收端手动还原。
-- **目标设备的连接状态**反映发送方当前掌握的连接情况，可能是可连接、暂时无法连接、检查中或未知。
-- **本机后台接收状态**说明这台设备保持后台运行并处理收件请求所需的系统条件，例如后台服务状态、通知权限或睡眠设置。
-- 配对和传输要求两端应用正在运行且网络可达。系统睡眠、应用退出或被停止、权限和省电策略都可能中断后台接收。
-- 支持更新的发行版会后台检查、下载并验证更新。用户确认安装，传输、配对或文件夹操作结束后才能安装。
+- The current release supports Android, macOS, Windows, and Linux. The interface is available in English and Simplified Chinese. QR scanning, system sharing, drag and drop, notifications, and background operation vary by platform.
+- Clipboard sharing is explicit and supports text, an image, or one file. File selection supports batches. Vela packages folders for the receiving user to restore manually.
+- **Destination reachability** reflects what the sender currently knows about the connection. The device may be reachable, temporarily unreachable, being checked, or of unknown status.
+- **Local background receiving status** reflects the conditions on this device, including service state, notification permissions, and sleep settings.
+- Pairing and transfers require both apps to be running and reachable. Sleep, quitting, stopping the app, permissions, and power policies can interrupt background receiving.
+- Update-enabled releases check, download, and verify updates in the background. Users confirm installation after any transfer, pairing, or folder operation finishes.
 
 ## Brand Commitments
 
-产品名为 Vela，项目首页的主张是「在你的设备之间轻松分享」。使用仓库现有的 [Vela 图标](assets/branding/vela-icon.png)。
+The product is Vela. The repository headline is “Share easily between your devices.” Use the existing [Vela mark](assets/branding/vela-icon.png).
 
 ## Evidence on Hand
 
-- [中文说明](README.zh-CN.md)和[使用指南](docs/user-guide.md)记录现有的平台范围、使用流程和已知限制。
-- [发布验收清单](docs/launch-checklist.md)记录需要真机验证的后台接收、跨平台收发和升级场景。设备可用性和传输表现以对应版本的实测为准。
+- The [English user guide](docs/user-guide.md) and [Chinese user guide](docs/user-guide.zh-CN.md) describe platform support, how to use Vela, and troubleshooting.
+- The [release checklist](docs/launch-checklist.md) covers real-device tests for background receiving, cross-platform transfers, and upgrades. Use results from the relevant version to assess availability and transfer behavior.
 
 ## Product Principles
 
-1. 每条收发路径都应自然、方便。无论从哪里发起，Vela 都应承接用户已选的内容或接收设备，让后续步骤顺畅衔接。各平台采用一致的配对和传输规则，沿用本系统的分享、通知和后台操作习惯。
-2. 两端可达时，同网和跨网应有一样的收发体验。用户按设备选择接收方，Vela 负责建立连接并选择直连或中继。
-3. 后台接收是默认体验。系统条件允许时，Vela 退到后台也应继续接收来自已配对设备的请求。发送时让用户看清目标设备的连接状态。检查本机接收时，说明已知限制并给出可行的恢复步骤。
-4. 让发送者确认内容和目标、取消传输，让接收者决定是否接收，并让用户可以撤销设备信任。
+1. Every sharing path should feel natural and easy. Carry the user's choice of content or receiving device through the steps that follow. Keep pairing and transfer rules consistent across platforms, and follow each system's sharing, notification, and background conventions.
+2. When both devices are reachable, sharing on the same network and across networks should feel the same. Users choose the receiving device. Vela establishes the connection and handles the choice between direct and relayed paths.
+3. Background receiving is the default experience. When the system allows it, Vela should continue receiving requests from paired devices in the background. Show the sender whether the target device is reachable. When users check this device's receiving status, explain known constraints and offer a recovery step where one is available.
+4. Let the sender confirm the content and destination and cancel the transfer. Let the receiver decide whether to accept it, and let users revoke device trust.

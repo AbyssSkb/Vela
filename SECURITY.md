@@ -1,7 +1,9 @@
-# Security
+# Report a security vulnerability
 
-Report vulnerabilities privately through [GitHub's vulnerability reporting form](https://github.com/AbyssSkb/Vela/security/advisories/new). Include the affected version, reproduction steps using non-sensitive files, and the potential impact. English and Chinese are welcome.
+[简体中文](SECURITY.zh-CN.md)
 
-Keep device identity keys, relay credentials, clipboard content, and personal files out of reports. Use public issues for ordinary bugs after removing private information.
+Use GitHub's private form for vulnerabilities. Include the affected Vela version, the steps to reproduce with sample files, and the potential impact. Reports in English and Chinese are welcome. [Report privately](https://github.com/AbyssSkb/Vela/security/advisories/new)
 
-Security fixes target the latest release. Preview builds are intended for testing; use the most recent preview when reporting a problem found before the first stable release.
+Remove credentials, device identity keys, clipboard contents, and personal files from attachments. Report ordinary bugs through the public issue tracker after redacting private information. [Report an ordinary bug](CONTRIBUTING.md#report-a-problem)
+
+Security fixes target the current release. During the preview period, use the newest public preview to verify an issue when possible. [Public releases](https://github.com/AbyssSkb/Vela/releases)

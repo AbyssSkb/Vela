@@ -1,5 +1,7 @@
 # Vela development workflow
 
+[简体中文](AGENTS.zh-CN.md)
+
 1. **Start in the current checkout.** Review `git status --short --branch`,
    `git diff`, and `git diff --cached`. Preserve existing user changes.
    Create a worktree only when requested.

@@ -1,3 +1,5 @@
+<!-- [简体中文模板](pull_request_template.zh-CN.md) -->
+
 ## What changes and why
 
 <!-- Describe the problem and resulting behavior. Link the relevant issue, if any. -->
