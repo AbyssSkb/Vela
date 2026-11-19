@@ -99,6 +99,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Resolve Kotlin libraries from Maven Central
+        if: matrix.platform == 'android'
+        run: |
+          gradle_home="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          mkdir -p "$gradle_home/init.d"
+          cat > "$gradle_home/init.d/vela-flutter-plugin.gradle" <<'GRADLE'
+          beforeSettings { settings ->
+              def dir = settings.settingsDir
+              if (dir.name == 'gradle' && dir.parentFile.name == 'flutter_tools') {
+                  settings.pluginManagement.repositories {
+                      mavenCentral {
+                          content { includeGroup('org.jetbrains.kotlin') }
+                      }
+                      gradlePluginPortal()
+                  }
+              }
+          }
+          GRADLE
       - name: Install Linux build and packaging dependencies
         if: matrix.platform == 'linux'
         run: |
