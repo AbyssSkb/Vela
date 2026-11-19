@@ -1410,6 +1410,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           size: _size(info.size.toInt()),
           inBackground: !appForeground,
           autoAccept: autoAccept,
+          updatesClipboard: kind.updatesClipboard,
           focusWindow:
               Platform.isMacOS &&
               (prefs?.getBool('mac_focus_on_offer_${widget.profile}') ?? true),
@@ -2188,6 +2189,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         _message(
           t.folderRestored,
+          detail: Platform.isAndroid
+              ? null
+              : t.receivedSavedTo(File(path).parent.path),
           kind: NoticeKind.success,
           actionLabel: t.open,
           onAction: () => _openReceived(path),
@@ -3415,47 +3419,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           width: 400,
           child: SingleChildScrollView(child: SelectableText(text)),
         ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (link != null && (Platform.isAndroid || Platform.isMacOS)) ...[
-                Flexible(
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(0, 40),
-                    ),
-                    onPressed: () => _openLink(link),
-                    child: Text(
-                      t.openLink,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: const Size(0, 40),
-                  ),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: text));
-                    Navigator.pop(context);
-                    _message(t.historyCopied, kind: NoticeKind.success);
-                  },
-                  child: Text(
-                    t.historyCopy,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+          if (link != null)
+            TextButton(
+              onPressed: () => _openLink(link),
+              child: Text(t.openLink),
+            ),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await Clipboard.setData(ClipboardData(text: text));
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  _message(t.historyCopied, kind: NoticeKind.success);
+                }
+              } catch (_) {
+                if (context.mounted)
+                  _message(t.historyCopyFailed, kind: NoticeKind.error);
+              }
+            },
+            child: Text(t.historyCopy),
           ),
         ],
       ),
@@ -3512,6 +3495,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           open: _openHistory,
           export: _exportHistory,
           remove: _removeHistory,
+          copyFiles: (records) async {
+            final references = <String>[];
+            for (final record in records) {
+              final reference = record.fileReference;
+              if (reference == null || !await _receivedExists(reference)) {
+                throw StateError(t.historyMissing);
+              }
+              references.add(reference);
+            }
+            try {
+              await copyReceivedFiles(references);
+            } catch (_) {
+              throw StateError(t.historyCopyFailed);
+            }
+          },
           openFolder: () => receivedStorage.openFolder(),
           reveal: (record) async {
             final reference = record.fileReference;

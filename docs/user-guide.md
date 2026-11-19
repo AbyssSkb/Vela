@@ -40,7 +40,7 @@ Choose a sharing action, select the content, and confirm the receiving device. T
 
 Incoming transfers request approval by default; settings include optional automatic acceptance. Transfers show progress and speed and can be cancelled.
 
-Received files and images are offered to the system clipboard, although paste support depends on the destination app. Received HTTP(S) links can be opened in a browser.
+Clipboard shares are copied on receipt. For ordinary files, choose **Copy files** in Received when you want to put them on the system clipboard. Paste support depends on the destination app. Received HTTP(S) links can be opened in a browser.
 
 Folder archives support at most 16 GiB of uncompressed content, 10,000 entries, and 64 levels of nesting. Symlinks are rejected. The app currently allows one active transfer per node.
 

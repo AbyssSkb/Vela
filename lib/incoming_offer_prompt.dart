@@ -50,6 +50,7 @@ class IncomingOfferPrompt {
     required bool inBackground,
     required bool autoAccept,
     required bool focusWindow,
+    bool updatesClipboard = false,
   }) async {
     final t = AppLocalizations.of(context)!;
     if (inBackground) {
@@ -60,7 +61,10 @@ class IncomingOfferPrompt {
               ? t.shareFrom(senderName())
               : senderName(),
           'message': Platform.isAndroid
-              ? '$contentName · $size'
+              ? [
+                  '$contentName · $size',
+                  if (updatesClipboard) t.incomingClipboardHint,
+                ].join('\n')
               : t.backgroundOffer,
           'shortText': t.incomingShort,
           'focus': focusWindow,
@@ -125,6 +129,10 @@ class IncomingOfferPrompt {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+              if (updatesClipboard) ...[
+                const SizedBox(height: 8),
+                Text(t.incomingClipboardHint),
+              ],
               if (batchFiles.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(batchFiles.take(3).join('\n')),

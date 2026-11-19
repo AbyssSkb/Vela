@@ -112,6 +112,7 @@ class TransferHistoryPage extends StatefulWidget {
     required this.openFolder,
     required this.reveal,
     required this.remove,
+    this.copyFiles,
     this.batchId,
   });
   final ValueListenable<List<TransferRecord>> records;
@@ -119,6 +120,7 @@ class TransferHistoryPage extends StatefulWidget {
   final Future<void> Function(TransferRecord) open, export;
   final Future<void> Function() openFolder;
   final Future<void> Function(TransferRecord) reveal;
+  final Future<void> Function(List<TransferRecord>)? copyFiles;
   final Future<void> Function(
     Iterable<TransferRecord>, {
     required bool deleteFiles,
@@ -335,6 +337,28 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
     );
   }
 
+  bool _canCopy(TransferRecord record) =>
+      widget.copyFiles != null &&
+      record.kind.isFile &&
+      record.fileReference != null;
+
+  Future<void> _copyFiles(Iterable<TransferRecord> records) async {
+    final t = AppLocalizations.of(context)!;
+    try {
+      await widget.copyFiles!(records.where(_canCopy).toList());
+      if (mounted)
+        showNotice(context, t.historyCopied, kind: NoticeKind.success);
+    } catch (e) {
+      if (mounted) {
+        showNotice(
+          context,
+          e is StateError ? e.message.toString() : t.historyCopyFailed,
+          kind: NoticeKind.error,
+        );
+      }
+    }
+  }
+
   Widget _buildToolbar(BuildContext context, List<TransferRecord> records) {
     final t = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
@@ -384,6 +408,30 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                   ),
                 ),
               ),
+              if (!selecting && showMenu)
+                PopupMenuButton<String>(
+                  key: const ValueKey('history-actions'),
+                  tooltip: t.manageRecords,
+                  icon: const Icon(Icons.more_horiz_rounded),
+                  onSelected: (action) {
+                    if (action == 'select') {
+                      setState(() => selecting = true);
+                    } else {
+                      _confirmRemove(visibleRecords);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'select',
+                      child: Text(t.selectRecords),
+                    ),
+                    if (showClear)
+                      PopupMenuItem(
+                        value: 'clear',
+                        child: Text(t.clearHistory),
+                      ),
+                  ],
+                ),
             ],
           ),
           if (batch && visibleRecords.isNotEmpty && !selecting)
@@ -434,6 +482,11 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                       : () => _confirmRemove(selected),
                   child: Text(t.removeRecord),
                 ),
+                if (selected.any(_canCopy))
+                  TextButton(
+                    onPressed: () => _copyFiles(selected),
+                    child: Text(t.historyCopyFiles),
+                  ),
               ] else ...[
                 if (!searching && visibleRecords.isNotEmpty)
                   TextButton.icon(
@@ -458,29 +511,11 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                   icon: const Icon(Icons.folder_open_rounded),
                   label: Text(t.openReceiveFolder),
                 ),
-                if (showMenu)
-                  PopupMenuButton<String>(
-                    key: const ValueKey('history-actions'),
-                    tooltip: t.manageRecords,
-                    icon: const Icon(Icons.more_horiz_rounded),
-                    onSelected: (action) {
-                      if (action == 'select') {
-                        setState(() => selecting = true);
-                      } else {
-                        _confirmRemove(visibleRecords);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 'select',
-                        child: Text(t.selectRecords),
-                      ),
-                      if (showClear)
-                        PopupMenuItem(
-                          value: 'clear',
-                          child: Text(t.clearHistory),
-                        ),
-                    ],
+                if (batch && !searching && visibleRecords.any(_canCopy))
+                  TextButton.icon(
+                    onPressed: () => _copyFiles(visibleRecords),
+                    icon: const Icon(Icons.copy_rounded),
+                    label: Text(t.historyCopyFiles),
                   ),
               ],
             ],
@@ -765,6 +800,11 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                                           item,
                                                         );
                                                       } else if (action ==
+                                                          'copy') {
+                                                        await _copyFiles([
+                                                          item,
+                                                        ]);
+                                                      } else if (action ==
                                                           'reveal') {
                                                         await widget.reveal(
                                                           item,
@@ -792,6 +832,13 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                                     }
                                                   },
                                                   itemBuilder: (_) => [
+                                                    if (_canCopy(item))
+                                                      PopupMenuItem(
+                                                        value: 'copy',
+                                                        child: Text(
+                                                          t.historyCopyFiles,
+                                                        ),
+                                                      ),
                                                     if (item.fileReference !=
                                                             null &&
                                                         item.kind.isFile &&

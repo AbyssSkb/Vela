@@ -722,6 +722,12 @@ abstract class AppLocalizations {
   /// **'Received, but couldn\'t copy to the clipboard.'**
   String get writeClipboardFailed;
 
+  /// No description provided for @incomingClipboardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepting replaces this device’s clipboard.'**
+  String get incomingClipboardHint;
+
   /// No description provided for @startupFailed.
   ///
   /// In en, this message translates to:
@@ -1208,6 +1214,18 @@ abstract class AppLocalizations {
   /// **'Copied'**
   String get historyCopied;
 
+  /// No description provided for @historyCopyFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy files'**
+  String get historyCopyFiles;
+
+  /// No description provided for @historyCopyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t copy to the clipboard. Try again.'**
+  String get historyCopyFailed;
+
   /// No description provided for @historySaveFailed.
   ///
   /// In en, this message translates to:
@@ -1637,7 +1655,7 @@ abstract class AppLocalizations {
   /// No description provided for @autoAcceptHint.
   ///
   /// In en, this message translates to:
-  /// **'Accept transfers from paired devices without asking'**
+  /// **'Accept transfers from paired devices without asking. Clipboard shares replace this device’s clipboard.'**
   String get autoAcceptHint;
 
   /// No description provided for @retry.
