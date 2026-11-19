@@ -10,6 +10,8 @@ class PreparedTransfer {
     List<String> ownedTemporaryPaths = const [],
     this.fromClipboard = false,
     this.share,
+    this.displayName,
+    this.textPreview,
   }) : paths = List.unmodifiable(paths),
        ownedTemporaryPaths = List.unmodifiable(ownedTemporaryPaths.toSet()) {
     if (paths.isEmpty ||
@@ -24,6 +26,7 @@ class PreparedTransfer {
   final TransferKind kind;
   final bool fromClipboard;
   final PendingShare? share;
+  final String? displayName, textPreview;
 
   Future<void> deleteOwnedTemporaryFiles() async {
     for (final path in ownedTemporaryPaths) {

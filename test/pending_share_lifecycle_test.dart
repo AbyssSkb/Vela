@@ -146,10 +146,14 @@ void main() {
           final device = find.byKey(const ValueKey('peer-$peerId'));
           if (send) {
             expect(
-              find.descendant(of: device, matching: find.text('Send to Phone')),
+              find.descendant(of: device, matching: find.text('Phone')),
               findsOneWidget,
             );
             final choose = find.byKey(const ValueKey('choose-share-device'));
+            expect(
+              find.widgetWithText(FilledButton, 'Send to Phone'),
+              findsOneWidget,
+            );
             await tester.tap(choose);
             await waitUntil(() => preparing.isCompleted);
             await tester.pump();
