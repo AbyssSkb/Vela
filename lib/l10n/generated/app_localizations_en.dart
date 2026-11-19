@@ -987,6 +987,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDisplay => 'Display';
 
   @override
+  String get settingsAbout => 'About Vela';
+
+  @override
+  String get appUpdateCheck => 'Check for updates';
+
+  @override
+  String get appUpdateFailed => 'Could not update.';
+
+  @override
   String get relaySettings => 'Relay servers';
 
   @override
