@@ -440,9 +440,9 @@ void main() {
       addTearDown(tester.view.resetViewPadding);
       addTearDown(tester.view.resetPadding);
       await tester.pump();
-      final receiveNotice = find.byType(SnackBar);
+      final receiveNotice = find.byKey(const ValueKey('message-notice'));
       final sendNotice = find.byKey(const ValueKey('send-receipt'));
-      expect(tester.getBottomLeft(receiveNotice).dy, lessThanOrEqualTo(616));
+      expect(tester.getBottomLeft(receiveNotice).dy, lessThan(616));
 
       final completed = effects.menuStates
           .where((state) => state == false)

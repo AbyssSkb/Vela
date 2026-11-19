@@ -70,10 +70,11 @@ void main() {
       await tester.tap(find.text('Show'));
       await tester.pumpAndSettle();
       final snack = tester.widget<SnackBar>(find.byType(SnackBar));
-      expect(snack.behavior, SnackBarBehavior.floating);
+      expect(snack.behavior, SnackBarBehavior.fixed);
       expect(snack.width, isNull);
       expect(snack.elevation, 0);
-      expect(tester.getBottomLeft(find.byType(SnackBar)).dy, 640);
+      final panel = find.byKey(const ValueKey('message-notice'));
+      expect(tester.getBottomLeft(panel).dy, 628);
       expect(find.text('Example'), findsOneWidget);
       expect(
         find.byIcon(switch (kind) {
@@ -105,9 +106,10 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pumpAndSettle();
     final snack = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snack.behavior, SnackBarBehavior.floating);
+    expect(snack.behavior, SnackBarBehavior.fixed);
     expect(snack.width, isNull);
     expect(snack.elevation, 0);
+    expect(snack.backgroundColor, Colors.transparent);
     expect(find.text('Received'), findsOneWidget);
   });
   testWidgets('received file notice keeps an accessible open action', (
@@ -215,5 +217,38 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('View received items').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('actionable notice fits when the IME opens on a short phone', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(640, 320);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showNotice(
+                context,
+                'Received a very long file name that would wrap',
+                detail: 'Saved to Downloads',
+                actionLabel: 'Open file',
+                onAction: () {},
+              ),
+              child: const Text('Show'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 248);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Open file').hitTestable(), findsOneWidget);
   });
 }

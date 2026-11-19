@@ -11,40 +11,56 @@ class ActivityNotice extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Material(
-              key: const ValueKey('activity-notice'),
-              color: colors.secondaryContainer,
-              borderRadius: BorderRadius.circular(14),
-              clipBehavior: Clip.antiAlias,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: IconTheme.merge(
-                  data: IconThemeData(color: colors.onSecondaryContainer),
-                  child: DefaultTextStyle.merge(
-                    style: TextStyle(
-                      color: colors.onSecondaryContainer,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    child: child,
-                  ),
-                ),
-              ),
+      child: _NoticePanel(
+        panelKey: const ValueKey('activity-notice'),
+        color: colors.secondaryContainer,
+        child: IconTheme.merge(
+          data: IconThemeData(color: colors.onSecondaryContainer),
+          child: DefaultTextStyle.merge(
+            style: TextStyle(
+              color: colors.onSecondaryContainer,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
+            child: child,
           ),
         ),
       ),
     );
   }
+}
+
+class _NoticePanel extends StatelessWidget {
+  const _NoticePanel({
+    required this.panelKey,
+    required this.color,
+    required this.child,
+  });
+
+  final Key panelKey;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+    child: Center(
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Material(
+          key: panelKey,
+          color: color,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: child,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
@@ -137,48 +153,45 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       ),
     ],
   ];
-  final inset = ((MediaQuery.widthOf(context) - 560) / 2).clamp(
-    12.0,
-    double.infinity,
-  );
   messenger.clearSnackBars();
   return messenger.showSnackBar(
     SnackBar(
-      behavior: SnackBarBehavior.floating,
-      margin: EdgeInsets.fromLTRB(inset, 0, inset, 12),
-      backgroundColor: background,
+      behavior: SnackBarBehavior.fixed,
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
-      ),
+      padding: EdgeInsets.zero,
+      hitTestBehavior: HitTestBehavior.deferToChild,
       duration: onAction == null
           ? const Duration(seconds: 4)
           : const Duration(days: 1),
-      content: LayoutBuilder(
-        builder: (context, constraints) {
-          final scale = MediaQuery.textScalerOf(context).scale(1);
-          if (actions.isNotEmpty &&
-              (detail != null || constraints.maxWidth < 340 || scale > 1.3)) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      content: _NoticePanel(
+        panelKey: const ValueKey('message-notice'),
+        color: background,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = MediaQuery.textScalerOf(context).scale(1);
+            if (actions.isNotEmpty &&
+                (constraints.maxWidth < 340 || scale > 1.3)) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  details,
+                  OverflowBar(
+                    alignment: MainAxisAlignment.end,
+                    children: actions,
+                  ),
+                ],
+              );
+            }
+            return Row(
               children: [
-                details,
-                OverflowBar(
-                  alignment: MainAxisAlignment.end,
-                  children: actions,
-                ),
+                Expanded(child: details),
+                ...actions,
               ],
             );
-          }
-          return Row(
-            children: [
-              Expanded(child: details),
-              ...actions,
-            ],
-          );
-        },
+          },
+        ),
       ),
     ),
   );
