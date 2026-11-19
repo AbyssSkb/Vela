@@ -139,7 +139,10 @@ class AppUpdateTile extends StatelessWidget {
             if (controller.canCheck)
               OutlinedButton(
                 onPressed: controller.check,
-                child: Text(failed ? t.retry : t.appUpdateCheck),
+                child: Text(
+                  failed ? t.retry : t.appUpdateCheck,
+                  textAlign: TextAlign.center,
+                ),
               ),
             if (controller.state == AppUpdateState.ready)
               FilledButton(
