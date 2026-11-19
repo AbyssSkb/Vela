@@ -18,71 +18,76 @@ class EmptyDevicesSliver extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final t = AppLocalizations.of(context)!;
+    final showIllustration = !HomeSendButton.usesLargeLabels(context);
+    final instructions = Text(
+      t.emptyDevices,
+      textAlign: TextAlign.center,
+      style: TextStyle(color: colors.onSurfaceVariant),
+    );
     return SliverFillRemaining(
       hasScrollBody: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 72),
+        padding: EdgeInsets.fromLTRB(24, 0, 24, showIllustration ? 72 : 24),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 152,
-                height: 112,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned(
-                      left: 8,
-                      top: 8,
-                      child: Container(
-                        width: 106,
-                        height: 78,
-                        decoration: BoxDecoration(
-                          color: colors.primaryContainer,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Icon(
-                          Icons.laptop_mac_rounded,
-                          size: 46,
-                          color: colors.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 8,
-                      bottom: 4,
-                      child: Container(
-                        width: 57,
-                        height: 74,
-                        decoration: BoxDecoration(
-                          color: colors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(19),
-                          border: Border.all(color: colors.outlineVariant),
-                        ),
-                        child: Icon(
-                          Icons.phone_android_rounded,
-                          size: 32,
-                          color: colors.primary,
+              if (showIllustration)
+                SizedBox(
+                  width: 152,
+                  height: 112,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned(
+                        left: 8,
+                        top: 8,
+                        child: Container(
+                          width: 106,
+                          height: 78,
+                          decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Icon(
+                            Icons.laptop_mac_rounded,
+                            size: 46,
+                            color: colors.onPrimaryContainer,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        right: 8,
+                        bottom: 4,
+                        child: Container(
+                          width: 57,
+                          height: 74,
+                          decoration: BoxDecoration(
+                            color: colors.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(19),
+                            border: Border.all(color: colors.outlineVariant),
+                          ),
+                          child: Icon(
+                            Icons.phone_android_rounded,
+                            size: 32,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
+              if (showIllustration) const SizedBox(height: 24),
               Text(
                 t.connectDevices,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 8),
-              Text(
-                t.emptyDevices,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant),
-              ),
+              if (showIllustration) ...[
+                const SizedBox(height: 8),
+                instructions,
+              ],
               const SizedBox(height: 24),
               FilledButton.icon(
                 key: const ValueKey('add-device'),
@@ -97,6 +102,10 @@ class EmptyDevicesSliver extends StatelessWidget {
                 icon: const Icon(Icons.qr_code_rounded),
                 label: Text(t.showMyCode, textAlign: TextAlign.center),
               ),
+              if (!showIllustration) ...[
+                const SizedBox(height: 16),
+                instructions,
+              ],
             ],
           ),
         ),

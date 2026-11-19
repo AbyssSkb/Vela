@@ -1616,18 +1616,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   });
 
-  Future<void> _addDevice() async {
+  Future<void> _addDevice({String initialCode = ''}) async {
     if (shuttingDown || updates.installing) return;
     if (outgoingPairingUiActive || contentOperationActive || changingRelay) {
       return;
     }
     final id = await showDialog<String>(
       context: context,
-      builder: (_) => const AddDeviceDialog(),
+      builder: (_) => AddDeviceDialog(initialCode: initialCode),
     );
     if (id == null || node == null || changingRelay || !mounted) return;
     if (id == node!.id()) {
-      _message(t.cannotAddSelf, kind: NoticeKind.error);
+      _message(
+        t.cannotAddSelf,
+        kind: NoticeKind.error,
+        actionLabel: t.retry,
+        onAction: () => _addDevice(initialCode: id),
+      );
       return;
     }
     if (pairings.isActiveFor(id)) {
@@ -1645,11 +1650,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('Pairing failed: $e');
       if (mounted) {
+        final declined =
+            classifyTransferFailure(e) == TransferFailure.pairingDeclined;
         _message(
-          classifyTransferFailure(e) == TransferFailure.pairingDeclined
-              ? t.pairDeclined
-              : t.pairFailed,
+          declined ? t.pairDeclined : t.pairFailed,
           kind: NoticeKind.error,
+          actionLabel: declined ? null : t.retry,
+          onAction: declined ? null : () => _addDevice(initialCode: id),
         );
       }
     } finally {
@@ -1705,8 +1712,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: Text(t.removeDevicesQuestion(ids.length)),
-        content: Text(t.removeDevicesBody),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t.removeDevicesBody),
+            const SizedBox(height: 12),
+            for (final id in ids) Text(peerState.displayName(id)),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -2698,10 +2714,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 Text(t.showDeviceCode),
                 const SizedBox(height: 12),
                 Center(
-                  child: QrImageView(
-                    data: 'vela:1:$id',
-                    size: 192,
-                    backgroundColor: Colors.white,
+                  child: SizedBox.square(
+                    dimension: 192,
+                    child: QrImageView(
+                      data: 'vela:1:$id',
+                      backgroundColor: Colors.white,
+                      semanticsLabel: t.deviceCode,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -3441,7 +3460,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     selectingPeers = false;
   });
 
-  Widget _buildHomeToolbar(bool showingGraph, String? status) => HomeToolbar(
+  Widget _buildHomeToolbar(
+    bool showingGraph,
+    String? status, {
+    required bool allowGraph,
+  }) => HomeToolbar(
     selection: selectingPeers
         ? Row(
             children: [
@@ -3505,7 +3528,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       ],
     ],
-    viewMode: peers.isEmpty || pendingShare != null
+    viewMode: peers.isEmpty || !allowGraph || pendingShare != null
         ? null
         : HomeToolbarAction(
             'view',
@@ -3741,7 +3764,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ? 4.0
         : 24.0;
     final headerBottom = compactHeader ? 4.0 : 12.0;
-    final showingGraph = deviceView == 'graph';
+    final showingGraph = deviceView == 'graph' && !largeText;
     final background = _backgroundSetting;
     final availability = _backgroundAvailability;
     final backgroundStatus =
@@ -3769,6 +3792,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: _buildHomeToolbar(
               showingGraph,
               showBackgroundStatus ? null : backgroundStatus,
+              allowGraph: !largeText,
             ),
           ),
         ),
@@ -3838,10 +3862,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           )
         else if (node == null)
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Semantics(liveRegion: true, child: Text(t.startingVela)),
+                ],
+              ),
             ),
           )
         else if (peers.isEmpty)

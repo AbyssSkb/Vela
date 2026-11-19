@@ -126,8 +126,13 @@ void main() {
         final add = find.byKey(const ValueKey('add-device'));
         await waitForHome(tester, () => add.evaluate().isNotEmpty);
         final showCode = find.text('Show device code');
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
         expect(add.hitTestable(), findsOneWidget);
         expect(showCode.hitTestable(), findsOneWidget);
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+        await tester.pump();
         await tester.tap(showCode);
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('device-id')), findsOneWidget);
@@ -150,6 +155,17 @@ void main() {
         expect(copied, fakes.FakeNode().id());
         expect(find.text('Device code copied'), findsOneWidget);
         expect(find.byKey(const ValueKey('device-id')), findsOneWidget);
+        await tester.tap(find.text('Close'));
+        await tester.pumpAndSettle();
+        tester.view.physicalSize = const Size(1000, 700);
+        await tester.pump();
+        await tester.tap(showCode);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(
+          find.byKey(const ValueKey('device-id')).hitTestable(),
+          findsOneWidget,
+        );
         await tester.tap(find.text('Close'));
         await tester.pumpAndSettle();
         await tester.tap(add);
@@ -979,6 +995,19 @@ void main() {
           await waitForHome(tester, () => toggle.evaluate().isNotEmpty);
           final graph = find.byType(DeviceGraph);
           expect(graph, savedView == null ? findsNothing : findsOneWidget);
+          if (savedView == 'graph') {
+            tester.platformDispatcher.textScaleFactorTestValue = 2;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            await tester.pump();
+            expect(graph, findsNothing);
+            expect(toggle, findsNothing);
+            expect(find.widgetWithText(ListTile, 'Phone'), findsOneWidget);
+            tester.platformDispatcher.clearTextScaleFactorTestValue();
+            await tester.pump();
+            expect(graph, findsOneWidget);
+          }
           await tester.tap(toggle);
           await tester.pump();
           expect(graph, savedView == null ? findsOneWidget : findsNothing);

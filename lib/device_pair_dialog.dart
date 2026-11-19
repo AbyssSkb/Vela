@@ -9,13 +9,14 @@ import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
 
 class AddDeviceDialog extends StatefulWidget {
-  const AddDeviceDialog({super.key});
+  const AddDeviceDialog({super.key, this.initialCode = ''});
+  final String initialCode;
   @override
   State<AddDeviceDialog> createState() => _AddDeviceDialogState();
 }
 
 class _AddDeviceDialogState extends State<AddDeviceDialog> {
-  final id = TextEditingController();
+  late final id = TextEditingController(text: widget.initialCode);
   String? idError;
   @override
   void dispose() {
