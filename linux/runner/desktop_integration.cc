@@ -190,7 +190,23 @@ class DesktopIntegration {
     g_autoptr(GKeyFile) entry = g_key_file_new();
     return g_key_file_load_from_file(entry, AutostartPath().c_str(),
                                      G_KEY_FILE_NONE, nullptr) &&
-           !g_key_file_get_boolean(entry, "Desktop Entry", "Hidden", nullptr);
+           VelaDesktopLoginEnabled(entry, LoginCommand(nullptr));
+  }
+
+  static std::string LoginCommand(GError** error) {
+    const gchar* appimage = g_getenv("APPIMAGE");
+    g_autofree gchar* executable =
+        appimage != nullptr && g_path_is_absolute(appimage)
+            ? g_strdup(appimage)
+            : g_file_read_link("/proc/self/exe", error);
+    if (executable == nullptr) return {};
+    try {
+      return VelaDesktopExec(executable);
+    } catch (const std::invalid_argument& exception) {
+      g_set_error_literal(error, G_FILE_ERROR, G_FILE_ERROR_INVAL,
+                            exception.what());
+      return {};
+    }
   }
 
   static bool SetLogin(bool enabled, GError** error) {
@@ -201,20 +217,8 @@ class DesktopIntegration {
                    "Cannot remove login item: %s", g_strerror(errno));
       return false;
     }
-    const gchar* appimage = g_getenv("APPIMAGE");
-    g_autofree gchar* executable =
-        appimage != nullptr && g_path_is_absolute(appimage)
-            ? g_strdup(appimage)
-            : g_file_read_link("/proc/self/exe", error);
-    if (executable == nullptr) return false;
-    std::string command;
-    try {
-      command = VelaDesktopExec(executable);
-    } catch (const std::invalid_argument& exception) {
-      g_set_error_literal(error, G_FILE_ERROR, G_FILE_ERROR_INVAL,
-                            exception.what());
-      return false;
-    }
+    const auto command = LoginCommand(error);
+    if (command.empty()) return false;
     g_autofree gchar* directory = g_path_get_dirname(path.c_str());
     if (g_mkdir_with_parents(directory, 0700) != 0) {
       g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),

@@ -58,6 +58,7 @@ std::wstring ExecutablePath() {
 }
 
 std::wstring StartupCommand(const std::wstring& path) {
+  if (path.empty() || path.size() + 2 > 260) return {};
   return L"\"" + path + L"\"";
 }
 
@@ -101,6 +102,8 @@ DesktopIntegration::DesktopIntegration(HWND window,
   assert(!ValidWebUrl(L"https:///"));
   assert(StartupCommand(L"C:\\Program Files\\Vela\\vela.exe") ==
          L"\"C:\\Program Files\\Vela\\vela.exe\"");
+  assert(StartupCommand(std::wstring(258, L'a')).size() == 260);
+  assert(StartupCommand(std::wstring(259, L'a')).empty());
   background_ =
       std::make_unique<flutter::MethodChannel<EncodableValue>>(
           messenger, "vela/background",
@@ -260,13 +263,15 @@ std::string DesktopIntegration::LoginStatus() const {
   std::vector<wchar_t> value(bytes / sizeof(wchar_t) + 1);
   const auto result = RegGetValueW(HKEY_CURRENT_USER, kRunKey, L"Vela",
                                   RRF_RT_REG_SZ, nullptr, value.data(), &bytes);
-  return result == ERROR_SUCCESS &&
-                 StartupCommand(ExecutablePath()) == value.data()
+  const auto expected = StartupCommand(ExecutablePath());
+  return result == ERROR_SUCCESS && !expected.empty() && expected == value.data()
              ? "enabled"
              : "notRegistered";
 }
 
 bool DesktopIntegration::SetLaunchAtLogin(bool enabled) {
+  const auto command = enabled ? StartupCommand(ExecutablePath()) : std::wstring();
+  if (enabled && command.empty()) return false;
   HKEY key = nullptr;
   if (RegCreateKeyExW(HKEY_CURRENT_USER, kRunKey, 0, nullptr, 0, KEY_SET_VALUE,
                        nullptr, &key, nullptr) != ERROR_SUCCESS) {
@@ -274,12 +279,6 @@ bool DesktopIntegration::SetLaunchAtLogin(bool enabled) {
   }
   LSTATUS result;
   if (enabled) {
-    const auto path = ExecutablePath();
-    if (path.empty()) {
-      RegCloseKey(key);
-      return false;
-    }
-    const auto command = StartupCommand(path);
     result = RegSetValueExW(key, L"Vela", 0, REG_SZ,
                             reinterpret_cast<const BYTE*>(command.c_str()),
                             static_cast<DWORD>((command.size() + 1) *
