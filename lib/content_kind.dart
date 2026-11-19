@@ -18,7 +18,8 @@ enum TransferKind {
 
   bool get isText => this == text || this == typedText;
   bool get isFile => this == file || this == clipboardFile || this == batch;
-  bool get copiesTextToClipboard => this == text;
+  bool get updatesClipboard =>
+      this == text || this == image || this == clipboardFile;
 
   HistoryKind historyKind(String filename) => switch (this) {
     file when filename.endsWith(folderArchiveSuffix) =>
