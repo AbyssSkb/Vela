@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/vela-icon.png" width="96" height="96" alt="Vela icon">
+  <img src="docs/assets/vela-mark.png" width="96" height="96" alt="Vela icon">
 </p>
 
 <h1 align="center">Vela</h1>
