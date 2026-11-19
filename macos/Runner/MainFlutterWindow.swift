@@ -204,9 +204,10 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         app.setBackgroundActive(enabled)
         result(nil)
       case "macBackgroundStatus":
+        let login = self.loginStatus()
         result([
           "active": (NSApplication.shared.delegate as? AppDelegate)?.backgroundActive ?? false,
-          "loginSupported": self.loginStatus() != "unsupported", "loginStatus": self.loginStatus(),
+          "loginSupported": login != "unsupported", "loginStatus": login,
         ])
       case "setLaunchAtLogin":
         guard let enabled = call.arguments as? Bool else {
@@ -221,10 +222,13 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         }
         do {
           let service = SMAppService.mainApp
-          if enabled && service.status == .notRegistered {
+          switch (enabled, service.status) {
+          case (true, .notRegistered), (true, .notFound):
             try service.register()
-          } else if !enabled && service.status != .notRegistered {
+          case (false, .enabled), (false, .requiresApproval):
             try service.unregister()
+          default:
+            break
           }
           result(self.loginStatus())
         } catch {
