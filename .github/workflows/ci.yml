@@ -83,9 +83,14 @@ jobs:
           python-version: '3.12'
       - run: python -m unittest discover -s tool/release -p 'test_*.py'
       - run: python -m unittest discover -s packaging/linux -p 'test_*.py'
-      - name: Check Linux autostart quoting
+      - name: Check Linux autostart entries
         run: |
-          c++ -std=c++14 linux/runner/desktop_entry_test.cc -o "$RUNNER_TEMP/vela-desktop-entry-test"
+          if ! pkg-config --exists glib-2.0; then
+            sudo apt-get update
+            sudo apt-get install -y libglib2.0-dev
+          fi
+          c++ -std=c++14 linux/runner/desktop_entry_test.cc \
+            $(pkg-config --cflags --libs glib-2.0) -o "$RUNNER_TEMP/vela-desktop-entry-test"
           "$RUNNER_TEMP/vela-desktop-entry-test"
       - run: bash -n tool/release/build.sh tool/release/publish.sh packaging/macos/package.sh packaging/linux/package.sh
       - name: Validate GitHub workflows
