@@ -232,13 +232,24 @@ void main() {
       await tester.pump();
       expect(
         find.text(
-          'Could not connect. Check that both devices are running the latest version.',
+          'Could not connect. Check the device code and make sure Vela is open and online on both devices.',
         ),
         findsOneWidget,
       );
       expect(find.text('Added Phone'), findsNothing);
       expect(find.byKey(const ValueKey('peer-$peerId')), findsNothing);
       expect(node.peerTrusted, isFalse);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byKey(const ValueKey('notice-action')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('peer-id')))
+            .controller
+            ?.text,
+        peerId,
+      );
     } finally {
       if (!node.release.isCompleted) node.release.complete(handle);
       await tester.pumpWidget(const SizedBox());

@@ -461,7 +461,7 @@ abstract class AppLocalizations {
   /// No description provided for @confirmOwnDevice.
   ///
   /// In en, this message translates to:
-  /// **'Choose Show device code on the device that sent this request. Check that the first and last characters match.'**
+  /// **'On the requesting device, choose Show device code. Match the first and last eight characters with the code below.'**
   String get confirmOwnDevice;
 
   /// No description provided for @reject.
@@ -497,7 +497,7 @@ abstract class AppLocalizations {
   /// No description provided for @pairFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not connect. Check that both devices are running the latest version.'**
+  /// **'Could not connect. Check the device code and make sure Vela is open and online on both devices.'**
   String get pairFailed;
 
   /// No description provided for @removeDevice.
@@ -727,6 +727,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Accepting replaces this device’s clipboard.'**
   String get incomingClipboardHint;
+
+  /// No description provided for @startingVela.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting Vela…'**
+  String get startingVela;
 
   /// No description provided for @startupFailed.
   ///

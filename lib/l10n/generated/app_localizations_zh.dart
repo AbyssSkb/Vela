@@ -196,7 +196,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pairRequest => '添加设备？';
 
   @override
-  String get confirmOwnDevice => '在发起请求的设备上选择「出示设备码」，核对设备码开头和末尾的字符。';
+  String get confirmOwnDevice => '在发起请求的设备上选择「出示设备码」，与下方的首尾各 8 位核对。';
 
   @override
   String get reject => '拒绝';
@@ -214,7 +214,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pairWaiting => '等待设备响应';
 
   @override
-  String get pairFailed => '无法连接设备，请确认双方都已打开最新版本';
+  String get pairFailed => '无法连接设备。请核对设备码，并确认两台设备都已打开 Vela 且联网。';
 
   @override
   String get removeDevice => '移除设备';
@@ -337,6 +337,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get incomingClipboardHint => '接收后将替换本机剪贴板内容。';
+
+  @override
+  String get startingVela => '正在启动 Vela…';
 
   @override
   String get startupFailed => 'Vela 无法启动。';

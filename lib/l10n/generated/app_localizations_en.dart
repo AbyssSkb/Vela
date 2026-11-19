@@ -207,7 +207,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmOwnDevice =>
-      'Choose Show device code on the device that sent this request. Check that the first and last characters match.';
+      'On the requesting device, choose Show device code. Match the first and last eight characters with the code below.';
 
   @override
   String get reject => 'Decline';
@@ -227,7 +227,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pairFailed =>
-      'Could not connect. Check that both devices are running the latest version.';
+      'Could not connect. Check the device code and make sure Vela is open and online on both devices.';
 
   @override
   String get removeDevice => 'Remove device';
@@ -370,6 +370,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get incomingClipboardHint =>
       'Accepting replaces this device’s clipboard.';
+
+  @override
+  String get startingVela => 'Starting Vela…';
 
   @override
   String get startupFailed => 'Vela could not start.';
