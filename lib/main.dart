@@ -958,10 +958,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _takePendingShare() => _shareReads = _shareReads.then((_) async {
     if (!mounted || disposed || shuttingDown || pendingShare != null) return;
+    Map<String, dynamic>? payload;
     try {
-      final share = await shareChannel.invokeMapMethod<String, dynamic>('take');
-      if (mounted && share != null) {
-        setState(() => pendingShare = PendingShare.fromMap(share));
+      payload = await shareChannel.invokeMapMethod<String, dynamic>('take');
+      if (mounted && payload != null) {
+        final share = PendingShare.fromMap(payload);
+        setState(() => pendingShare = share);
         if (!_composingText &&
             !contentOperationActive &&
             !outgoingPairingUiActive &&
@@ -971,7 +973,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('Could not read shared content: $e');
-      if (mounted) _message(t.readSharedFailed, kind: NoticeKind.error);
+      if (mounted && payload != null) {
+        _message(t.readSharedFailed, kind: NoticeKind.error);
+      }
     }
   });
 
