@@ -125,12 +125,14 @@ class HomeSendButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback? onPressed;
+  static const _largeLabelSize = 13.0;
+  static const _horizontalPadding = 8.0;
 
   @override
   Widget build(BuildContext context) => FilledButton.tonal(
     onPressed: onPressed,
     style: FilledButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
     ),
     child: Semantics(
       label: AppLocalizations.of(context)!.sendContentType(label),
@@ -142,7 +144,7 @@ class HomeSendButton extends StatelessWidget {
             return Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: _largeLabelSize),
             );
           }
           if (constraints.maxWidth < 90) {
@@ -183,4 +185,24 @@ class HomeSendButton extends StatelessWidget {
 
   static bool usesLargeLabels(BuildContext context) =>
       MediaQuery.textScalerOf(context).scale(14) > 17;
+
+  static double minimumLargeLabelWidth(
+    BuildContext context,
+    Iterable<HomeSendButton> buttons,
+  ) {
+    final style = Theme.of(context).textTheme.labelLarge
+        ?.copyWith(fontSize: _largeLabelSize);
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    var widest = 0.0;
+    for (final button in buttons) {
+      painter.text = TextSpan(text: button.label, style: style);
+      painter.layout();
+      widest = math.max(widest, painter.width);
+    }
+    painter.dispose();
+    return widest.ceilToDouble() + 2 * _horizontalPadding;
+  }
 }

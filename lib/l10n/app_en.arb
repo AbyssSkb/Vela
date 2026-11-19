@@ -134,7 +134,9 @@
       "name": { "type": "String" }
     }
   },
-  "sendDeviceChanged": "The device pairing changed. Discard this send and select the device again.",
+  "sendDeviceChanged": "The device pairing changed. Choose a device again.",
+  "reviewSendContent": "Review content",
+  "preparingSendContent": "Preparing content…",
   "discardSend": "Discard send",
   "receiveFailed": "Could not receive",
   "transferInterrupted": "Transfer interrupted. Try again.",
@@ -354,7 +356,7 @@
     }
   },
   "viewHistory": "View history",
-  "dropFilesHere": "Drop files to send",
+  "dropFilesHere": "Drop to prepare files for sending",
   "dropFilesOnly": "Folders are not supported yet",
   "dropAlreadyPending": "Finish with the selected content first",
   "tooManyFiles": "You can send up to 100 files at once",

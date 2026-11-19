@@ -134,7 +134,9 @@
       "name": { "type": "String" }
     }
   },
-  "sendDeviceChanged": "配对已变更，请放弃本次发送后重新选择设备。",
+  "sendDeviceChanged": "配对已变更，请重新选择设备。",
+  "reviewSendContent": "查看待发送内容",
+  "preparingSendContent": "正在准备内容…",
   "discardSend": "放弃发送",
   "receiveFailed": "接收失败",
   "transferInterrupted": "传输中断，请重试",
@@ -344,7 +346,7 @@
     }
   },
   "viewHistory": "查看记录",
-  "dropFilesHere": "放开以发送文件",
+  "dropFilesHere": "放开以准备发送文件",
   "dropFilesOnly": "暂不支持拖入文件夹",
   "dropAlreadyPending": "请先处理已选择的内容",
   "tooManyFiles": "一次最多发送 100 个文件",

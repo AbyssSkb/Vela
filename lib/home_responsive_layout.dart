@@ -10,12 +10,14 @@ class HomeResponsiveLayout extends StatefulWidget {
     required this.devices,
     this.largeText = false,
     this.centerActions = true,
+    this.minimumActionWidth,
   });
   final bool wide;
   final List<Widget> actions;
   final Widget devices;
   final bool largeText;
   final bool centerActions;
+  final double? minimumActionWidth;
 
   static const _largeButtonHeight = 64.0;
   static const _gap = 8.0;
@@ -26,11 +28,12 @@ class HomeResponsiveLayout extends StatefulWidget {
     required int count,
     required bool largeText,
     required double width,
+    double? minimumActionWidth,
   }) {
     if (!_roomyActions(largeText, width)) {
       return wide ? count * 40.0 + (count - 1) * _railRowGap : 220.0;
     }
-    final columns = _roomyColumns(largeText, width);
+    final columns = _roomyColumns(largeText, width, minimumActionWidth);
     final rows = (count + columns - 1) ~/ columns;
     return wide
         ? count * _largeButtonHeight + (count - 1) * _railRowGap
@@ -40,8 +43,13 @@ class HomeResponsiveLayout extends StatefulWidget {
   static bool _roomyActions(bool largeText, double width) =>
       largeText || width < 292;
 
-  static int _roomyColumns(bool largeText, double width) =>
-      width < (largeText ? 280 : 240) ? 1 : 2;
+  static int _roomyColumns(
+    bool largeText,
+    double width,
+    double? minimumActionWidth,
+  ) => width < 2 * (minimumActionWidth ?? (largeText ? 136 : 116)) + _gap
+      ? 1
+      : 2;
 
   @override
   State<HomeResponsiveLayout> createState() => _HomeLayoutState();
@@ -92,6 +100,7 @@ class _HomeLayoutState extends State<HomeResponsiveLayout>
         widget.actions.length,
         widget.largeText,
         widget.centerActions,
+        widget.minimumActionWidth,
       ),
       children: [
         for (final (index, action) in widget.actions.indexed)
@@ -108,11 +117,13 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
     this.count,
     this.largeText,
     this.centerActions,
+    this.minimumActionWidth,
   );
   final double progress;
   final int count;
   final bool largeText;
   final bool centerActions;
+  final double? minimumActionWidth;
 
   @override
   void performLayout(Size size) {
@@ -127,7 +138,11 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
     final movingUp = ((progress - 2 / 3) * 3).clamp(0.0, 1.0);
     final columns = roomy
         ? math.min(
-            HomeResponsiveLayout._roomyColumns(largeText, size.width),
+            HomeResponsiveLayout._roomyColumns(
+              largeText,
+              size.width,
+              minimumActionWidth,
+            ),
             count,
           )
         : (count > 4 ? 3 : count);
@@ -174,5 +189,6 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
       progress != oldDelegate.progress ||
       count != oldDelegate.count ||
       largeText != oldDelegate.largeText ||
-      centerActions != oldDelegate.centerActions;
+      centerActions != oldDelegate.centerActions ||
+      minimumActionWidth != oldDelegate.minimumActionWidth;
 }

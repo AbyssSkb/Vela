@@ -147,6 +147,13 @@ class _VelaAppState extends State<VelaApp> {
   late String language = widget.initialLanguage;
   late String appearance = widget.initialAppearance;
   late bool diagnosticsEnabled = widget.initialDiagnosticsEnabled;
+  final liveActivity = ValueNotifier<Widget?>(null);
+
+  @override
+  void dispose() {
+    liveActivity.dispose();
+    super.dispose();
+  }
 
   Future<void> _changeDiagnosticsEnabled(bool value) async {
     final preferences = await SharedPreferences.getInstance();
@@ -206,6 +213,23 @@ class _VelaAppState extends State<VelaApp> {
           : appearance == 'dark'
           ? ThemeMode.dark
           : ThemeMode.system,
+      builder: (context, child) => Overlay.wrap(
+        child: ValueListenableBuilder(
+          valueListenable: liveActivity,
+          builder: (context, notice, _) => Column(
+            children: [
+              Expanded(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeBottom: notice != null,
+                  child: child!,
+                ),
+              ),
+              ?notice,
+            ],
+          ),
+        ),
+      ),
       home: HomePage(
         key: _testHome,
         profile: widget.profile,
@@ -214,6 +238,7 @@ class _VelaAppState extends State<VelaApp> {
         changeSetting: _changeSetting,
         diagnosticsEnabled: diagnosticsEnabled,
         changeDiagnosticsEnabled: _changeDiagnosticsEnabled,
+        showLiveActivity: (notice) => liveActivity.value = notice,
       ),
     );
   }
@@ -228,6 +253,7 @@ class HomePage extends StatefulWidget {
     required this.changeSetting,
     required this.diagnosticsEnabled,
     required this.changeDiagnosticsEnabled,
+    this.showLiveActivity,
   });
   final String profile;
   final String language;
@@ -235,6 +261,7 @@ class HomePage extends StatefulWidget {
   final Future<void> Function(String, String) changeSetting;
   final bool diagnosticsEnabled;
   final Future<void> Function(bool) changeDiagnosticsEnabled;
+  final ValueChanged<Widget?>? showLiveActivity;
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -324,6 +351,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String deviceType = 'other';
   String? error;
   bool contentOperationActive = false;
+  bool _publishedLiveActivity = false;
   late final PairingSessions pairings = PairingSessions(
     currentDevices: () => mounted ? pairedDevices : null,
     localInfo: () => DeviceInfo(name: deviceName, deviceType: deviceType),
@@ -365,7 +393,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? notificationTransferId;
   PendingShare? pendingShare;
   bool _composingText = false;
-  ({String peer, Object? revision, String message, SendRetry retry})?
+  ({
+    String peer,
+    Object? revision,
+    String message,
+    PreparedTransfer content,
+    SendRetry retry,
+  })?
   _failedSend;
   final List<Uint8List> dropBookmarks = [];
   final List<String> promisedDropFiles = [];
@@ -1220,9 +1254,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 Text(t.confirmOwnDevice),
                 const SizedBox(height: 8),
                 SelectableText(
-                  t.deviceCodeShort(
-                    '${id.substring(0, 8)}…${id.substring(id.length - 8)}',
-                  ),
+                  t.deviceCodeShort(shortDeviceCode(id)),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
@@ -1811,10 +1843,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<String?> _choosePeer(String contentName) async {
+  String _sendDeviceName(String id) {
+    final name = peerState.displayName(id);
+    final code = peerState.distinguishingCode(id);
+    return code == null ? name : '$name · $code';
+  }
+
+  Future<String?> _choosePeer(
+    String contentName, {
+    PreparedTransfer? prepared,
+    PendingShare? share,
+    List<String> sharedNames = const [],
+  }) async {
     if (peers.isEmpty) return null;
+    final largeText = HomeSendButton.usesLargeLabels(context);
+    final summary = t.pendingContent(contentName);
+    final textPreview =
+        prepared?.textPreview ?? prepared?.share?.text ?? share?.text;
+    final imagePreview = prepared?.kind == TransferKind.image;
+    final paths = prepared?.paths ?? const <String>[];
+    final fileNames = paths.length > 1
+        ? paths.map((path) => File(path).uri.pathSegments.last)
+        : sharedNames;
     return showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: ListenableBuilder(
@@ -1827,27 +1881,67 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      t.chooseDevice,
-                      style: Theme.of(context).textTheme.titleLarge,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Semantics(
+                            header: true,
+                            child: Text(
+                              t.chooseDevice,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: t.cancel,
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(t.pendingContent(contentName)),
+                    Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
+              if (textPreview != null ||
+                  imagePreview ||
+                  fileNames.isNotEmpty ||
+                  contentName.length > 40)
+                ExpansionTile(
+                  title: Text(t.reviewSendContent),
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 24),
+                  childrenPadding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (textPreview != null)
+                      Text(_textPreview(textPreview, 240))
+                    else if (imagePreview)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 180),
+                        child: Image.file(
+                          File(paths.single),
+                          cacheWidth: 480,
+                          semanticLabel: t.clipboardImage,
+                          errorBuilder: (_, _, _) => Text(t.fileUnavailable),
+                        ),
+                      )
+                    else if (fileNames.isEmpty)
+                      Text(contentName)
+                    else
+                      for (final name in fileNames) Text(name),
+                  ],
+                ),
               for (final peer in peers.keys)
                 ListTile(
                   key: ValueKey('send-recipient-$peer'),
-                  leading: Icon(_deviceIcon(peer)),
-                  title: Text(
-                    peers.length == 1
-                        ? t.sendToDevice(peerState.displayName(peer))
-                        : peerState.displayName(peer),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(_presenceLabel(peer)),
+                  leading: largeText ? null : Icon(_deviceIcon(peer)),
+                  title: Text(t.sendToDevice(peerState.displayName(peer))),
+                  subtitle: Text(switch (peerState.distinguishingCode(peer)) {
+                    final code? =>
+                      '${t.deviceCodeShort(code)}\n${_presenceLabel(peer)}',
+                    null => _presenceLabel(peer),
+                  }),
+                  trailing: largeText ? null : const Icon(Icons.send_rounded),
                   onTap: () => Navigator.pop(context, peer),
                 ),
             ],
@@ -1874,9 +1968,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           return;
         }
         final share = PendingShare(uris: uris);
-        final id = await _choosePeer(_sharedContentName(share));
-        if (!mounted || id == null || !peers.containsKey(id)) return;
-        await _sendShare(id, share);
+        await _chooseAndSendShare(share);
       } catch (e) {
         debugPrint('Media selection failed: $e');
         if (mounted) _message(t.mediaPickFailed, kind: NoticeKind.error);
@@ -1898,7 +1990,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         builder: (_) => _TextComposeDialog(
           devices: {
             for (final id in peers.keys)
-              id: (name: peerState.displayName(id), status: _presenceLabel(id)),
+              id: (name: _sendDeviceName(id), status: _presenceLabel(id)),
           },
           isPaired: (id) => peers.containsKey(id),
         ),
@@ -1929,11 +2021,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     if (source == null || !mounted) return;
     final folderName = Platform.isAndroid
-        ? t.folder
+        ? (await _sharedItemNames([source])).firstOrNull ?? t.folder
         : Directory(source).uri.pathSegments
                   .where((part) => part.isNotEmpty)
                   .lastOrNull ??
               t.folder;
+    if (!mounted) return;
     final id = await _choosePeer(folderName);
     if (!mounted ||
         id == null ||
@@ -1995,9 +2088,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       archive = null;
       await _send(
         id,
-        peerState.displayName(id),
+        _sendDeviceName(id),
         _createSendSession(
-          PreparedTransfer(paths: [path], ownedTemporaryPaths: [path]),
+          PreparedTransfer(
+            paths: [path],
+            ownedTemporaryPaths: [path],
+            displayName: folderName,
+          ),
         ),
       );
     } catch (e) {
@@ -2208,9 +2305,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   leading: const Icon(Icons.fingerprint_rounded),
                   title: Text(t.deviceCode),
                   subtitle: Text(
-                    id.length > 16
-                        ? '${id.substring(0, 8)}…${id.substring(id.length - 8)}'
-                        : id,
+                    shortDeviceCode(id),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2807,16 +2902,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (content == null) return;
       final target =
           id ??
-          (mounted ? await _choosePeer(_preparedContentName(content)) : null);
+          (mounted
+              ? await _choosePeer(
+                  _preparedContentName(content),
+                  prepared: content,
+                )
+              : null);
       if (target == null || !mounted || !peers.containsKey(target)) {
         await _cleanupPrepared(content);
         return;
       }
-      await _send(
-        target,
-        peerState.displayName(target),
-        _createSendSession(content),
-      );
+      await _send(target, _sendDeviceName(target), _createSendSession(content));
     } finally {
       if (mounted) {
         setState(() => activeSendOperations--);
@@ -2842,6 +2938,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     TransferKind kind, {
     bool clipboard = false,
     PendingShare? share,
+    String? textPreview,
   }) async {
     final dir = await getTemporaryDirectory();
     await dir.create(recursive: true);
@@ -2856,6 +2953,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         kind: kind,
         fromClipboard: clipboard,
         share: share,
+        textPreview: textPreview,
       );
     } catch (_) {
       if (await file.exists()) await file.delete();
@@ -2951,6 +3049,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       utf8.encode(text),
       TransferKind.text,
       clipboard: true,
+      textPreview: _textPreview(text, 240),
     );
   }
 
@@ -2966,6 +3065,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       };
 
   String _preparedContentName(PreparedTransfer content) =>
+      content.displayName ??
       switch (content.kind) {
         TransferKind.text => t.clipboardText,
         TransferKind.typedText => t.textContent,
@@ -2974,14 +3074,59 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       };
 
   String _sendReceiptContent(PreparedTransfer content) {
-    final preview = content.share?.text?.trim();
+    final preview = (content.share?.text ?? content.textPreview)?.trim();
     if (preview != null && preview.isNotEmpty) {
-      return String.fromCharCodes(preview.runes.take(160));
+      return _textPreview(preview, 160);
     }
     if (content.paths.length > 1) {
       return '${File(content.paths.first).uri.pathSegments.last} · ${t.filesCount(content.paths.length)}';
     }
     return _preparedContentName(content);
+  }
+
+  String _textPreview(String text, int limit) {
+    final runes = text.trim().runes.take(limit + 1).toList();
+    return runes.length <= limit
+        ? String.fromCharCodes(runes)
+        : '${String.fromCharCodes(runes.take(limit))}…';
+  }
+
+  Future<List<String>> _sharedItemNames(List<String> uris) async {
+    try {
+      final names = await const MethodChannel('vela/files')
+          .invokeListMethod<String?>('itemNames', {'sources': uris});
+      return names?.whereType<String>().toList() ?? [];
+    } catch (e) {
+      debugPrint('Could not read shared item names: $e');
+      return [];
+    }
+  }
+
+  Future<void> _chooseAndSendShare(PendingShare share) async {
+    if (_sendUnavailable || activeSendOperations != 0) return;
+    setState(() => activeSendOperations++);
+    final String? id;
+    try {
+      final names = switch ((share.paths, share.uris)) {
+        (final paths?, _) when paths.length > 1 =>
+          paths.map((path) => File(path).uri.pathSegments.last).toList(),
+        (_, final uris?) => await _sharedItemNames(uris),
+        _ => const <String>[],
+      };
+      if (!mounted) return;
+      id = await _choosePeer(
+        _sharedContentName(share),
+        share: share,
+        sharedNames: names,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => activeSendOperations--);
+      } else {
+        activeSendOperations--;
+      }
+    }
+    if (id != null && mounted) await _sendShare(id, share);
   }
 
   Future<void> _sendShare(String id, PendingShare share) =>
@@ -3036,13 +3181,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       peers.containsKey(id) &&
       (pairedDevices?.isCurrentPairingRevision(id, revision) ?? false);
 
-  bool get _sendUnavailable =>
-      node == null ||
-      _failedSend != null ||
-      _deviceActionsBlocked ||
-      changingRelay ||
-      shuttingDown ||
-      updates.installing;
+  bool get _sendUnavailable => _failedSend != null || !_canResumeSend;
 
   Future<void> _discardFailedSend(SendRetry retry) async {
     if (!identical(_failedSend?.retry, retry)) return;
@@ -3053,6 +3192,36 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (identical(pendingShare, session.content.share)) pendingShare = null;
     });
     await _releaseSendSession(session);
+  }
+
+  bool get _canResumeSend =>
+      node != null &&
+      !_deviceActionsBlocked &&
+      !changingRelay &&
+      !shuttingDown &&
+      !updates.installing;
+
+  Future<void> _resumeFailedSend({bool chooseDevice = false}) async {
+    final failed = _failedSend;
+    if (failed == null || !_canResumeSend) return;
+    final target = chooseDevice
+        ? await _choosePeer(
+            _preparedContentName(failed.content),
+            prepared: failed.content,
+          )
+        : failed.peer;
+    if (target == null ||
+        !mounted ||
+        !_canResumeSend ||
+        !identical(_failedSend?.retry, failed.retry) ||
+        !peers.containsKey(target) ||
+        (!chooseDevice && !_canSendTo(target, failed.revision))) {
+      return;
+    }
+    final session = failed.retry.take();
+    if (session == null) return;
+    setState(() => _failedSend = null);
+    await _send(target, _sendDeviceName(target), session);
   }
 
   Future<void> _send(String id, String name, SendSession session) async {
@@ -3181,6 +3350,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 peer: id,
                 revision: revision,
                 message: resultMessage!,
+                content: content,
                 retry: retryOffer,
               );
             }
@@ -3525,7 +3695,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       ],
     ],
-    viewMode: peers.isEmpty || !allowGraph || pendingShare != null
+    viewMode: peers.isEmpty || !allowGraph
         ? null
         : HomeToolbarAction(
             'view',
@@ -3576,7 +3746,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool get _deviceActionsBlocked =>
       contentOperationActive || outgoingPairingUiActive;
 
-  List<Widget> _sendButtons() {
+  List<HomeSendButton> _sendButtons() {
     final enabled =
         !_sendUnavailable &&
         activeSendOperations == 0 &&
@@ -3620,9 +3790,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _tapDevice(String id) {
     if (selectingPeers) {
       _togglePeerSelection(id);
-    } else if (pendingShare case final share?
-        when _failedSend == null && deviceView != 'graph') {
-      unawaited(_sendShare(id, share));
     } else {
       _showDeviceDetails(id);
     }
@@ -3630,7 +3797,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   List<Widget> _deviceSlivers(bool showingGraph, {required bool largeText}) {
     final colors = Theme.of(context).colorScheme;
-    final choosingShareRecipient = pendingShare != null && _failedSend == null;
     return [
       if (showingGraph)
         SliverLayoutBuilder(
@@ -3692,7 +3858,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             itemBuilder: (context, index) {
               final id = peers.keys.elementAt(index);
               final name = peerState.displayName(id);
-              final canSend = !selectingPeers && choosingShareRecipient;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Material(
@@ -3705,10 +3870,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    leading: Icon(_deviceIcon(id), color: colors.primary),
+                    leading: largeText
+                        ? null
+                        : Icon(_deviceIcon(id), color: colors.primary),
                     title: Text(
-                      canSend ? t.sendToDevice(name) : name,
-                      maxLines: largeText ? null : (canSend ? 2 : 1),
+                      name,
+                      maxLines: largeText ? null : 1,
                       overflow: largeText ? null : TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
@@ -3723,15 +3890,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   : (_) => _togglePeerSelection(id),
                             ),
                           )
+                        : largeText
+                        ? null
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               ExcludeSemantics(child: _presenceIcon(id)),
                               const SizedBox(width: 14),
                               Icon(
-                                choosingShareRecipient
-                                    ? Icons.send_rounded
-                                    : Icons.chevron_right_rounded,
+                                Icons.chevron_right_rounded,
                                 color: colors.onSurfaceVariant,
                               ),
                             ],
@@ -3780,6 +3947,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final showBackgroundStatus = viewport.maxHeight >= 500;
 
     final actions = _sendButtons();
+    final minimumActionWidth = largeText
+        ? HomeSendButton.minimumLargeLabelWidth(context, actions)
+        : null;
     return CustomScrollView(
       physics: const ClampingScrollPhysics(),
       slivers: [
@@ -3886,6 +4056,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     count: actions.length,
                     largeText: largeText,
                     width: viewport.maxWidth - 48,
+                    minimumActionWidth: minimumActionWidth,
                   ),
                   constraints.viewportMainAxisExtent -
                       constraints.precedingScrollExtent,
@@ -3895,6 +4066,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   child: HomeResponsiveLayout(
                     wide: wide,
                     largeText: largeText,
+                    minimumActionWidth: minimumActionWidth,
                     centerActions: showingGraph,
                     actions: actions,
                     devices: CustomScrollView(
@@ -3914,10 +4086,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  bool get _hasLiveActivity =>
+      outgoingPairingUiActive || (contentOperationActive && activity != null);
+
   Widget? _buildActivityNotice() {
     final colors = Theme.of(context).colorScheme;
-    return outgoingPairingUiActive ||
-            (contentOperationActive && activity != null)
+    return _hasLiveActivity
         ? ActivityNotice(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -3939,15 +4113,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            cancelling
-                                ? t.cancelling
-                                : contentOperationActive && activity != null
-                                ? activity!
-                                : t.connectingPair,
-                            key: const ValueKey('activity-status'),
-                            maxLines: contentOperationActive ? 2 : null,
-                            overflow: TextOverflow.ellipsis,
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              cancelling
+                                  ? t.cancelling
+                                  : contentOperationActive && activity != null
+                                  ? activity!
+                                  : t.connectingPair,
+                              key: const ValueKey('activity-status'),
+                              maxLines: contentOperationActive ? 2 : null,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           if (activeTransfer != null &&
                               sendingTo != null &&
@@ -4125,18 +4302,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               onPressed:
                   peers.isEmpty || _sendUnavailable || activeSendOperations != 0
                   ? null
-                  : () async {
-                      final id =
-                          onlyPeer ??
-                          await _choosePeer(_sharedContentName(share));
-                      if (mounted &&
-                          id != null &&
-                          identical(pendingShare, share)) {
-                        await _sendShare(id, share);
-                      }
+                  : () {
+                      if (!identical(pendingShare, share)) return;
+                      unawaited(
+                        onlyPeer != null
+                            ? _sendShare(onlyPeer, share)
+                            : _chooseAndSendShare(share),
+                      );
                     },
               child: Text(
-                onlyPeer != null
+                activeSendOperations != 0
+                    ? t.preparingSendContent
+                    : onlyPeer != null
                     ? t.sendToDevice(peerState.displayName(onlyPeer))
                     : t.chooseDevice,
                 maxLines: 2,
@@ -4161,11 +4338,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             liveRegion: true,
             child: Text(
               allowed
-                  ? '${t.sendFailedTo(peerState.displayName(failed.peer))} ${failed.message}'
+                  ? '${t.sendFailedTo(_sendDeviceName(failed.peer))} ${failed.message}'
+                  : peers.isEmpty
+                  ? t.addDeviceToContinueSending
                   : t.sendDeviceChanged,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
             ),
+          ),
+          Text(
+            _sendReceiptContent(failed.content),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           OverflowBar(
             alignment: MainAxisAlignment.end,
@@ -4175,31 +4358,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 onPressed: () => unawaited(_discardFailedSend(failed.retry)),
                 child: Text(t.discardSend),
               ),
-              FilledButton(
-                key: const ValueKey('retry-send'),
-                onPressed: !allowed || changingRelay
-                    ? null
-                    : () {
-                        if (!identical(_failedSend?.retry, failed.retry) ||
-                            changingRelay ||
-                            shuttingDown ||
-                            updates.installing ||
-                            !_canSendTo(failed.peer, failed.revision)) {
-                          return;
-                        }
-                        final session = failed.retry.take();
-                        if (session == null) return;
-                        setState(() => _failedSend = null);
-                        unawaited(
-                          _send(
-                            failed.peer,
-                            peerState.displayName(failed.peer),
-                            session,
-                          ),
-                        );
-                      },
-                child: Text(t.retry),
-              ),
+              if (peers.isNotEmpty)
+                TextButton(
+                  key: const ValueKey('choose-retry-device'),
+                  onPressed: _canResumeSend
+                      ? () => _resumeFailedSend(chooseDevice: true)
+                      : null,
+                  child: Text(t.chooseDevice),
+                ),
+              if (allowed)
+                FilledButton(
+                  key: const ValueKey('retry-send'),
+                  onPressed: _canResumeSend ? _resumeFailedSend : null,
+                  child: Text(t.retry),
+                ),
             ],
           ),
         ],
@@ -4210,9 +4382,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final notice = _buildActivityNotice();
+    final showLiveActivity = widget.showLiveActivity;
+    final appShowsActivity = _hasLiveActivity && showLiveActivity != null;
+    if (appShowsActivity || _publishedLiveActivity) {
+      _publishedLiveActivity = appShowsActivity;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showLiveActivity?.call(appShowsActivity ? notice : null);
+      });
+    }
     final page = Scaffold(
       body: SafeArea(child: LayoutBuilder(builder: _buildDeviceViewport)),
-      bottomNavigationBar: _buildActivityNotice(),
+      bottomNavigationBar: appShowsActivity ? null : notice,
     );
     return PopScope(
       canPop: !selectingPeers,
