@@ -3,48 +3,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets(
-    'activity notice reaches the bottom and keeps its action accessible',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 640);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-      var cancelled = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            bottomNavigationBar: ActivityNotice(
-              child: Row(
-                children: [
-                  const Expanded(child: Text('正在发送给设备')),
-                  IconButton(
-                    onPressed: () => cancelled = true,
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
+  testWidgets('activity notice is inset and keeps its action accessible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    var cancelled = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: ActivityNotice(
+            child: Row(
+              children: [
+                const Expanded(child: Text('正在发送给设备')),
+                IconButton(
+                  onPressed: () => cancelled = true,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
             ),
           ),
         ),
-      );
-      expect(
-        tester.getBottomLeft(find.byKey(const ValueKey('activity-notice'))).dy,
-        640,
-      );
-      expect(
-        tester
-            .widget<Material>(find.byKey(const ValueKey('activity-notice')))
-            .elevation,
-        0,
-      );
-      await tester.tap(find.byIcon(Icons.close));
-      expect(cancelled, isTrue);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    expect(
+      tester.getBottomLeft(find.byKey(const ValueKey('activity-notice'))).dy,
+      628,
+    );
+    expect(
+      tester
+          .widget<Material>(find.byKey(const ValueKey('activity-notice')))
+          .elevation,
+      0,
+    );
+    await tester.tap(find.byIcon(Icons.close));
+    expect(cancelled, isTrue);
+    expect(tester.takeException(), isNull);
+  });
   for (final kind in NoticeKind.values) {
     testWidgets('$kind notice uses a bottom snackbar with its own icon', (
       tester,
@@ -74,7 +73,8 @@ void main() {
       expect(snack.behavior, SnackBarBehavior.fixed);
       expect(snack.width, isNull);
       expect(snack.elevation, 0);
-      expect(tester.getBottomLeft(find.byType(SnackBar)).dy, 640);
+      final panel = find.byKey(const ValueKey('message-notice'));
+      expect(tester.getBottomLeft(panel).dy, 628);
       expect(find.text('Example'), findsOneWidget);
       expect(
         find.byIcon(switch (kind) {
@@ -86,7 +86,7 @@ void main() {
       );
     });
   }
-  testWidgets('Android notice is flush with the bottom without a shadow', (
+  testWidgets('Android notice leaves an inset without a shadow', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -109,6 +109,7 @@ void main() {
     expect(snack.behavior, SnackBarBehavior.fixed);
     expect(snack.width, isNull);
     expect(snack.elevation, 0);
+    expect(snack.backgroundColor, Colors.transparent);
     expect(find.text('Received'), findsOneWidget);
   });
   testWidgets('received file notice keeps an accessible open action', (
@@ -176,7 +177,7 @@ void main() {
     expect(find.byKey(const ValueKey('notice-action')), findsOneWidget);
     expect(
       tester.getSize(find.byType(SnackBar)).height,
-      lessThanOrEqualTo(120),
+      lessThanOrEqualTo(132),
     );
   });
 
@@ -216,5 +217,38 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('View received items').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('actionable notice fits when the IME opens on a short phone', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(640, 320);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showNotice(
+                context,
+                'Received a very long file name that would wrap',
+                detail: 'Saved to Downloads',
+                actionLabel: 'Open file',
+                onAction: () {},
+              ),
+              child: const Text('Show'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 248);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Open file').hitTestable(), findsOneWidget);
   });
 }
