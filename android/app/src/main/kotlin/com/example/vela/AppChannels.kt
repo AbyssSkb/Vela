@@ -8,6 +8,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -28,6 +29,14 @@ import java.io.InputStream
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+
+internal fun addMissingExtension(file: File, findExtension: () -> String?): File {
+    if (file.extension.isNotEmpty() && file.nameWithoutExtension.isNotEmpty()) return file
+    val extension = findExtension() ?: return file
+    val renamed = File(file.parentFile, "${file.name.trimEnd('.')}.$extension")
+    check(file.renameTo(renamed)) { "Cannot name the shared file" }
+    return renamed
+}
 
 class AppChannels(private val context: VelaApplication) {
     val storage = ReceivedStorage(context)
@@ -382,7 +391,22 @@ class AppChannels(private val context: VelaApplication) {
             } catch (_: FileNotFoundException) {
                 null
             }
-            if (original != null) return copy(original, name)
+            if (original != null) {
+                val file = copy(original, name)
+                return addMissingExtension(file) {
+                    val mimeTypes = MimeTypeMap.getSingleton()
+                    val declaredType = runCatching { resolver.getType(uri) }.getOrNull()
+                        ?.substringBefore(';')?.trim()?.lowercase()
+                    val declaredExtension = declaredType
+                        ?.takeUnless { it == "application/octet-stream" }
+                        ?.let(mimeTypes::getExtensionFromMimeType)
+                    declaredExtension ?: run {
+                        val image = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeFile(file.absolutePath, image)
+                        image.outMimeType?.let(mimeTypes::getExtensionFromMimeType)
+                    }
+                }
+            }
 
             val type = resolver.getStreamTypes(uri, "*/*")?.firstOrNull()
                 ?: throw FileNotFoundException("No readable representation for the shared file")

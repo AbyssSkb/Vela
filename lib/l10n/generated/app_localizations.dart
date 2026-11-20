@@ -974,6 +974,12 @@ abstract class AppLocalizations {
   /// **'Refresh device status'**
   String get refreshDevices;
 
+  /// No description provided for @refreshThisDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh this device'**
+  String get refreshThisDevice;
+
   /// No description provided for @transferCancelled.
   ///
   /// In en, this message translates to:

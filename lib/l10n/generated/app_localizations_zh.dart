@@ -492,6 +492,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refreshDevices => '刷新设备状态';
 
   @override
+  String get refreshThisDevice => '刷新此设备';
+
+  @override
   String get transferCancelled => '传输已取消';
 
   @override

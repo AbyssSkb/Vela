@@ -6,37 +6,44 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('nodes only push when their visible circles touch', () {
-    final physics = GraphPhysics(collisionDiameter: 52)
-      ..updateAnchors(
-        {'a': Offset.zero, 'b': const Offset(100, 100)},
-        center: Offset.zero,
-        wallSize: const Size(500, 500),
+  test(
+    'nodes repel nearby neighbours and retain their hard collision limit',
+    () {
+      final physics = GraphPhysics(collisionDiameter: 52)
+        ..updateAnchors(
+          {'a': Offset.zero, 'b': const Offset(100, 100)},
+          center: Offset.zero,
+          wallSize: const Size(500, 500),
+        );
+      physics.drag('a', const Offset(38, 38));
+      expect(
+        physics.positions['b'],
+        const Offset(100, 100),
+        reason: 'Diagonal gaps must not collide as rectangles',
       );
-    physics.drag('a', const Offset(60, 60));
-    expect(
-      physics.positions['b'],
-      const Offset(100, 100),
-      reason: 'Diagonal gaps must not collide as rectangles',
-    );
-    for (var i = 0; i < 10; i++) {
-      physics.step(1 / 60);
-    }
-    expect(
-      (physics.positions['b']! - const Offset(100, 100)).distance,
-      lessThan(.01),
-      reason: 'Separated circles must not repel',
-    );
-    physics.drag('a', const Offset(4, 4));
-    expect(
-      (physics.positions['a']! - physics.positions['b']!).distance,
-      greaterThanOrEqualTo(52),
-    );
-    expect(
-      (physics.positions['b']! - const Offset(100, 100)).distance,
-      greaterThan(1),
-    );
-  });
+      for (var i = 0; i < 10; i++) {
+        physics.step(1 / 60);
+      }
+      expect(
+        (physics.positions['b']! - const Offset(100, 100)).distance,
+        lessThan(.01),
+        reason: 'Distant nodes should stay still',
+      );
+      physics.drag('a', const Offset(22, 22));
+      expect(physics.positions['b'], const Offset(100, 100));
+      for (var i = 0; i < 10; i++) {
+        physics.step(1 / 60);
+      }
+      final pushed = physics.positions['b']!;
+      expect((pushed - const Offset(100, 100)).distance, greaterThan(1));
+      physics.drag('a', pushed - physics.positions['a']!);
+      expect(
+        (physics.positions['a']! - physics.positions['b']!).distance,
+        greaterThanOrEqualTo(52),
+      );
+      expect((physics.positions['b']! - pushed).distance, greaterThan(1));
+    },
+  );
 
   test('coincident icons separate without invalid positions', () {
     final physics = GraphPhysics(collisionDiameter: 52)

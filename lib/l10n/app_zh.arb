@@ -275,6 +275,7 @@
     }
   },
   "refreshDevices": "刷新设备状态",
+  "refreshThisDevice": "刷新此设备",
   "transferCancelled": "传输已取消",
   "cancelling": "正在取消",
   "directConnection": "直连",
