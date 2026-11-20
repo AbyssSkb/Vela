@@ -891,7 +891,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoAcceptHint =>
-      'Paired devices can send without approval, including clipboard shares.';
+      'Automatically accept incoming transfers from paired devices.';
 
   @override
   String get retry => 'Retry';
@@ -941,7 +941,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAbout => 'About Vela';
 
   @override
-  String get appUpdateCheck => 'Check for updates';
+  String get appUpdateCheck => 'Check';
 
   @override
   String get appUpdateFailed => 'Could not update.';

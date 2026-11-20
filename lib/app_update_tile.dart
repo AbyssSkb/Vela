@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_update.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'settings_row_title.dart';
 
 class AppUpdateTile extends StatelessWidget {
   const AppUpdateTile({super.key, required this.controller});
@@ -18,24 +19,33 @@ class AppUpdateTile extends StatelessWidget {
       final zh = Localizations.localeOf(context).languageCode == 'zh';
       String text(String en, String cn) => zh ? cn : en;
       final failed = controller.state == AppUpdateState.error;
-      final subtitle = switch (controller.state) {
-        AppUpdateState.disabled => text(
-          'Updates are unavailable in this build',
-          '此版本暂不提供应用内更新',
+      final version = controller.version.isEmpty ? null : controller.version;
+      final progress = controller.progress;
+      final (status, hint) = switch (controller.state) {
+        AppUpdateState.disabled => (
+          version,
+          text('Updates are unavailable in this build', '此版本暂不提供应用内更新'),
         ),
-        AppUpdateState.idle => null,
-        AppUpdateState.checking => text('Checking for updates…', '正在检查更新…'),
-        AppUpdateState.current => text('You are up to date', '已是最新版本'),
-        AppUpdateState.downloading => text('Downloading update…', '正在下载更新…'),
-        AppUpdateState.ready =>
+        AppUpdateState.idle => (version, null),
+        AppUpdateState.checking => (text('Checking…', '检查中…'), null),
+        AppUpdateState.current => (text('Up to date', '已是最新'), version),
+        AppUpdateState.downloading => (
+          progress == null
+              ? text('Downloading…', '下载中…')
+              : '${(progress * 100).round()}%',
+          text('Downloading update', '正在下载更新'),
+        ),
+        AppUpdateState.ready => (
+          controller.availableVersion,
           controller.busy
               ? text(
                   'Finish the current transfer or pairing first',
                   '请先完成当前传输或配对',
                 )
-              : text('Update ready to install', '更新已下载，可以安装'),
-        AppUpdateState.installing => text('Installing update…', '正在安装更新…'),
-        AppUpdateState.error => t.appUpdateFailed,
+              : text('Available version', '待安装版本'),
+        ),
+        AppUpdateState.installing => (text('Installing…', '安装中…'), null),
+        AppUpdateState.error => (t.appUpdateFailed, null),
       };
       Future<void> confirmInstall() async {
         final accepted = await showDialog<bool>(
@@ -97,61 +107,36 @@ class AppUpdateTile extends StatelessWidget {
         }
       }
 
+      final value = status == null
+          ? null
+          : Semantics(
+              liveRegion: true,
+              child: Text(
+                status,
+                style: failed ? TextStyle(color: colors.error) : null,
+              ),
+            );
       return ListTile(
         key: const ValueKey('app-update'),
         leading: const Icon(Icons.system_update_alt_rounded, size: 20),
-        titleAlignment: ListTileTitleAlignment.top,
-        title: Text(text('App updates', '应用更新')),
-        subtitle: OverflowBar(
-          alignment: MainAxisAlignment.spaceBetween,
-          spacing: 16,
-          overflowSpacing: 4,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (controller.version.isNotEmpty)
-                  Text(
-                    text(
-                      'Installed version ${controller.version}',
-                      '已安装版本 ${controller.version}',
-                    ),
-                  ),
-                if (controller.availableVersion case final version?
-                    when controller.state == AppUpdateState.ready)
-                  Text(text('Available version $version', '待安装版本 $version')),
-                if (subtitle != null)
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      subtitle,
-                      style: failed ? TextStyle(color: colors.error) : null,
-                    ),
-                  ),
-                if (controller.state == AppUpdateState.downloading)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: LinearProgressIndicator(value: controller.progress),
-                  ),
-              ],
-            ),
-            if (controller.canCheck)
-              OutlinedButton(
+        title: SettingsRowTitle(
+          text('App updates', '应用更新'),
+          value: value == null || hint == null
+              ? value
+              : Tooltip(message: hint, child: value),
+        ),
+        trailing: controller.canCheck
+            ? TextButton(
                 onPressed: controller.check,
-                child: Text(
-                  failed ? t.retry : t.appUpdateCheck,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            if (controller.state == AppUpdateState.ready)
-              FilledButton(
+                child: Text(failed ? t.retry : t.appUpdateCheck),
+              )
+            : controller.state == AppUpdateState.ready
+            ? FilledButton(
                 key: const ValueKey('install-update'),
                 onPressed: controller.canInstall ? confirmInstall : null,
                 child: Text(text('Install', '安装')),
-              ),
-          ],
-        ),
+              )
+            : null,
       );
     },
   );

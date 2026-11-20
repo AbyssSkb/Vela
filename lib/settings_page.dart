@@ -10,6 +10,7 @@ import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
 import 'notification_settings.dart';
 import 'received_storage.dart';
+import 'settings_row_title.dart';
 import 'app_update.dart';
 import 'app_update_tile.dart';
 import 'desktop_platform.dart';
@@ -315,10 +316,7 @@ class _SettingsPageState extends State<SettingsPage>
       Widget? trailing,
     }) => ListTile(
       leading: Icon(icon, size: 20),
-      title: Text(title),
-      subtitle: value == null
-          ? null
-          : Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: SettingsRowTitle(title, value: value == null ? null : Text(value)),
       trailing: trailing ?? const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: onTap,
     );
@@ -333,14 +331,17 @@ class _SettingsPageState extends State<SettingsPage>
       String title,
       bool value,
       ValueChanged<bool> onChanged, {
-      String? subtitle,
-    }) => SwitchListTile(
-      secondary: Icon(icon, size: 20),
-      title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle),
-      value: value,
-      onChanged: onChanged,
-    );
+      String? hint,
+    }) {
+      final tile = SwitchListTile(
+        secondary: Icon(icon, size: 20),
+        title: Text(title),
+        value: value,
+        onChanged: onChanged,
+      );
+      return hint == null ? tile : Tooltip(message: hint, child: tile);
+    }
+
     Widget section(String title, List<Widget> children) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 8,
@@ -433,7 +434,7 @@ class _SettingsPageState extends State<SettingsPage>
                   mounted) {
                 setState(() => autoAccept = value);
               }
-            }, subtitle: t.autoAcceptHint),
+            }, hint: t.autoAcceptHint),
             if (Platform.isMacOS) ...[
               divider(),
               switchRow(Icons.open_in_new_rounded, t.focusOnReceive, macFocus, (

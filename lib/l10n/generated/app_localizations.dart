@@ -1631,7 +1631,7 @@ abstract class AppLocalizations {
   /// No description provided for @autoAcceptHint.
   ///
   /// In en, this message translates to:
-  /// **'Paired devices can send without approval, including clipboard shares.'**
+  /// **'Automatically accept incoming transfers from paired devices.'**
   String get autoAcceptHint;
 
   /// No description provided for @retry.
@@ -1727,7 +1727,7 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateCheck.
   ///
   /// In en, this message translates to:
-  /// **'Check for updates'**
+  /// **'Check'**
   String get appUpdateCheck;
 
   /// No description provided for @appUpdateFailed.
