@@ -43,13 +43,14 @@ void main() {
     }
   });
 
-  test('preselects a share shortcut only while its device is paired', () {
+  test('names the sole replacement when a share shortcut is stale', () {
     final share = PendingShare.fromMap({
       'uris': ['content://media/1'],
       'preferredPeer': 'laptop',
     });
     expect(share.quickSendRecipient(['phone', 'laptop']), 'laptop');
-    expect(share.quickSendRecipient(['phone']), isNull);
+    expect(share.quickSendRecipient(['phone']), 'phone');
+    expect(share.quickSendRecipient(['phone', 'desktop']), isNull);
     expect(share.quickSendRecipient([]), isNull);
     expect(PendingShare(text: 'hi').quickSendRecipient(['phone']), 'phone');
   });

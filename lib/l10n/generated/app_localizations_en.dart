@@ -131,6 +131,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String sendInsteadToDevice(String name) {
+    return 'Send to $name instead';
+  }
+
+  @override
+  String get changeSendDevice => 'Change device';
+
+  @override
   String get connectDevices => 'Connect your devices';
 
   @override
@@ -324,6 +332,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get sendDeviceChanged =>
       'The device pairing changed. Choose a device again.';
+
+  @override
+  String get originalSendDeviceUnavailable =>
+      'The original device is unavailable.';
 
   @override
   String get reviewSendContent => 'Review content';
@@ -693,13 +705,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewHistory => 'View history';
 
   @override
-  String get dropFilesHere => 'Drop to prepare files for sending';
-
-  @override
   String get dropFilesOnly => 'Folders are not supported yet';
-
-  @override
-  String get dropAlreadyPending => 'Finish with the selected content first';
 
   @override
   String get tooManyFiles => 'You can send up to 100 files at once';
@@ -1215,7 +1221,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Open Vela on the other device, then check its status again.';
 
   @override
-  String get addDeviceToContinueSending => 'Add a device to send this content.';
+  String get addDeviceAndContinue => 'Add device and continue';
 
   @override
   String get sendAction => 'Send';

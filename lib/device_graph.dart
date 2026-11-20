@@ -30,6 +30,7 @@ class DeviceGraph extends StatefulWidget {
     required this.onTap,
     required this.onLongPress,
     required this.enabled,
+    this.dropTargetKey,
     this.availableHeight,
     this.minimumScale = 0,
   }) : assert(minimumScale >= 0 && minimumScale <= 1);
@@ -43,6 +44,7 @@ class DeviceGraph extends StatefulWidget {
   final VoidCallback onSelfTap;
   final ValueChanged<String> onTap, onLongPress;
   final bool enabled, selecting;
+  final Key? Function(String)? dropTargetKey;
   final double? availableHeight;
   final double minimumScale;
 
@@ -331,6 +333,7 @@ class _DeviceGraphState extends State<DeviceGraph>
                 ),
               ),
               child: Semantics(
+                key: id == null ? null : widget.dropTargetKey?.call(id),
                 label: isSelf ? widget.selfLabel : null,
                 selected: isSelected,
                 child: Material(

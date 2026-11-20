@@ -55,6 +55,13 @@
       "name": { "type": "String" }
     }
   },
+  "sendInsteadToDevice": "Send to {name} instead",
+  "@sendInsteadToDevice": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "changeSendDevice": "Change device",
   "connectDevices": "Connect your devices",
   "emptyDevices": "Open Vela on both devices. Choose Show device code on one and Add device on the other.",
   "showMyCode": "Show device code",
@@ -134,6 +141,7 @@
     }
   },
   "sendDeviceChanged": "The device pairing changed. Choose a device again.",
+  "originalSendDeviceUnavailable": "The original device is unavailable.",
   "reviewSendContent": "Review content",
   "preparingSendContent": "Preparing content…",
   "discardSend": "Discard send",
@@ -360,9 +368,7 @@
     }
   },
   "viewHistory": "View history",
-  "dropFilesHere": "Drop to prepare files for sending",
   "dropFilesOnly": "Folders are not supported yet",
-  "dropAlreadyPending": "Finish with the selected content first",
   "tooManyFiles": "You can send up to 100 files at once",
   "backgroundReceiving": "Background receiving",
   "localBackgroundReceiving": "Background receiving on this device",
@@ -519,7 +525,7 @@
   "desktopTray": "System tray",
   "graphPairedDevicesHint": "Lines show paired devices. Switch to the list for connection status.",
   "deviceRecheckHint": "Open Vela on the other device, then check its status again.",
-  "addDeviceToContinueSending": "Add a device to send this content.",
+  "addDeviceAndContinue": "Add device and continue",
   "sendAction": "Send",
   "sendDeviceSelectAgain": "This device is no longer paired. Choose another device.",
   "waitingForRecipient": "Waiting for {name} to respond",

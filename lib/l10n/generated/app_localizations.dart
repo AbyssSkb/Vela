@@ -326,6 +326,18 @@ abstract class AppLocalizations {
   /// **'Send to {name}'**
   String sendToDevice(String name);
 
+  /// No description provided for @sendInsteadToDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to {name} instead'**
+  String sendInsteadToDevice(String name);
+
+  /// No description provided for @changeSendDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Change device'**
+  String get changeSendDevice;
+
   /// No description provided for @connectDevices.
   ///
   /// In en, this message translates to:
@@ -643,6 +655,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The device pairing changed. Choose a device again.'**
   String get sendDeviceChanged;
+
+  /// No description provided for @originalSendDeviceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The original device is unavailable.'**
+  String get originalSendDeviceUnavailable;
 
   /// No description provided for @reviewSendContent.
   ///
@@ -1256,23 +1274,11 @@ abstract class AppLocalizations {
   /// **'View history'**
   String get viewHistory;
 
-  /// No description provided for @dropFilesHere.
-  ///
-  /// In en, this message translates to:
-  /// **'Drop to prepare files for sending'**
-  String get dropFilesHere;
-
   /// No description provided for @dropFilesOnly.
   ///
   /// In en, this message translates to:
   /// **'Folders are not supported yet'**
   String get dropFilesOnly;
-
-  /// No description provided for @dropAlreadyPending.
-  ///
-  /// In en, this message translates to:
-  /// **'Finish with the selected content first'**
-  String get dropAlreadyPending;
 
   /// No description provided for @tooManyFiles.
   ///
@@ -2210,11 +2216,11 @@ abstract class AppLocalizations {
   /// **'Open Vela on the other device, then check its status again.'**
   String get deviceRecheckHint;
 
-  /// No description provided for @addDeviceToContinueSending.
+  /// No description provided for @addDeviceAndContinue.
   ///
   /// In en, this message translates to:
-  /// **'Add a device to send this content.'**
-  String get addDeviceToContinueSending;
+  /// **'Add device and continue'**
+  String get addDeviceAndContinue;
 
   /// No description provided for @sendAction.
   ///
