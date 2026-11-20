@@ -682,10 +682,7 @@ void main() {
           find.byKey(const ValueKey('add-device')).hitTestable(),
           findsOneWidget,
         );
-        expect(
-          tester.getRect(file).right,
-          lessThanOrEqualTo(tester.getRect(device).left),
-        );
+        expect(tester.getRect(device).top - tester.getRect(file).bottom, 16);
         expect(
           find.byType(DeviceGraph),
           findsNothing,
@@ -696,8 +693,9 @@ void main() {
         final listScroll = tester.state<ScrollableState>(
           find.descendant(of: devices, matching: find.byType(Scrollable)).first,
         );
-        expect(listScroll.position.maxScrollExtent, greaterThan(20));
-        listScroll.position.jumpTo(20);
+        expect(listScroll.position.maxScrollExtent, greaterThan(0));
+        final listOffset = listScroll.position.maxScrollExtent / 2;
+        listScroll.position.jumpTo(listOffset);
         await tester.pump();
         await resize(const Size(700, 250));
         expect(
@@ -710,7 +708,7 @@ void main() {
         );
         expect(
           listScroll.position.pixels,
-          closeTo(20, .1),
+          closeTo(listOffset, .1),
           reason: 'List scroll position survives the breakpoint',
         );
         expect(
@@ -758,25 +756,8 @@ void main() {
             findsOneWidget,
             reason: 'A manually chosen graph remains selected at short heights',
           );
-          final landscapePane = tester.getRect(devices);
-          for (final key in [
-            'graph-self',
-            'peer-${fakes.peerId}',
-            'peer-${'c' * 64}',
-            'peer-${'d' * 64}',
-            'peer-${'e' * 64}',
-          ]) {
-            final rect = tester.getRect(find.byKey(ValueKey(key)));
-            expect(
-              landscapePane.contains(rect.topLeft) &&
-                  landscapePane.contains(
-                    rect.bottomRight - const Offset(.01, .01),
-                  ),
-              isTrue,
-              reason:
-                  '$key is clipped by the landscape viewport at height $height',
-            );
-          }
+          await tester.ensureVisible(file);
+          await tester.pump();
           for (final key in [
             'send-file',
             'send-folder',
@@ -784,9 +765,25 @@ void main() {
             'send-clipboard',
           ]) {
             expect(
-              tester.getRect(find.byKey(ValueKey(key))).bottom,
-              lessThanOrEqualTo(height),
+              find.byKey(ValueKey(key)).hitTestable(),
+              findsOneWidget,
               reason: '$key must fit in landscape',
+            );
+          }
+          for (final key in [
+            'graph-self',
+            'peer-${fakes.peerId}',
+            'peer-${'c' * 64}',
+            'peer-${'d' * 64}',
+            'peer-${'e' * 64}',
+          ]) {
+            final device = find.byKey(ValueKey(key));
+            await tester.ensureVisible(device);
+            await tester.pump();
+            expect(
+              device.hitTestable(),
+              findsOneWidget,
+              reason: '$key must be reachable in landscape at $height',
             );
           }
         }
@@ -871,16 +868,13 @@ void main() {
         await tester.pump();
         await resize(const Size(800, 160));
         final clipboard = find.byKey(const ValueKey('send-clipboard'));
-        expect(tester.getBottomRight(clipboard).dy, greaterThan(160));
-        await tester.dragFrom(const Offset(20, 145), const Offset(0, -140));
-        await tester.pump(const Duration(milliseconds: 300));
         expect(
           clipboard.hitTestable(),
           findsOneWidget,
-          reason: 'Actions can be reached by scrolling in a very short window',
+          reason: 'The desktop send row fits in a short window',
         );
         expect(tester.takeException(), isNull);
-        await capture('ui-short-wide-scrolled');
+        await capture('ui-short-wide');
         if (find.byType(DeviceGraph).evaluate().isNotEmpty) {
           await resize(const Size(1200, 760));
           await tester.tap(find.byKey(const ValueKey('toggle-device-view')));
@@ -1028,6 +1022,72 @@ void main() {
     },
   );
 
+  testWidgets(
+    'desktop layout keeps its bounds as devices are added or removed',
+    (tester) async {
+      final extraId = 'c' * 64;
+      await withHomeTestEnvironment(
+        tester,
+        devices: PeerState(peers: {fakes.peerId: 'Phone'}),
+        api: fakes.FakeRustApi(fakes.FakeNode()),
+        run: (_) async {
+          Future<void> finishTransition() async {
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 400));
+          }
+
+          SharedPreferences.setMockInitialValues({'device_view_test': 'list'});
+          tester.view.physicalSize = const Size(1030, 680);
+          await tester.pumpWidget(
+            const VelaApp(
+              profile: 'test',
+              initialLanguage: 'en',
+              initialAppearance: 'light',
+              initialDiagnosticsEnabled: false,
+            ),
+          );
+          final first = find.byKey(const ValueKey('peer-${fakes.peerId}'));
+          final extra = find.byKey(ValueKey('peer-$extraId'));
+          final files = find.byKey(const ValueKey('send-file'));
+          final clipboard = find.byKey(const ValueKey('send-clipboard'));
+          await waitForHome(tester, () => first.evaluate().isNotEmpty);
+          final action = tester.getRect(files);
+          final firstDevice = tester.getRect(first);
+          expect(action.top, tester.getTopLeft(clipboard).dy);
+          expect(action.left, 24);
+          expect(firstDevice.left, action.left);
+          expect(firstDevice.top - action.bottom, 16);
+          expect(firstDevice.width, closeTo((1030 - 48 - 24) / 3, .01));
+
+          await tester.tap(find.byKey(const ValueKey('add-device')));
+          await finishTransition();
+          await tester.enterText(
+            find.byKey(const ValueKey('peer-id')),
+            extraId,
+          );
+          await tester.tap(find.byKey(const ValueKey('confirm-peer')));
+          await waitForHome(tester, () => extra.evaluate().isNotEmpty);
+          await finishTransition();
+          expect(tester.getRect(files), action);
+          expect(tester.getRect(first), firstDevice);
+          final secondDevice = tester.getRect(extra);
+          expect(secondDevice.left - firstDevice.right, closeTo(12, .01));
+          expect(secondDevice.top, firstDevice.top);
+          expect(secondDevice.width, closeTo(firstDevice.width, .01));
+
+          await tester.tap(extra);
+          await finishTransition();
+          await tester.tap(find.text('Remove device'));
+          await finishTransition();
+          await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+          await waitForHome(tester, () => extra.evaluate().isEmpty);
+          expect(tester.getRect(files), action);
+          expect(tester.getRect(first), firstDevice);
+        },
+      );
+    },
+  );
+
   for (final savedView in [null, 'list', 'graph']) {
     testWidgets('wide home opens with ${savedView ?? 'the default graph'}', (
       tester,
@@ -1055,6 +1115,14 @@ void main() {
           await waitForHome(tester, () => toggle.evaluate().isNotEmpty);
           final graph = find.byType(DeviceGraph);
           expect(graph, savedView == 'list' ? findsNothing : findsOneWidget);
+          final firstAction = find.byKey(const ValueKey('send-file'));
+          final devices = find.byKey(const ValueKey('home-devices'));
+          expect(
+            tester.getTopLeft(devices).dy -
+                tester.getBottomLeft(firstAction).dy,
+            16,
+            reason: 'The desktop device view sits below the send actions',
+          );
           if (savedView == 'graph') {
             tester.platformDispatcher.textScaleFactorTestValue = 2;
             addTearDown(
