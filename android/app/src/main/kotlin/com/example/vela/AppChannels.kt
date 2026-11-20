@@ -212,12 +212,12 @@ class AppChannels(private val context: VelaApplication) {
                         if (context.nodeReady) ReceivingService.markReady(message)
                         result.success(true)
                     }
-                    activity != null -> activity.resumeBackgroundReceiving(message, result)
+                    activity != null -> activity.startReceiving(message, result)
                     else -> result.success(false)
                 }
             }
             "start" -> withActivity(result) {
-                it.requestBackgroundReceiving(call.argument<String>("message"), result)
+                it.startReceiving(call.argument<String>("message"), result)
             }
             "settings" -> withActivity(result) {
                 it.openBackgroundSettings(call.argument<String>("section"), result)

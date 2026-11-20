@@ -38,12 +38,7 @@ class BootReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (
-            intent.action != Intent.ACTION_BOOT_COMPLETED ||
-                !context
-                    .getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                    .getBoolean("flutter.background_receive_default", false)
-        )
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED || !ReceivingService.isEnabled(context))
             return
         val service = Intent(context, ReceivingService::class.java)
         runCatching {

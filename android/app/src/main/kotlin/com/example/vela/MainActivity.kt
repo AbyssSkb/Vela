@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : FlutterActivity() {
     private val executor = Executors.newSingleThreadExecutor()
-    private var pendingStart: MethodChannel.Result? = null
     private var pendingExport: Pair<File, MethodChannel.Result>? = null
     private var exportPreparing = false
     private var pendingDirectory: MethodChannel.Result? = null
@@ -38,7 +37,6 @@ class MainActivity : FlutterActivity() {
     private val receivedStorage get() = app.channels.storage
     private var pendingMedia: MethodChannel.Result? = null
     private val mediaPicker = ActivityResultContracts.PickMultipleVisualMedia(100)
-    private var serviceMessage: String? = null
     private val pendingShares = ArrayDeque<Map<String, Any>>()
 
     private fun inputFor(path: String) =
@@ -57,10 +55,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onStart() {
         super.onStart()
-        val enabled =
-            getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                .getBoolean("flutter.background_receive_default", false)
-        if (enabled && !ReceivingService.running) {
+        if (ReceivingService.isEnabled(this) && !ReceivingService.running) {
             try {
                 val service = Intent(this, ReceivingService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service)
@@ -71,10 +66,10 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun startReceiving(result: MethodChannel.Result) {
+    fun startReceiving(message: String?, result: MethodChannel.Result) {
         try {
             val service =
-                Intent(this, ReceivingService::class.java).putExtra("message", serviceMessage)
+                Intent(this, ReceivingService::class.java).putExtra("message", message)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service)
             else startService(service)
             result.success(true)
@@ -154,13 +149,6 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 7101) {
-            val result = pendingStart ?: return
-            pendingStart = null
-            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
-                startReceiving(result)
-            else result.success(false)
-        }
         if (requestCode == 7104) {
             val (paths, result) = pendingSave ?: return
             pendingSave = null
@@ -190,36 +178,6 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         app.attachActivity(this)
-    }
-
-    fun requestBackgroundReceiving(message: String?, result: MethodChannel.Result) {
-        serviceMessage = message
-        if (
-            Build.VERSION.SDK_INT >= 33 &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED
-        ) {
-            if (pendingStart != null)
-                result.error("background", "Request already in progress", null)
-            else {
-                pendingStart = result
-                requestPermissions(
-                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                    7101,
-                )
-            }
-        } else startReceiving(result)
-    }
-
-    fun resumeBackgroundReceiving(message: String?, result: MethodChannel.Result) {
-        serviceMessage = message
-        if (
-            Build.VERSION.SDK_INT >= 33 &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED
-        )
-            result.success(false)
-        else startReceiving(result)
     }
 
     fun openBackgroundSettings(section: String?, result: MethodChannel.Result) {
@@ -275,7 +233,7 @@ class MainActivity : FlutterActivity() {
                             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                 "battery" -> appSettings
                 "battery_exemption" ->
-                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, uri)
+                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 "autostart" -> Intent(Settings.ACTION_SETTINGS)
                 "guide" -> {
                     val guide =
@@ -291,9 +249,7 @@ class MainActivity : FlutterActivity() {
             }
         val fallbacks =
             when (section) {
-                "battery_exemption" ->
-                    listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), appSettings)
-                "battery", "autostart", "guide" -> listOf(appSettings)
+                "battery", "battery_exemption", "autostart", "guide" -> listOf(appSettings)
                 else ->
                     listOf(
                         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)

@@ -28,6 +28,19 @@ class FailingFirstWriteStore extends InMemorySharedPreferencesStore {
 void main() {
   const channel = MethodChannel('vela/background');
 
+  test(
+    'background receiving defaults on and honors a saved off choice',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      for (final setting in BackgroundReceiving.values) {
+        expect(setting.enabled(prefs, 'test'), isTrue);
+        await prefs.setBool(setting.preferenceKey('test'), false);
+        expect(setting.enabled(prefs, 'test'), isFalse);
+      }
+    },
+  );
+
   testWidgets('device name reports empty or whitespace-only input inline', (
     tester,
   ) async {
@@ -243,7 +256,7 @@ void main() {
   for (final (state, label, section) in [
     ('app', 'System notification settings', 'notification_app'),
     ('requests', 'Open incoming request settings', 'notification_requests'),
-    ('battery', 'Allow receiving while locked', 'battery_exemption'),
+    ('battery', 'Battery optimization settings', 'battery_exemption'),
     ('restricted', 'Open app settings', 'battery'),
   ]) {
     testWidgets('blocked Android receiving opens the $state settings', (
@@ -389,7 +402,9 @@ void main() {
   testWidgets(
     'notifies the active app immediately after enabling and disabling background receive',
     (tester) async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'background_receive_test': false,
+      });
       final prefs = await SharedPreferences.getInstance();
       var running = false;
       final observed = <bool?>[];
@@ -453,7 +468,9 @@ void main() {
   testWidgets(
     'a rejected service start does not notify monitoring or persist enabled',
     (tester) async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'background_receive_test': false,
+      });
       final prefs = await SharedPreferences.getInstance();
       var notifications = 0;
       bool? valueWhenStarting;
@@ -485,7 +502,7 @@ void main() {
         (await SharedPreferences.getInstance()).getBool(
           'background_receive_test',
         ),
-        isNull,
+        isFalse,
       );
       expect(
         tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
@@ -640,7 +657,7 @@ void main() {
   testWidgets('Mac keep-awake and login states follow native results', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'mac_background_receiving': false});
     var active = false;
     var login = 'notFound';
     var changes = 0;
@@ -649,7 +666,12 @@ void main() {
       call,
     ) async {
       if (call.method == 'macBackgroundStatus') {
-        return {'active': active, 'loginSupported': true, 'loginStatus': login};
+        return {
+          'active': active,
+          'loginSupported': true,
+          'loginStatus': login,
+          'notifications': false,
+        };
       }
       if (call.method == 'setMacBackground') {
         active = call.arguments as bool;
@@ -683,8 +705,18 @@ void main() {
     );
     expect(active, isTrue);
     expect(changes, 1);
+    await tester.tap(find.text('Background checks'));
+    await tester.pumpAndSettle();
+    expect(find.text('Request notifications are off'), findsOneWidget);
+    final requests = find.widgetWithText(ListTile, 'Incoming requests');
+    await tester.ensureVisible(requests);
+    await tester.pumpAndSettle();
+    await tester.tap(requests);
+    await tester.pumpAndSettle();
+    expect(opened, 'notification_requests');
     final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
     expect(tester.widget<SwitchListTile>(loginSwitch).onChanged, isNotNull);
+    await tester.ensureVisible(loginSwitch);
     await tester.tap(loginSwitch);
     await tester.pumpAndSettle();
     expect(find.text('Approval required in System Settings'), findsOneWidget);
@@ -694,7 +726,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('Mac keep-awake failure rolls back its setting', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'mac_background_receiving': false});
     var active = false;
     var changes = 0;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
@@ -728,7 +760,7 @@ void main() {
       (await SharedPreferences.getInstance()).getBool(
         'mac_background_receiving',
       ),
-      isNull,
+      isFalse,
     );
     expect(active, isFalse);
     expect(changes, 0);

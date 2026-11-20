@@ -208,10 +208,15 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         result(nil)
       case "macBackgroundStatus":
         let login = self.loginStatus()
-        result([
-          "active": (NSApplication.shared.delegate as? AppDelegate)?.backgroundActive ?? false,
-          "loginSupported": login != "unsupported", "loginStatus": login,
-        ])
+        center.getNotificationSettings { settings in
+          DispatchQueue.main.async {
+            result([
+              "active": (NSApplication.shared.delegate as? AppDelegate)?.backgroundActive ?? false,
+              "loginSupported": login != "unsupported", "loginStatus": login,
+              "notifications": Self.canNotify(settings),
+            ])
+          }
+        }
       case "setLaunchAtLogin":
         guard let enabled = call.arguments as? Bool else {
           result(FlutterError(code: "login", message: "Missing login setting", details: nil))
@@ -238,8 +243,13 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
           result(FlutterError(code: "login", message: error.localizedDescription, details: nil))
         }
       case "settings":
+        let section = (call.arguments as? [String: String])?["section"]
+        if section == "notification_requests" {
+          Self.openNotificationSettings(center, result: result)
+          return
+        }
         guard #available(macOS 13.0, *),
-          let args = call.arguments as? [String: String], args["section"] == "login"
+          section == "login"
         else {
           result(FlutterMethodNotImplemented)
           return
@@ -287,9 +297,9 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         app?.setIncoming(true)
         self.offerGeneration += 1
         let generation = self.offerGeneration
-        center.requestAuthorization(options: [.alert, .sound]) { [weak self] allowed, _ in
+        center.getNotificationSettings { [weak self] settings in
           DispatchQueue.main.async {
-            guard allowed, self?.offerGeneration == generation else { return }
+            guard Self.canNotify(settings), self?.offerGeneration == generation else { return }
             let content = UNMutableNotificationContent()
             content.title = args["title"] as? String ?? "Vela"
             content.body = args["message"] as? String ?? "Incoming transfer"
@@ -331,6 +341,42 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
     super.awakeFromNib()
     DispatchQueue.main.async {
       (NSApplication.shared.delegate as? AppDelegate)?.ensureStatusItem()
+    }
+  }
+
+  private static func canNotify(_ settings: UNNotificationSettings) -> Bool {
+    settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+  }
+
+  private static func openNotificationSettings(
+    _ center: UNUserNotificationCenter, result: @escaping FlutterResult
+  ) {
+    center.getNotificationSettings { settings in
+      DispatchQueue.main.async {
+        if settings.authorizationStatus == .notDetermined {
+          center.requestAuthorization(options: [.alert, .sound]) { _, error in
+            DispatchQueue.main.async {
+              if let error {
+                result(FlutterError(code: "notification", message: error.localizedDescription, details: nil))
+              } else {
+                result(nil)
+              }
+            }
+          }
+          return
+        }
+        let pane: String
+        if #available(macOS 13.0, *) {
+          pane = "com.apple.Notifications-Settings.extension"
+        } else {
+          pane = "com.apple.preference.notifications"
+        }
+        if let url = URL(string: "x-apple.systempreferences:\(pane)"), NSWorkspace.shared.open(url) {
+          result(nil)
+        } else {
+          result(FlutterError(code: "notification", message: "Could not open notification settings", details: nil))
+        }
+      }
     }
   }
 }

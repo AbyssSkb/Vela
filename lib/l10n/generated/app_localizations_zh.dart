@@ -742,7 +742,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundOpenBatterySettings => '打开应用设置';
 
   @override
-  String get backgroundAllowLockedReceiving => '允许锁屏接收';
+  String get backgroundOpenBatteryOptimizationSettings => '电池优化设置';
 
   @override
   String get backgroundBatteryLimitsLockedReceiving => '电池优化可能中断锁屏接收';

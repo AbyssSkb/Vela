@@ -798,7 +798,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundOpenBatterySettings => 'Open app settings';
 
   @override
-  String get backgroundAllowLockedReceiving => 'Allow receiving while locked';
+  String get backgroundOpenBatteryOptimizationSettings =>
+      'Battery optimization settings';
 
   @override
   String get backgroundBatteryLimitsLockedReceiving =>

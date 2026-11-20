@@ -1454,11 +1454,11 @@ abstract class AppLocalizations {
   /// **'Open app settings'**
   String get backgroundOpenBatterySettings;
 
-  /// No description provided for @backgroundAllowLockedReceiving.
+  /// No description provided for @backgroundOpenBatteryOptimizationSettings.
   ///
   /// In en, this message translates to:
-  /// **'Allow receiving while locked'**
-  String get backgroundAllowLockedReceiving;
+  /// **'Battery optimization settings'**
+  String get backgroundOpenBatteryOptimizationSettings;
 
   /// No description provided for @backgroundBatteryLimitsLockedReceiving.
   ///
