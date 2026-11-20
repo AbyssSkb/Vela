@@ -57,6 +57,26 @@ Future<void> main(List<String> args) async {
       jsonEncode({'action': 'get-clipboard', 'kind': 'text'}),
     );
     if (text != 'shared-text-test') throw StateError('shared text mismatch');
+    await shell([
+      'am',
+      'start',
+      '-a',
+      'android.intent.action.SEND_MULTIPLE',
+      '-t',
+      'text/plain',
+      '--esal',
+      'android.intent.extra.TEXT',
+      'first text,second text',
+      '-n',
+      'com.example.vela/.ShareActivity',
+    ]);
+    await acceptShare();
+    final combined = await mac.requestData(
+      jsonEncode({'action': 'get-clipboard', 'kind': 'text'}),
+    );
+    if (combined != 'first text\nsecond text') {
+      throw StateError('multiple shared text items were lost');
+    }
     await android.requestData(
       jsonEncode({
         'action': 'set-clipboard',
@@ -91,6 +111,46 @@ Future<void> main(List<String> args) async {
     ]);
     await acceptShare();
     await mac.waitFor(find.text('已接收 $name'));
+
+    const pixels =
+        'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGP4z8DAAMIM/4EAAB/uBfsL2WiLAAAAAElFTkSuQmCC';
+    const shareActivity = 'com.example.vela/.ShareActivity';
+    for (final type in ['image/*', null]) {
+      final image = type != null
+          ? 'shared-view-test.png'
+          : 'inferred-view-test.png';
+      await shell([
+        'run-as',
+        'com.example.vela',
+        'sh',
+        '-c',
+        "'printf %s $pixels | base64 -d > files/$image'",
+      ]);
+      final viewImage = [
+        '-a',
+        'android.intent.action.VIEW',
+        '-c',
+        'android.intent.category.DEFAULT',
+        if (type != null) ...['-t', type],
+        '-d',
+        'content://com.example.vela.provider/files/$image',
+      ];
+      if (type != null) {
+        final handlers = await shell([
+          'cmd',
+          'package',
+          'query-activities',
+          '--components',
+          ...viewImage,
+        ]);
+        if (!handlers.contains(shareActivity)) {
+          throw StateError('Vela is missing from the image open chooser');
+        }
+      }
+      await shell(['am', 'start', ...viewImage, '-n', shareActivity]);
+      await acceptShare();
+      await mac.waitFor(find.text('已接收 $image'));
+    }
     stdout.writeln('ANDROID_SHARE_TEST_OK');
   } finally {
     await mac.close();
