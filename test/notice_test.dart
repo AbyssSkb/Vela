@@ -3,14 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('activity notice is inset and keeps its action accessible', (
+  testWidgets('activity notice reaches the window edges around safe actions', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
+    const insets = FakeViewPadding(left: 18, right: 18, bottom: 24);
+    tester.view.viewPadding = insets;
+    tester.view.padding = insets;
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
+      tester.view.resetViewPadding();
+      tester.view.resetPadding();
     });
     var cancelled = false;
     await tester.pumpWidget(
@@ -30,16 +35,20 @@ void main() {
         ),
       ),
     );
+    final panel = find.byKey(const ValueKey('activity-notice'));
+    expect(tester.getBottomLeft(panel), const Offset(0, 640));
+    expect(tester.getBottomRight(panel), const Offset(320, 640));
+    final material = tester.widget<Material>(panel);
+    expect(material.elevation, 0);
     expect(
-      tester.getBottomLeft(find.byKey(const ValueKey('activity-notice'))).dy,
-      628,
+      material.shape,
+      const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
     );
-    expect(
-      tester
-          .widget<Material>(find.byKey(const ValueKey('activity-notice')))
-          .elevation,
-      0,
-    );
+    final action = tester.getRect(find.byType(IconButton));
+    expect(action.bottom, lessThanOrEqualTo(616));
+    expect(action.right, lessThanOrEqualTo(302));
     await tester.tap(find.byIcon(Icons.close));
     expect(cancelled, isTrue);
     expect(tester.takeException(), isNull);
@@ -73,8 +82,15 @@ void main() {
       expect(snack.behavior, SnackBarBehavior.fixed);
       expect(snack.width, isNull);
       expect(snack.elevation, 0);
+      expect(
+        snack.shape,
+        const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+        ),
+      );
       final panel = find.byKey(const ValueKey('message-notice'));
-      expect(tester.getBottomLeft(panel).dy, 628);
+      expect(tester.getBottomLeft(panel), const Offset(0, 640));
+      expect(tester.getBottomRight(panel), const Offset(320, 640));
       expect(find.text('Example'), findsOneWidget);
       expect(
         find.byIcon(switch (kind) {
@@ -86,17 +102,31 @@ void main() {
       );
     });
   }
-  testWidgets('Android notice leaves an inset without a shadow', (
+  testWidgets('Android notice fills the bottom without covering its actions', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+    tester.view.padding = const FakeViewPadding(bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetPadding);
+    var opened = false;
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(platform: TargetPlatform.android),
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(
-              onPressed: () =>
-                  showNotice(context, 'Received', kind: NoticeKind.success),
+              onPressed: () => showNotice(
+                context,
+                'Received',
+                kind: NoticeKind.success,
+                actionLabel: 'Open',
+                onAction: () => opened = true,
+              ),
               child: const Text('Show'),
             ),
           ),
@@ -105,12 +135,20 @@ void main() {
     );
     await tester.tap(find.text('Show'));
     await tester.pumpAndSettle();
-    final snack = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snack.behavior, SnackBarBehavior.fixed);
-    expect(snack.width, isNull);
-    expect(snack.elevation, 0);
-    expect(snack.backgroundColor, Colors.transparent);
+    final panel = find.byKey(const ValueKey('message-notice'));
+    expect(tester.getBottomLeft(panel), const Offset(0, 800));
+    expect(tester.getBottomRight(panel), const Offset(360, 800));
+    expect(
+      tester.widget<SnackBar>(panel).backgroundColor,
+      const Color(0xffd9f1df),
+    );
+    final open = find.byKey(const ValueKey('notice-action'));
+    final close = find.byKey(const ValueKey('notice-close'));
+    expect(tester.getRect(open).bottom, lessThanOrEqualTo(776));
+    expect(tester.getRect(close).bottom, lessThanOrEqualTo(776));
     expect(find.text('Received'), findsOneWidget);
+    await tester.tap(open);
+    expect(opened, isTrue);
   });
   testWidgets('received file notice keeps an accessible open action', (
     tester,
@@ -152,6 +190,7 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
+    final savedTo = 'Saved to /${'nested-directory/' * 15}';
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(platform: TargetPlatform.macOS),
@@ -161,6 +200,7 @@ void main() {
               onPressed: () => showNotice(
                 context,
                 'Received ${'long-file-name-' * 20}.pdf',
+                detail: savedTo,
                 kind: NoticeKind.success,
                 actionLabel: 'Open',
                 onAction: () {},
@@ -175,9 +215,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('notice-action')), findsOneWidget);
+    final detail = tester.widget<Text>(find.text(savedTo));
+    expect(detail.maxLines, 1);
+    expect(detail.overflow, TextOverflow.ellipsis);
     expect(
       tester.getSize(find.byType(SnackBar)).height,
-      lessThanOrEqualTo(132),
+      inInclusiveRange(112, 144),
     );
   });
 
@@ -249,6 +292,7 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 248);
     await tester.pump();
     expect(tester.takeException(), isNull);
+    expect(tester.getBottomRight(find.byType(SnackBar)), const Offset(640, 72));
     expect(find.text('Open file').hitTestable(), findsOneWidget);
   });
 }

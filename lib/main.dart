@@ -3114,7 +3114,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _sendReceiptContent(PreparedTransfer content) {
     final preview = (content.share?.text ?? content.textPreview)?.trim();
     if (preview != null && preview.isNotEmpty) {
-      return _textPreview(preview, 160);
+      return _textPreview(preview.replaceAll(RegExp(r'\s+'), ' '), 80);
     }
     if (content.paths.length > 1) {
       return '${File(content.paths.first).uri.pathSegments.last} · ${t.filesCount(content.paths.length)}';
@@ -4158,7 +4158,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               notificationContentName != null)
                             Text(
                               notificationContentName!,
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
@@ -4305,8 +4305,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         if (preview != null && preview.isNotEmpty)
           Text(
-            String.fromCharCodes(preview.runes.take(120)),
-            maxLines: 2,
+            _textPreview(preview.replaceAll(RegExp(r'\s+'), ' '), 80),
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -4386,11 +4386,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   : peers.isEmpty
                   ? t.addDeviceToContinueSending
                   : t.sendDeviceChanged,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(
             _sendReceiptContent(failed.content),
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           ),

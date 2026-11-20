@@ -428,7 +428,7 @@ void main() {
   );
 
   testReceiving(
-    'keeps one receipt above the gesture area during a send and receive',
+    'keeps one bottom receipt and safe actions during a send and receive',
     ContentOffer('file', {
       'a-very-long-screenshot-file-name-' * 4 + '.jpg': [1],
     }),
@@ -442,7 +442,11 @@ void main() {
       await tester.pump();
       final receiveNotice = find.byKey(const ValueKey('message-notice'));
       final sendNotice = find.byKey(const ValueKey('send-receipt'));
-      expect(tester.getBottomLeft(receiveNotice).dy, lessThan(616));
+      expect(tester.getBottomLeft(receiveNotice), const Offset(0, 640));
+      expect(
+        tester.getBottomLeft(find.byKey(const ValueKey('notice-action'))).dy,
+        lessThanOrEqualTo(616),
+      );
 
       final completed = effects.menuStates
           .where((state) => state == false)
@@ -469,6 +473,10 @@ void main() {
       await tester.pump();
       expect(sendNotice, findsOneWidget);
       expect(tester.getBottomLeft(sendNotice).dy, lessThan(616));
+      expect(
+        tester.getBottomRight(find.byKey(const ValueKey('activity-notice'))),
+        const Offset(320, 640),
+      );
       expect(tester.takeException(), isNull);
     },
     macOnly: true,
