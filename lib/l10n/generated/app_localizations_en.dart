@@ -628,10 +628,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noTransferHistory => 'No received items yet';
 
   @override
-  String get transferHistoryEmptyHint =>
-      'Files, text, and links you receive will appear here.';
-
-  @override
   String get manageRecords => 'Manage records';
 
   @override
