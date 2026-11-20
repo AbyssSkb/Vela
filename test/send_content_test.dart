@@ -288,7 +288,10 @@ void main() {
         await tester.tap(recipient);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(find.textContaining('Phone · '), findsOneWidget);
+        final phone = find
+            .widgetWithText(DropdownMenuItem<String>, 'Phone')
+            .hitTestable();
+        expect(phone, findsOneWidget);
         expect(find.byType(BottomSheet), findsNothing);
         await tester.binding.handlePopRoute();
         await tester.pump();
@@ -298,7 +301,7 @@ void main() {
         await tester.tap(recipient);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(find.textContaining('Phone · '));
+        await tester.tap(phone);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
@@ -328,7 +331,9 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('text-recipient')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(find.textContaining('Phone · '));
+        await tester.tap(
+          find.widgetWithText(DropdownMenuItem<String>, 'Phone').hitTestable(),
+        );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
