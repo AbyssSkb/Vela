@@ -1149,10 +1149,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Lines show paired devices. Switch to the list for connection status.';
 
   @override
-  String get deviceRecheckHint =>
-      'Open Vela on the other device, then check its status again.';
-
-  @override
   String get addDeviceAndContinue => 'Add device and continue';
 
   @override

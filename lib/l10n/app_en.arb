@@ -509,7 +509,6 @@
   "trayQuit": "Quit",
   "desktopTray": "System tray",
   "graphPairedDevicesHint": "Lines show paired devices. Switch to the list for connection status.",
-  "deviceRecheckHint": "Open Vela on the other device, then check its status again.",
   "addDeviceAndContinue": "Add device and continue",
   "sendAction": "Send",
   "sendDeviceSelectAgain": "This device is no longer paired. Choose another device.",

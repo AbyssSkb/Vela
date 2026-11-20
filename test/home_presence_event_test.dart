@@ -219,18 +219,35 @@ void main() {
             of: sheet,
             matching: find.text('Temporarily unreachable'),
           ),
-          findsOneWidget,
+          findsNothing,
         );
+        final dot = find.descendant(
+          of: sheet,
+          matching: find.byIcon(Icons.circle),
+        );
+        expect(tester.widget<Icon>(dot).color, Colors.red.shade600);
         await tester.tap(
-          find.widgetWithText(TextButton, 'Refresh device status'),
+          find.descendant(
+            of: sheet,
+            matching: find.byTooltip('Refresh device status'),
+          ),
         );
         await tester.pump();
         expect(node.freshCalls.length, 3);
         expect(
           find.descendant(of: sheet, matching: find.text('Checking')),
-          findsOneWidget,
+          findsNothing,
         );
+        expect(dot, findsNothing);
+        node.publish(info: online, proofValidUntilNs: BigInt.from(9000000000));
         node.freshCalls.last.complete(online);
+        await tester.pump();
+        await tester.pump();
+        expect(tester.widget<Icon>(dot).color, Colors.green.shade700);
+        expect(
+          find.descendant(of: sheet, matching: find.text('Reachable')),
+          findsNothing,
+        );
         Navigator.of(tester.element(sheet)).pop();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));

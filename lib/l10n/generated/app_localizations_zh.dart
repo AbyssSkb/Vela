@@ -1077,9 +1077,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get graphPairedDevicesHint => '连线表示已配对。切换到列表可查看连接状态。';
 
   @override
-  String get deviceRecheckHint => '请在另一台设备上打开 Vela，再检查连接状态。';
-
-  @override
   String get addDeviceAndContinue => '添加设备并继续';
 
   @override

@@ -499,7 +499,6 @@
   "trayQuit": "退出",
   "desktopTray": "系统托盘",
   "graphPairedDevicesHint": "连线表示已配对。切换到列表可查看连接状态。",
-  "deviceRecheckHint": "请在另一台设备上打开 Vela，再检查连接状态。",
   "addDeviceAndContinue": "添加设备并继续",
   "sendAction": "发送",
   "sendDeviceSelectAgain": "此设备已解除配对。请选择另一台设备。",
