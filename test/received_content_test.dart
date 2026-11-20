@@ -467,7 +467,7 @@ void main() {
       await tester.pump();
       expect(receiveNotice, findsNothing);
       expect(sendNotice, findsOneWidget);
-      expect(tester.getBottomLeft(sendNotice).dy, lessThan(616));
+      expect(tester.getBottomLeft(sendNotice).dy, 616);
       expect(
         tester.getBottomRight(find.byKey(const ValueKey('activity-notice'))),
         const Offset(320, 640),

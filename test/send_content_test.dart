@@ -191,8 +191,18 @@ void main() {
       api: fakes.FakeRustApi(node),
       run: (_) async {
         try {
+          tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+          tester.view.padding = const FakeViewPadding(bottom: 24);
+          addTearDown(tester.view.resetViewPadding);
+          addTearDown(tester.view.resetPadding);
           await openHome(tester);
-          await tester.tap(find.byKey(const ValueKey('send-text')));
+          final deviceViewport = find.byKey(const ValueKey('home-devices'));
+          final peer = find.byKey(const ValueKey('peer-${fakes.peerId}'));
+          final textAction = find.byKey(const ValueKey('send-text'));
+          final viewportBounds = tester.getRect(deviceViewport);
+          final peerPosition = tester.getTopLeft(peer);
+          final textActionPosition = tester.getTopLeft(textAction);
+          await tester.tap(textAction);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 350));
           await tester.enterText(find.byType(TextField), 'Hello from Vela');
@@ -222,6 +232,9 @@ void main() {
           await tester.pump(const Duration(milliseconds: 350));
           await tester.pump();
           expect(find.text('Sending to Phone'), findsOneWidget);
+          expect(tester.getRect(deviceViewport), viewportBounds);
+          expect(tester.getTopLeft(peer), peerPosition);
+          expect(tester.getTopLeft(textAction), textActionPosition);
           expect(
             find.descendant(
               of: find.byType(ActivityNotice),
@@ -244,10 +257,10 @@ void main() {
           await waitForSend(tester);
           await tester.pump(const Duration(seconds: 6));
           final receipt = find.byKey(const ValueKey('send-receipt'));
-          expect(
-            find.byKey(const ValueKey('peer-${fakes.peerId}')).hitTestable(),
-            findsOneWidget,
-          );
+          expect(tester.getRect(deviceViewport), viewportBounds);
+          expect(tester.getTopLeft(peer), peerPosition);
+          expect(tester.getTopLeft(textAction), textActionPosition);
+          expect(peer.hitTestable(), findsOneWidget);
           expect(
             find.descendant(
               of: receipt,
@@ -262,6 +275,9 @@ void main() {
           );
           await tester.pump();
           expect(receipt, findsNothing);
+          expect(tester.getRect(deviceViewport), viewportBounds);
+          expect(tester.getTopLeft(peer), peerPosition);
+          expect(tester.getTopLeft(textAction), textActionPosition);
         } finally {
           if (!gate.isCompleted) gate.complete();
         }
