@@ -233,7 +233,7 @@ abstract class AppLocalizations {
   /// No description provided for @renameDevice.
   ///
   /// In en, this message translates to:
-  /// **'Local alias'**
+  /// **'Rename device'**
   String get renameDevice;
 
   /// No description provided for @useDeviceName.

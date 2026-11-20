@@ -264,8 +264,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
         expect(tester.takeException(), isNull);
-        expect(find.text('Local alias'), findsOneWidget);
-        expect(find.text('Only shown on this device.'), findsOneWidget);
+        expect(find.text('Rename device'), findsOneWidget);
+        expect(find.text('Only shown on this device.'), findsNothing);
         expect(
           find.descendant(
             of: find.widgetWithText(ListTile, 'Restore device name'),

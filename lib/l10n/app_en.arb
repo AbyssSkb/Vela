@@ -22,7 +22,7 @@
   "remove": "Remove",
   "rename": "Rename",
   "deviceDetails": "Device details",
-  "renameDevice": "Local alias",
+  "renameDevice": "Rename device",
   "useDeviceName": "Restore device name",
   "deviceNameRequired": "Enter a device name",
   "nameTooLong": "Device name is too long",
