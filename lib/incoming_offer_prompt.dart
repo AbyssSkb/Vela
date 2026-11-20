@@ -66,6 +66,10 @@ class IncomingOfferPrompt {
                 ].join('\n')
               : t.backgroundOffer,
           'shortText': t.incomingShort,
+          if (Platform.isMacOS) ...{
+            'detail': '$contentName · $size',
+            if (updatesClipboard) 'clipboardHint': t.incomingClipboardHint,
+          },
           'id': notificationId,
           'accept': t.receive,
           'reject': t.reject,

@@ -41,6 +41,10 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
     }
   }
 
+  func openReceiveFolder() throws -> Bool {
+    NSWorkspace.shared.open(try receiveDirectory.currentDirectory())
+  }
+
   func shareAvailable() { shareChannel?.invokeMethod("available", arguments: nil) }
   func notifyVisible() {
     (NSApplication.shared.delegate as? AppDelegate)?.clearTransferCompletion()
@@ -148,7 +152,7 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
       case "openFolder":
         do {
           result(
-            NSWorkspace.shared.open(try self.receiveDirectory.currentDirectory())
+            try self.openReceiveFolder()
               ? nil : FlutterError(code: "storage", message: "Cannot open folder", details: nil))
         } catch {
           result(FlutterError(code: "storage", message: error.localizedDescription, details: nil))
@@ -294,7 +298,10 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
       case "offer":
         let args = call.arguments as? [String: Any] ?? [:]
         let app = NSApplication.shared.delegate as? AppDelegate
-        app?.setIncoming(true)
+        app?.setMenuOffer(args) { [weak self] id, accepted in
+          self?.backgroundChannel?.invokeMethod(
+            "offerDecision", arguments: ["id": id, "accepted": accepted])
+        }
         self.offerGeneration += 1
         let generation = self.offerGeneration
         center.getNotificationSettings { [weak self] settings in

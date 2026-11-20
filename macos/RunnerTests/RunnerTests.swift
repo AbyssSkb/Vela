@@ -7,6 +7,19 @@ import XCTest
 
 class RunnerTests: XCTestCase {
 
+  func testMenuOfferOnlyDecidesTheCurrentRequestOnce() {
+    let app = AppDelegate()
+    var decisions: [String] = []
+    app.setMenuOffer(["id": "old"]) { _, _ in XCTFail("Decided a stale request") }
+    app.setMenuOffer(["id": "current"]) { id, accepted in
+      if accepted { decisions.append(id) }
+    }
+    app.decideMenuOffer("old", accepted: true)
+    app.decideMenuOffer("current", accepted: true)
+    app.decideMenuOffer("current", accepted: true)
+    XCTAssertEqual(decisions, ["current"])
+  }
+
   func testMenuStatusPrioritizesNotificationsAndRestoresNodeState() {
     let app = AppDelegate()
     XCTAssertEqual(app.menuStatus, "starting")

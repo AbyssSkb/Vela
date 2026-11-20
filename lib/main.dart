@@ -558,6 +558,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 : PresenceNetworkEvent.configurationChanged,
           );
         }
+        if (call.method == 'offerDecision' && Platform.isMacOS) {
+          final arguments = call.arguments as Map;
+          incomingPrompt?.notificationDecision(
+            arguments['id'],
+            arguments['accepted'],
+          );
+        }
         if (call.method == 'hidden') {
           windowVisibilityRevision++;
           final wasMonitoring = monitorPresence;
@@ -1559,7 +1566,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!mounted || !identical(node, source)) return;
       prompt = IncomingOfferPrompt(
         backgroundChannel,
-        notificationId: !appForeground && !autoAccept && Platform.isAndroid
+        notificationId:
+            !appForeground &&
+                !autoAccept &&
+                (Platform.isAndroid || Platform.isMacOS)
             ? DateTime.now().microsecondsSinceEpoch.toString()
             : null,
       );
