@@ -152,14 +152,25 @@ void DesktopIntegration::UpdateTray() {
   if (!tray_available_) return;
   auto data = TrayData(window_);
   data.uFlags = NIF_TIP | NIF_SHOWTIP;
-  const auto text = L"Vela - " + (incoming_ ? incoming_label_
-                                 : transferring_ ? transferring_label_
-                                 : completed_ ? completed_label_
-                                              : node_status_);
-  const int icon = incoming_ ? IDI_TRAY_INCOMING
-                   : transferring_ ? IDI_TRAY_TRANSFERRING
-                   : completed_ ? IDI_TRAY_COMPLETED
-                                : IDI_APP_ICON;
+  int icon = IDI_APP_ICON;
+  const std::wstring* label = &node_status_;
+  switch (activity_.status()) {
+    case vela::TrayActivity::Status::kIncoming:
+      icon = IDI_TRAY_INCOMING;
+      label = &incoming_label_;
+      break;
+    case vela::TrayActivity::Status::kTransferring:
+      icon = IDI_TRAY_TRANSFERRING;
+      label = &transferring_label_;
+      break;
+    case vela::TrayActivity::Status::kCompleted:
+      icon = IDI_TRAY_COMPLETED;
+      label = &completed_label_;
+      break;
+    case vela::TrayActivity::Status::kNode:
+      break;
+  }
+  const auto text = L"Vela - " + *label;
   data.hIcon = static_cast<HICON>(LoadImageW(
       GetModuleHandleW(nullptr), MAKEINTRESOURCEW(icon), IMAGE_ICON,
       GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED));
@@ -251,8 +262,7 @@ std::optional<LRESULT> DesktopIntegration::HandleMessage(UINT message,
       break;
     case WM_ACTIVATE:
       if (LOWORD(wparam) != WA_INACTIVE) {
-        if (completed_) {
-          completed_ = false;
+        if (activity_.ClearCompletion()) {
           UpdateTray();
         }
         Emit("visible");
@@ -342,8 +352,7 @@ void DesktopIntegration::HandleBackground(
       background_enabled_ = *value;
       if (!*value && !IsWindowVisible(window_)) ShowWindow();
     } else {
-      transferring_ = *value;
-      if (transferring_) completed_ = false;
+      activity_.SetTransferring(*value);
       UpdateTray();
     }
     result->Success();
@@ -353,10 +362,10 @@ void DesktopIntegration::HandleBackground(
       result->Error("arguments", "Expected a boolean");
       return;
     }
-    transferring_ = false;
-    completed_ = GetForegroundWindow() != window_ || IsIconic(window_);
+    const bool in_background = GetForegroundWindow() != window_ || IsIconic(window_);
+    activity_.FinishTransfer(in_background);
     UpdateTray();
-    if (completed_ && *show) ShowWindow();
+    if (in_background && *show) ShowWindow();
     result->Success();
   } else if (method == "setTrayLabels") {
     const auto open = Wide(StringArgument(call.arguments(), "open"));
@@ -386,10 +395,11 @@ void DesktopIntegration::HandleBackground(
     UpdateTray();
     result->Success();
   } else if (method == "offer" || method == "clearOffer") {
-    incoming_ = method == "offer";
+    const bool incoming = method == "offer";
+    activity_.SetIncoming(incoming);
     auto data = TrayData(window_);
     data.uFlags = NIF_INFO;
-    if (incoming_) {
+    if (incoming) {
       const auto title = Wide(StringArgument(call.arguments(), "title"));
       const auto message = Wide(StringArgument(call.arguments(), "message"));
       wcsncpy_s(data.szInfoTitle, title.c_str(), _TRUNCATE);
@@ -398,7 +408,7 @@ void DesktopIntegration::HandleBackground(
     }
     const bool delivered = Shell_NotifyIconW(NIM_MODIFY, &data) != FALSE;
     UpdateTray();
-    if (incoming_ && !delivered) {
+    if (incoming && !delivered) {
       result->Error("notification", "Could not show the notification");
     } else {
       result->Success();
