@@ -516,8 +516,7 @@
   "desktopTray": "System tray",
   "graphPairedDevicesHint": "Lines show paired devices. Switch to the list for connection status.",
   "addDeviceAndContinue": "Add device and continue",
-  "sendAction": "Send",
-  "sendDeviceSelectAgain": "This device is no longer paired. Choose another device.",
+  "sendContentReady": "Done",
   "waitingForRecipient": "Waiting for {name} to respond",
   "@waitingForRecipient": {
     "placeholders": {

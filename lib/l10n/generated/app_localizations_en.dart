@@ -1173,11 +1173,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addDeviceAndContinue => 'Add device and continue';
 
   @override
-  String get sendAction => 'Send';
-
-  @override
-  String get sendDeviceSelectAgain =>
-      'This device is no longer paired. Choose another device.';
+  String get sendContentReady => 'Done';
 
   @override
   String waitingForRecipient(String name) {

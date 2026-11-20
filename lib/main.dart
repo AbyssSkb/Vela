@@ -403,7 +403,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _shareReads = Future.value();
   bool _confirmedShareAvailable = Platform.isAndroid;
   bool _confirmedShareActive = false;
-  bool _composingText = false;
+  ({
+    String name,
+    String? preview,
+    Future<String>? resolvedName,
+    Completer<String?> recipient,
+  })?
+  _homeSend;
   ({
     String peer,
     Object? revision,
@@ -1017,7 +1023,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _confirmedShareActive ||
         !_canResumeSend ||
         activeSendOperations != 0 ||
-        _composingText ||
         incomingOffersPending != 0) {
       return;
     }
@@ -1099,7 +1104,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool get _canPresentShare =>
       !_sendUnavailable &&
       activeSendOperations == 0 &&
-      !_composingText &&
       !selectingPeers &&
       incomingOffersPending == 0 &&
       !awaitingOfferDecision &&
@@ -1766,6 +1770,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _publishPeerState(PeerState state, Set<String> changed) {
     presenceController.membershipPublished(state, changed);
+    if (state.peers.isEmpty) _finishHomeSelection();
     if (mounted) {
       setState(() {
         selectedPeers.removeWhere((id) => !state.containsDevice(id));
@@ -1908,6 +1913,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _togglePeerSelection(String id) {
+    if (_homeSend != null) return;
     setState(() {
       selectingPeers = true;
       if (!selectedPeers.add(id)) selectedPeers.remove(id);
@@ -2138,6 +2144,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Future<String?> _chooseHomePeer(
+    String name, {
+    String? preview,
+    Future<String>? resolvedName,
+  }) async {
+    if (!mounted || peers.isEmpty || _sendUnavailable) return null;
+    final recipient = Completer<String?>();
+    setState(() {
+      _homeSend = (
+        name: name,
+        preview: preview,
+        resolvedName: resolvedName,
+        recipient: recipient,
+      );
+    });
+    try {
+      return await recipient.future;
+    } finally {
+      if (mounted) setState(() => _homeSend = null);
+    }
+  }
+
+  void _finishHomeSelection([String? peer]) {
+    final recipient = _homeSend?.recipient;
+    if (recipient != null && !recipient.isCompleted) recipient.complete(peer);
+  }
+
   Future<void> _chooseAndSend({
     bool clipboard = false,
     bool media = false,
@@ -2158,7 +2191,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           return;
         }
         final share = PendingShare(uris: uris);
-        await _chooseAndSendShare(share);
+        final id = await _duringSendSelection(
+          () => _chooseHomePeer(
+            _sharedContentName(share),
+            resolvedName: _sharedItemNames(uris)
+                .then((names) => _sharedContentName(share, names)),
+          ),
+        );
+        if (id != null && mounted) await _sendShare(id, share);
       } catch (e) {
         debugPrint('Media selection failed: $e');
         if (mounted) _message(t.mediaPickFailed, kind: NoticeKind.error);
@@ -2172,25 +2212,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _composeAndSendText() async {
-    _composingText = true;
-    final ({String peer, String text})? selection;
-    try {
-      selection = await showDialog<({String peer, String text})>(
+    if (_sendUnavailable || activeSendOperations != 0) return;
+    final text = await _duringSendSelection(
+      () => showDialog<String>(
         context: context,
-        builder: (_) => _TextComposeDialog(
-          devices: {for (final id in peers.keys) id: _sendDeviceName(id)},
-          isPaired: (id) => peers.containsKey(id),
-          presence: _presenceIcon,
-        ),
-      );
-    } finally {
-      _composingText = false;
-    }
-    if (selection != null && mounted && peers.containsKey(selection.peer)) {
-      await _sendShare(
-        selection.peer,
-        PendingShare(text: selection.text, typed: true),
-      );
+        builder: (_) => const _TextComposeDialog(),
+      ),
+    );
+    if (text == null || !mounted) return;
+    final id = await _duringSendSelection(
+      () => _chooseHomePeer(t.textContent, preview: text),
+    );
+    if (id != null && mounted) {
+      await _sendShare(id, PendingShare(text: text, typed: true));
     }
   }
 
@@ -2218,9 +2252,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   .where((part) => part.isNotEmpty)
                   .lastOrNull ??
               t.folder;
-    final id = await _choosePeer(
+    final id = await _chooseHomePeer(
       folderName,
-      itemNames: Platform.isAndroid ? _sharedItemNames([source]) : null,
+      resolvedName: Platform.isAndroid
+          ? _sharedItemNames([source])
+                .then((names) => names.firstOrNull ?? folderName)
+          : null,
     );
     if (!mounted ||
         id == null ||
@@ -3093,12 +3130,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (content == null) return;
       final target =
           id ??
-          (mounted
-              ? await _choosePeer(
-                  _preparedContentName(content),
-                  prepared: content,
-                )
-              : null);
+          await _chooseHomePeer(
+            _preparedContentName(content),
+            preview: content.textPreview ?? content.share?.text,
+          );
       if (target == null ||
           !mounted ||
           !peers.containsKey(target) ||
@@ -3809,6 +3844,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     updates.removeListener(_updatesChanged);
     updates.dispose();
+    _finishHomeSelection();
     _sendReceiptTimer?.cancel();
     if (folderJob != null) unawaited(folderJob!.cancel());
     if (Platform.isMacOS) {
@@ -3935,7 +3971,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               'select',
               t.selectDevices,
               Icons.checklist_rounded,
-              _deviceActionsBlocked
+              _deviceActionsBlocked || _homeSend != null
                   ? null
                   : () => setState(() => selectingPeers = true),
               key: const ValueKey('select-devices'),
@@ -4005,7 +4041,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _tapDevice(String id) {
-    if (selectingPeers) {
+    if (_homeSend != null) {
+      if (!_sendUnavailable && peers.containsKey(id)) _finishHomeSelection(id);
+    } else if (selectingPeers) {
       _togglePeerSelection(id);
     } else {
       _showDeviceDetails(id);
@@ -4047,7 +4085,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         selfName: deviceName,
                         selfLabel: t.myDevice,
                         selfIcon: _iconForType(deviceType),
-                        name: peerState.displayName,
+                        name: _homeSend == null
+                            ? peerState.displayName
+                            : _sendDeviceName,
                         icon: _deviceIcon,
                         presence: _presenceIcon,
                         selected: selectedPeers,
@@ -4093,6 +4133,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       overflow: largeText ? null : TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    subtitle: switch (peerState.distinguishingCode(id)) {
+                      final code? when _homeSend != null => Text(
+                        code,
+                        maxLines: 2,
+                      ),
+                      _ => null,
+                    },
                     trailing: selectingPeers
                         ? Semantics(
                             label: peerState.displayName(id),
@@ -4110,7 +4157,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               if (!largeText) ...[
                                 const SizedBox(width: 14),
                                 Icon(
-                                  Icons.chevron_right_rounded,
+                                  _homeSend == null
+                                      ? Icons.chevron_right_rounded
+                                      : Icons.send_rounded,
                                   color: colors.onSurfaceVariant,
                                 ),
                               ],
@@ -4139,7 +4188,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             return SliverList(delegate: cards);
           },
         ),
-      if (!showingGraph) const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      if (!showingGraph)
+        SliverToBoxAdapter(
+          child: SizedBox(
+            // Keep the last recipient reachable above the send controls.
+            height: _homeSend == null
+                ? 32
+                : MediaQuery.textScalerOf(context).scale(56) + 48,
+          ),
+        ),
     ];
   }
 
@@ -4271,6 +4328,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           EmptyDevicesSliver(
             onAddDevice: _deviceActionsBlocked ? null : _addDevice,
             onShowCode: _showMyDeviceDialog,
+          )
+        else if (largeText && _homeSend != null)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            sliver: SliverMainAxisGroup(
+              slivers: _deviceSlivers(false, largeText: true),
+            ),
           )
         else
           SliverLayoutBuilder(
@@ -4433,11 +4497,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ],
             ),
           )
+        : _homeSend != null
+        ? _buildHomeSendNotice()
         : _failedSend != null
         ? _buildSendRetryNotice()
         : pendingShare != null
         ? ActivityNotice(child: _buildPendingShareNotice(pendingShare!))
         : _buildSendReceipt();
+  }
+
+  Widget _buildHomeSendNotice() {
+    final send = _homeSend!;
+    return ActivityNotice(
+      child: Row(
+        key: const ValueKey('home-send-recipient'),
+        children: [
+          Expanded(
+            child: Semantics(
+              liveRegion: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t.chooseDevice),
+                  FutureBuilder<String>(
+                    future: send.resolvedName,
+                    builder: (context, snapshot) => Text(
+                      send.preview == null
+                          ? snapshot.data ?? send.name
+                          : _textPreview(send.preview!, 80),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: t.cancel,
+            onPressed: _finishHomeSelection,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSendReceipt(
@@ -4705,9 +4809,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
     );
     return PopScope(
-      canPop: !selectingPeers,
+      canPop: !selectingPeers && _homeSend == null,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && selectingPeers) _clearDeviceSelection();
+        if (!didPop && _homeSend != null) _finishHomeSelection();
       },
       child: Platform.isMacOS || DesktopPlatform.isWindowsOrLinux
           ? DropTarget(
@@ -4739,15 +4844,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 }
 
 class _TextComposeDialog extends StatefulWidget {
-  const _TextComposeDialog({
-    required this.devices,
-    required this.isPaired,
-    required this.presence,
-  });
-
-  final Map<String, String> devices;
-  final bool Function(String) isPaired;
-  final Widget Function(String) presence;
+  const _TextComposeDialog();
 
   @override
   State<_TextComposeDialog> createState() => _TextComposeDialogState();
@@ -4755,7 +4852,6 @@ class _TextComposeDialog extends StatefulWidget {
 
 class _TextComposeDialogState extends State<_TextComposeDialog> {
   final controller = TextEditingController();
-  String? selected;
   String? error;
 
   @override
@@ -4764,23 +4860,19 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
     super.dispose();
   }
 
-  void _submit(String peer) {
+  void _submit() {
     final t = AppLocalizations.of(context)!;
     final text = controller.text;
     if (utf8.encode(text).length > 1024 * 1024) {
       setState(() => error = t.textTooLarge);
-    } else if (!widget.isPaired(peer)) {
-      setState(() => error = t.sendDeviceSelectAgain);
     } else {
-      Navigator.pop(context, (peer: peer, text: text));
+      Navigator.pop(context, text);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
-    final onlyPeer = widget.devices.keys.singleOrNull;
-    final target = onlyPeer ?? selected;
     return AlertDialog(
       scrollable: true,
       title: Text(t.sendText),
@@ -4798,45 +4890,6 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
               decoration: InputDecoration(hintText: t.enterText),
               onChanged: (_) => setState(() => error = null),
             ),
-            if (onlyPeer == null) ...[
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('text-recipient'),
-                isExpanded: true,
-                itemHeight: null,
-                decoration: InputDecoration(
-                  labelText: t.chooseDevice,
-                  border: const OutlineInputBorder(),
-                ),
-                selectedItemBuilder: (_) => [
-                  for (final device in widget.devices.values)
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Text(device, overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                items: [
-                  for (final entry in widget.devices.entries)
-                    DropdownMenuItem(
-                      value: entry.key,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(entry.value)),
-                            const SizedBox(width: 8),
-                            widget.presence(entry.key),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-                onChanged: (id) => setState(() {
-                  selected = id;
-                  error = null;
-                }),
-              ),
-            ],
             if (error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -4859,14 +4912,8 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
           child: Text(t.cancel),
         ),
         FilledButton(
-          onPressed: controller.text.isEmpty || target == null
-              ? null
-              : () => _submit(target),
-          child: Text(
-            target == null
-                ? t.sendAction
-                : t.sendToDevice(widget.devices[target]!),
-          ),
+          onPressed: controller.text.isEmpty ? null : _submit,
+          child: Text(t.sendContentReady),
         ),
       ],
     );

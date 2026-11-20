@@ -1096,10 +1096,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addDeviceAndContinue => '添加设备并继续';
 
   @override
-  String get sendAction => '发送';
-
-  @override
-  String get sendDeviceSelectAgain => '此设备已解除配对。请选择另一台设备。';
+  String get sendContentReady => '完成';
 
   @override
   String waitingForRecipient(String name) {
