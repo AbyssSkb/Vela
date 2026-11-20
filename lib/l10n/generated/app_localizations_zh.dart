@@ -353,7 +353,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diagnostics => '诊断';
 
   @override
-  String get diagnosticsStartupHelp => 'Vela 需要完成启动才能发送和接收。';
+  String get diagnosticsStartupHelp => 'Vela 尚未完成启动。';
 
   @override
   String get diagnosticsDeviceHelp => '请在其他设备上打开 Vela，再刷新设备状态。';
@@ -374,9 +374,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get diagnosticsClearQuestion => '清空诊断事件？';
-
-  @override
-  String get diagnosticsClearDetail => '这会清空本机的近期诊断事件。';
 
   @override
   String diagnosticsUpdated(String time) {
@@ -420,9 +417,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get systemDeviceName => '设备原名';
-
-  @override
-  String get nameVisible => '其他设备会看到此名称';
 
   @override
   String get deviceAliasHint => '只在本设备显示';
@@ -661,10 +655,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get enableBackgroundReceiving => '允许后台接收';
 
   @override
-  String get notificationBackgroundBlocked => '通知已关闭。请打开 Vela 确认接收请求。';
+  String get notificationBackgroundBlocked => '通知已关闭，接收需打开 Vela。';
 
   @override
-  String get notificationAutoAcceptMuted => '通知已关闭，自动接收运行中。';
+  String get notificationAutoAcceptMuted => '通知已关闭，仍可自动接收。';
 
   @override
   String get notificationAutoAcceptStopped => '通知已关闭，请检查后台接收。';
@@ -676,7 +670,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationSystemSettings => '系统通知设置';
 
   @override
-  String get notificationOff => '已在系统设置中关闭';
+  String get notificationOff => '已关闭';
 
   @override
   String get notificationRequests => '接收请求';
@@ -689,15 +683,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notificationLive => '实时活动';
-
-  @override
-  String get notificationLiveAllowed => '已允许，展示形式由系统决定';
-
-  @override
-  String get notificationLiveDisabled => '系统设置中已关闭';
-
-  @override
-  String get notificationLiveUnsupported => '此系统使用普通通知';
 
   @override
   String get notificationCompleted => '传输完成';
@@ -736,13 +721,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundAppNotificationsOff => 'Vela 通知已关闭';
 
   @override
-  String get backgroundOpenRequestSettings => '打开接收请求通知设置';
-
-  @override
   String get backgroundOpenBatterySettings => '打开应用设置';
-
-  @override
-  String get backgroundOpenBatteryOptimizationSettings => '电池优化设置';
 
   @override
   String get backgroundBatteryLimitsLockedReceiving => '电池优化可能中断锁屏接收';
@@ -766,28 +745,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundUnavailable => '无法更改后台接收，请检查系统设置。';
 
   @override
-  String get backgroundDiagnostic => '后台状态检查';
-
-  @override
   String get backgroundNotification => '通知';
 
   @override
   String get backgroundBattery => '电池优化';
 
   @override
-  String get backgroundBatteryExempt => 'Vela 已豁免电池优化';
+  String get backgroundBatteryExempt => '已豁免';
 
   @override
-  String get backgroundBatteryOptimized => '系统正在对 Vela 进行电池优化';
+  String get backgroundBatteryRestricted => '受限';
+
+  @override
+  String get backgroundBatteryOptimized => '未豁免';
 
   @override
   String get backgroundRestricted => '系统后台限制';
-
-  @override
-  String get backgroundRestrictedDetail => 'Android 限制了 Vela 在后台运行';
-
-  @override
-  String get backgroundRunning => '后台接收服务';
 
   @override
   String get backgroundAllowed => '已允许';
@@ -799,7 +772,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundBatteryHint => '若后台经常离线，可在系统设置中允许不受限制的电池使用。';
 
   @override
-  String get backgroundVendorGuide => '查看手机厂商指引';
+  String get backgroundVendorGuide => '后台接收指南';
 
   @override
   String get backgroundOffer => '有设备正在发送内容';
@@ -833,9 +806,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoAccept => '自动接收';
-
-  @override
-  String get autoAcceptHint => '自动接受已配对设备发来的内容。';
 
   @override
   String get retry => '重试';
@@ -892,19 +862,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get relaySettings => '中继服务器';
 
   @override
-  String get relayPurpose => '设备无法直连时，Vela 可能会通过中继传输。默认已配置公共中继。';
-
-  @override
   String get relayEnabled => '使用自定义中继';
 
   @override
-  String get relayEnabledDetail => '未配置时使用 Iroh 官方中继';
-
-  @override
-  String get relayCustomActive => '当前使用自定义中继';
-
-  @override
-  String get relayPublicActive => '当前使用 Iroh 公共中继';
+  String get relayEnabledDetail => '未添加中继，仍使用公共中继。';
 
   @override
   String get relayToggleFailed => '无法更改中继设置';
@@ -913,7 +874,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get relayBusy => '请先完成当前传输或配对';
 
   @override
-  String get relayCustomOnly => '仅使用自定义中继。请在其他设备配置相同的中继列表。';
+  String get relayCustomOnly => '其他设备也需配置相同中继。';
 
   @override
   String get relayShowToken => '显示令牌';
@@ -979,40 +940,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundUnknown => '未知';
 
   @override
-  String get backgroundNode => '接收节点';
-
-  @override
-  String get backgroundLowPowerStandby => '低功耗待机豁免';
-
-  @override
   String get backgroundLowPowerStandbyRestricted => '低功耗待机会限制锁屏时的网络连接';
 
   @override
   String get backgroundAutoStart => '自启动';
 
   @override
-  String get backgroundAutoStartRestored => '本次已恢复';
-
-  @override
-  String get backgroundAutoStartBroadcast => '已收到开机广播';
-
-  @override
-  String get backgroundAutoStartUnverified => '未验证';
-
-  @override
-  String get backgroundAutoStartHint => '在系统设置中搜索「自启动」。';
-
-  @override
-  String get backgroundAutoStartOplusHint => '在 Vela 的耗电管理中允许后台运行和自启动。';
-
-  @override
-  String get macKeepAwake => '后台保持可用';
-
-  @override
-  String get macKeepAwakeHint => 'Vela 运行时防止空闲睡眠';
-
-  @override
-  String get macKeepAwakeActive => '保持唤醒状态';
+  String get macKeepAwake => '防止空闲睡眠';
 
   @override
   String get backgroundLogin => '登录时启动';
@@ -1031,12 +965,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundLoginFailed => '无法更改登录启动项，请检查系统设置。';
-
-  @override
-  String get backgroundNodeInitialized => '已初始化';
-
-  @override
-  String get backgroundNodeNotInitialized => '未初始化';
 
   @override
   String get sendText => '发送文字';

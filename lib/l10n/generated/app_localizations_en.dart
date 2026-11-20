@@ -387,8 +387,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get diagnostics => 'Diagnostics';
 
   @override
-  String get diagnosticsStartupHelp =>
-      'Vela must finish starting before it can send or receive.';
+  String get diagnosticsStartupHelp => 'Vela isn’t ready yet.';
 
   @override
   String get diagnosticsDeviceHelp =>
@@ -411,10 +410,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get diagnosticsClearQuestion => 'Clear diagnostic events?';
-
-  @override
-  String get diagnosticsClearDetail =>
-      'This clears the recent diagnostic events on this device.';
 
   @override
   String diagnosticsUpdated(String time) {
@@ -458,9 +453,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get systemDeviceName => 'Original device name';
-
-  @override
-  String get nameVisible => 'Your other devices will see this name.';
 
   @override
   String get deviceAliasHint => 'Only shown on this device.';
@@ -714,11 +706,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationBackgroundBlocked =>
-      'Notifications are off. Open Vela to accept requests.';
+      'Notifications off. Open Vela to accept requests.';
 
   @override
   String get notificationAutoAcceptMuted =>
-      'Notifications off. Auto-accept active.';
+      'Notifications off. Auto-accept still works.';
 
   @override
   String get notificationAutoAcceptStopped =>
@@ -731,7 +723,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSystemSettings => 'System notification settings';
 
   @override
-  String get notificationOff => 'Off in system settings';
+  String get notificationOff => 'Off';
 
   @override
   String get notificationRequests => 'Incoming requests';
@@ -744,16 +736,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationLive => 'Live updates';
-
-  @override
-  String get notificationLiveAllowed =>
-      'Allowed; presentation is decided by the system';
-
-  @override
-  String get notificationLiveDisabled => 'Off in system settings';
-
-  @override
-  String get notificationLiveUnsupported => 'Uses standard notifications';
 
   @override
   String get notificationCompleted => 'Transfer complete';
@@ -792,14 +774,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundAppNotificationsOff => 'Vela notifications are off';
 
   @override
-  String get backgroundOpenRequestSettings => 'Open incoming request settings';
-
-  @override
   String get backgroundOpenBatterySettings => 'Open app settings';
-
-  @override
-  String get backgroundOpenBatteryOptimizationSettings =>
-      'Battery optimization settings';
 
   @override
   String get backgroundBatteryLimitsLockedReceiving =>
@@ -825,31 +800,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not change background receiving. Check system settings.';
 
   @override
-  String get backgroundDiagnostic => 'Background checks';
-
-  @override
   String get backgroundNotification => 'Notifications';
 
   @override
   String get backgroundBattery => 'Battery optimization';
 
   @override
-  String get backgroundBatteryExempt =>
-      'Vela is exempt from battery optimization';
+  String get backgroundBatteryExempt => 'Exempt';
 
   @override
-  String get backgroundBatteryOptimized =>
-      'Battery optimization is on for Vela';
+  String get backgroundBatteryRestricted => 'Restricted';
+
+  @override
+  String get backgroundBatteryOptimized => 'Not exempt';
 
   @override
   String get backgroundRestricted => 'System background restrictions';
-
-  @override
-  String get backgroundRestrictedDetail =>
-      'Android restricts Vela in the background';
-
-  @override
-  String get backgroundRunning => 'Receiving service';
 
   @override
   String get backgroundAllowed => 'Allowed';
@@ -862,7 +828,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'If the device frequently goes offline, allow unrestricted battery use in system settings.';
 
   @override
-  String get backgroundVendorGuide => 'View manufacturer guidance';
+  String get backgroundVendorGuide => 'Background receiving guide';
 
   @override
   String get backgroundOffer => 'A device is sending content';
@@ -896,10 +862,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoAccept => 'Auto accept';
-
-  @override
-  String get autoAcceptHint =>
-      'Automatically accept incoming transfers from paired devices.';
 
   @override
   String get retry => 'Retry';
@@ -958,21 +920,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get relaySettings => 'Relay servers';
 
   @override
-  String get relayPurpose =>
-      'Vela may use a relay when a direct connection is unavailable. The default public relays are already configured.';
-
-  @override
   String get relayEnabled => 'Use custom relays';
 
   @override
-  String get relayEnabledDetail =>
-      'Uses public relays when no custom relay is configured';
-
-  @override
-  String get relayCustomActive => 'Currently using custom relays';
-
-  @override
-  String get relayPublicActive => 'Currently using Iroh public relays';
+  String get relayEnabledDetail => 'Using public relays until you add one.';
 
   @override
   String get relayToggleFailed => 'Could not change relay settings';
@@ -981,8 +932,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get relayBusy => 'Finish the current transfer or pairing first';
 
   @override
-  String get relayCustomOnly =>
-      'Only custom relays are used. Configure the same relay list on your other devices.';
+  String get relayCustomOnly => 'Use the same relays on your other devices.';
 
   @override
   String get relayShowToken => 'Show token';
@@ -1050,12 +1000,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundUnknown => 'Unknown';
 
   @override
-  String get backgroundNode => 'Receiving node';
-
-  @override
-  String get backgroundLowPowerStandby => 'Low Power Standby exemption';
-
-  @override
   String get backgroundLowPowerStandbyRestricted =>
       'Low Power Standby restricts network access while locked';
 
@@ -1063,30 +1007,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundAutoStart => 'Auto-start';
 
   @override
-  String get backgroundAutoStartRestored => 'Restored this boot';
-
-  @override
-  String get backgroundAutoStartBroadcast => 'Boot signal received';
-
-  @override
-  String get backgroundAutoStartUnverified => 'Unverified';
-
-  @override
-  String get backgroundAutoStartHint =>
-      'Check auto-start in system settings, if available.';
-
-  @override
-  String get backgroundAutoStartOplusHint =>
-      'In Vela’s battery settings, allow background activity and auto launch.';
-
-  @override
-  String get macKeepAwake => 'Keep available in background';
-
-  @override
-  String get macKeepAwakeHint => 'Prevent idle sleep while Vela runs';
-
-  @override
-  String get macKeepAwakeActive => 'Keep-awake activity';
+  String get macKeepAwake => 'Prevent idle sleep';
 
   @override
   String get backgroundLogin => 'Open at login';
@@ -1106,12 +1027,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get backgroundLoginFailed =>
       'Could not change the login item. Check System Settings.';
-
-  @override
-  String get backgroundNodeInitialized => 'Initialized';
-
-  @override
-  String get backgroundNodeNotInitialized => 'Not initialized';
 
   @override
   String get sendText => 'Send text';

@@ -224,8 +224,7 @@ class _SettingsPageState extends State<SettingsPage>
     final t = AppLocalizations.of(context)!;
     final updated = await showDialog<String>(
       context: context,
-      builder: (_) =>
-          NameDialog(title: t.deviceName, current: name, hint: t.nameVisible),
+      builder: (_) => NameDialog(title: t.deviceName, current: name),
     );
     if (updated == null || !mounted) return;
     try {
@@ -333,17 +332,13 @@ class _SettingsPageState extends State<SettingsPage>
       IconData icon,
       String title,
       bool value,
-      ValueChanged<bool> onChanged, {
-      String? hint,
-    }) {
-      final tile = SwitchListTile(
-        secondary: Icon(icon, size: 20),
-        title: Text(title),
-        value: value,
-        onChanged: onChanged,
-      );
-      return hint == null ? tile : Tooltip(message: hint, child: tile);
-    }
+      ValueChanged<bool> onChanged,
+    ) => SwitchListTile(
+      secondary: Icon(icon, size: 20),
+      title: Text(title),
+      value: value,
+      onChanged: onChanged,
+    );
 
     Widget section(String title, List<Widget> children) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,7 +432,7 @@ class _SettingsPageState extends State<SettingsPage>
                   mounted) {
                 setState(() => autoAccept = value);
               }
-            }, hint: t.autoAcceptHint),
+            }),
             if (DesktopPlatform.isDesktop) ...[
               divider(),
               switchRow(

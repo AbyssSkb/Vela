@@ -21,48 +21,31 @@ class AppUpdateTile extends StatelessWidget {
       final failed = controller.state == AppUpdateState.error;
       final version = controller.version.isEmpty ? null : controller.version;
       final progress = controller.progress;
-      final (status, hint) = switch (controller.state) {
-        AppUpdateState.disabled => (
-          version,
-          text('Updates are unavailable in this build', '此版本暂不提供应用内更新'),
-        ),
-        AppUpdateState.idle => (version, null),
-        AppUpdateState.checking => (text('Checking…', '检查中…'), null),
-        AppUpdateState.current => (text('Up to date', '已是最新'), version),
-        AppUpdateState.downloading => (
+      final busyMessage = text(
+        'Finish the current operation first',
+        '请先完成当前操作',
+      );
+      final status = switch (controller.state) {
+        AppUpdateState.disabled || AppUpdateState.idle => version,
+        AppUpdateState.checking => text('Checking…', '检查中…'),
+        AppUpdateState.current => text('Up to date', '已是最新'),
+        AppUpdateState.downloading =>
           progress == null
               ? text('Downloading…', '下载中…')
               : '${(progress * 100).round()}%',
-          text('Downloading update', '正在下载更新'),
-        ),
-        AppUpdateState.ready => (
-          controller.availableVersion,
-          controller.busy
-              ? text(
-                  'Finish the current transfer or pairing first',
-                  '请先完成当前传输或配对',
-                )
-              : text('Available version', '待安装版本'),
-        ),
-        AppUpdateState.installing => (text('Installing…', '安装中…'), null),
-        AppUpdateState.error => (t.appUpdateFailed, null),
+        AppUpdateState.ready =>
+          controller.busy ? busyMessage : controller.availableVersion,
+        AppUpdateState.installing => text('Installing…', '安装中…'),
+        AppUpdateState.error => t.appUpdateFailed,
       };
       Future<void> confirmInstall() async {
         final accepted = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text(text('Install update?', '安装更新？')),
-            content: Text(
-              controller.platform == 'android'
-                  ? text(
-                      'Android will ask you to confirm installation.',
-                      'Android 将请你确认安装。',
-                    )
-                  : text(
-                      'Vela will close and restart to install the update.',
-                      'Vela 将关闭并重启以安装更新。',
-                    ),
-            ),
+            content: controller.platform == 'android'
+                ? null
+                : Text(text('Vela will restart.', 'Vela 将重启。')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -77,11 +60,7 @@ class AppUpdateTile extends StatelessWidget {
         );
         if (accepted != true || !context.mounted) return;
         if (!controller.canInstall) {
-          showNotice(
-            context,
-            text('Finish the current transfer or pairing first', '请先完成当前传输或配对'),
-            kind: NoticeKind.info,
-          );
+          showNotice(context, busyMessage, kind: NoticeKind.info);
           return;
         }
         await controller.install();
@@ -95,10 +74,7 @@ class AppUpdateTile extends StatelessWidget {
               'Move Vela to a writable location and try again.',
               '请将 Vela 移到可写位置后重试。',
             ),
-            'busy' => text(
-              'Finish the current transfer or pairing first',
-              '请先完成当前传输或配对',
-            ),
+            'busy' => busyMessage,
             _ => text(
               'Could not install the update. Please try again.',
               '无法安装更新，请重试。',
@@ -120,10 +96,10 @@ class AppUpdateTile extends StatelessWidget {
         key: const ValueKey('app-update'),
         leading: const Icon(Icons.system_update_alt_rounded, size: 20),
         title: SettingsRowTitle(
-          text('App updates', '应用更新'),
-          value: value == null || hint == null
-              ? value
-              : Tooltip(message: hint, child: value),
+          controller.state == AppUpdateState.disabled
+              ? text('Version', '版本')
+              : text('App updates', '应用更新'),
+          value: value,
         ),
         trailing: controller.canCheck
             ? TextButton(

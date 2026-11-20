@@ -301,28 +301,14 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     final manufacturer = (status['manufacturer'] as String? ?? '')
         .toLowerCase();
     final isOplus = ['oneplus', 'oppo', 'realme'].contains(manufacturer);
-    final bootRecovery = status['bootRecovery'];
-    final bootStatus = switch (bootRecovery) {
-      'restored' => t.backgroundAutoStartRestored,
-      'broadcast' => t.backgroundAutoStartBroadcast,
-      _ => t.backgroundAutoStartUnverified,
-    };
+    final checkRequests = !autoAccept;
     final summary = setting.statusText(
       t,
       enabled,
       status,
       autoAccept: autoAccept,
     );
-    final recovery = enabled == true
-        ? setting.recoverySettings(status, autoAccept: autoAccept)
-        : null;
-    final recoveryLabel = switch (recovery) {
-      'notification_app' => t.notificationSystemSettings,
-      'notification_requests' => t.backgroundOpenRequestSettings,
-      'battery' => t.backgroundOpenBatterySettings,
-      'battery_exemption' => t.backgroundOpenBatteryOptimizationSettings,
-      _ => null,
-    };
+    final recovery = setting.recoverySettings(status, autoAccept: autoAccept);
     final needsRetry =
         setting == BackgroundReceiving.androidService &&
         enabled == true &&
@@ -332,15 +318,11 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       status,
       autoAccept: autoAccept,
     );
-    final detail = needsAttention || enabled == null
-        ? summary
-        : isMac
-        ? enabled == true && !autoAccept && status['notifications'] == false
-              ? t.backgroundAllowRequests
-              : t.macKeepAwakeHint
-        : enabled == true
+    final detail =
+        enabled == null || (needsAttention && (recovery == null || needsRetry))
         ? summary
         : null;
+    final restricted = status['restricted'] == true;
     final login = status['loginStatus'];
     final loginDetail = switch (login) {
       'enabled' || 'notRegistered' => null,
@@ -359,7 +341,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     Widget check(
       String title,
       bool? ok,
-      String? section, {
+      String section, {
       String? whenAllowed,
       String? whenBlocked,
     }) => ListTile(
@@ -369,18 +351,18 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
             : Icons.info_outline_rounded,
         color: ok == true ? colors.primary : colors.onSurfaceVariant,
       ),
-      title: Text(title),
-      subtitle: Text(
-        ok == null
-            ? t.backgroundUnknown
-            : ok
-            ? (whenAllowed ?? t.backgroundAllowed)
-            : (whenBlocked ?? t.backgroundNeedsAttention),
+      title: SettingsRowTitle(
+        title,
+        value: Text(
+          ok == null
+              ? t.backgroundUnknown
+              : ok
+              ? (whenAllowed ?? t.backgroundAllowed)
+              : (whenBlocked ?? t.backgroundNeedsAttention),
+        ),
       ),
-      trailing: section == null
-          ? null
-          : const Icon(Icons.chevron_right_rounded),
-      onTap: section == null ? null : () => _openSettings(section),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => _openSettings(section),
     );
     return Scaffold(
       body: SafeArea(
@@ -430,12 +412,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                         value: enabled ?? false,
                         onChanged: changing || enabled == null ? null : _toggle,
                       ),
-                      if (recovery != null && recoveryLabel != null)
-                        recoveryButton(
-                          recoveryLabel,
-                          () => _openSettings(recovery),
-                        )
-                      else if (needsRetry)
+                      if (needsRetry)
                         recoveryButton(
                           t.retry,
                           changing ? null : () => _toggle(true),
@@ -465,119 +442,70 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Material(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: ExpansionTile(
-                    title: Text(t.backgroundDiagnostic),
-                    shape: const Border(),
-                    collapsedShape: const Border(),
-                    children: [
-                      if (usesTray)
-                        check(
-                          t.desktopTray,
-                          status['trayAvailable'] as bool?,
-                          null,
-                        )
-                      else if (isMac) ...[
-                        check(
-                          t.macKeepAwakeActive,
-                          status['active'] as bool?,
-                          null,
-                          whenBlocked: t.backgroundMacInactive,
-                        ),
-                        if (!autoAccept)
+                if (!usesTray && (!isMac || checkRequests)) ...[
+                  const SizedBox(height: 12),
+                  Material(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        if (checkRequests)
                           check(
                             t.notificationRequests,
-                            status['notifications'] as bool?,
-                            'notification_requests',
-                            whenBlocked: t.backgroundNeedsAttention,
+                            status['allNotifications'] == false
+                                ? false
+                                : status['notifications'] as bool?,
+                            status['allNotifications'] == false
+                                ? 'notification_app'
+                                : 'notification_requests',
+                            whenBlocked: t.backgroundOff,
                           ),
-                      ] else ...[
-                        check(
-                          t.backgroundRunning,
-                          status['running'] as bool?,
-                          null,
-                          whenAllowed: t.backgroundOn,
-                          whenBlocked: t.backgroundOff,
-                        ),
-                        ListTile(
-                          leading: Icon(
-                            status['nodeReady'] == true
-                                ? Icons.check_circle_outline_rounded
-                                : Icons.info_outline_rounded,
-                            color: status['nodeReady'] == true
-                                ? colors.primary
-                                : colors.onSurfaceVariant,
-                          ),
-                          title: Text(t.backgroundNode),
-                          subtitle: Text(
-                            status['nodeReady'] == true
-                                ? t.backgroundNodeInitialized
-                                : status['nodeReady'] == false
-                                ? t.backgroundNodeNotInitialized
-                                : t.backgroundUnknown,
-                          ),
-                        ),
-                        check(
-                          t.notificationRequests,
-                          status['notifications'] as bool?,
-                          status['allNotifications'] == false
-                              ? 'notification_app'
-                              : 'notification_requests',
-                          whenBlocked: t.notificationOff,
-                        ),
-                        check(
-                          t.backgroundBattery,
-                          status['batteryExempt'] as bool?,
-                          status['batteryExempt'] == false
-                              ? 'battery_exemption'
-                              : 'battery',
-                          whenAllowed: t.backgroundBatteryExempt,
-                          whenBlocked: t.backgroundBatteryOptimized,
-                        ),
-                        check(
-                          t.backgroundRestricted,
-                          status['restricted'] is bool
-                              ? status['restricted'] == false
-                              : null,
-                          'battery',
-                          whenBlocked: t.backgroundRestrictedDetail,
-                        ),
-                        if (status['lowPowerStandbyEnabled'] == true)
+                        if (!isMac) ...[
+                          if (checkRequests)
+                            const Divider(height: 1, indent: 16, endIndent: 16),
                           check(
-                            t.backgroundLowPowerStandby,
-                            status['lowPowerStandbyExempt'] as bool?,
-                            null,
-                            whenBlocked: t.backgroundLowPowerStandbyRestricted,
+                            t.backgroundBattery,
+                            restricted
+                                ? false
+                                : status['batteryExempt'] as bool?,
+                            !restricted && status['batteryExempt'] == false
+                                ? 'battery_exemption'
+                                : 'battery',
+                            whenAllowed: t.backgroundBatteryExempt,
+                            whenBlocked: restricted
+                                ? t.backgroundBatteryRestricted
+                                : t.backgroundBatteryOptimized,
                           ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+                if (!isMac && !usesTray) ...[
+                  const SizedBox(height: 12),
+                  Material(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
                         ListTile(
-                          leading: const Icon(Icons.open_in_new_rounded),
-                          title: SettingsRowTitle(
-                            t.backgroundAutoStart,
-                            value: Text(bootStatus),
-                          ),
-                          subtitle: bootRecovery == 'restored'
-                              ? null
-                              : Text(
-                                  isOplus
-                                      ? t.backgroundAutoStartOplusHint
-                                      : t.backgroundAutoStartHint,
-                                ),
+                          title: Text(t.backgroundAutoStart),
+                          trailing: const Icon(Icons.open_in_new_rounded),
                           onTap: () =>
                               _openSettings(isOplus ? 'battery' : 'autostart'),
                         ),
+                        const Divider(height: 1, indent: 16, endIndent: 16),
                         ListTile(
-                          leading: const Icon(Icons.open_in_new_rounded),
                           title: Text(t.backgroundVendorGuide),
+                          trailing: const Icon(Icons.open_in_new_rounded),
                           onTap: () => _openSettings('guide'),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

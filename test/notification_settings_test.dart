@@ -61,7 +61,7 @@ void main() {
     );
     await tester.pumpWidget(page);
     await tester.pumpAndSettle();
-    expect(find.textContaining('Auto-accept active.'), findsOneWidget);
+    expect(find.textContaining('Auto-accept still works.'), findsOneWidget);
     expect(find.textContaining('Open Vela to accept requests'), findsNothing);
     running = false;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -116,13 +116,10 @@ void main() {
             .subtitle,
         isNull,
       );
-      expect(find.text('Off in system settings'), findsNWidgets(2));
+      expect(find.text('Off'), findsNWidgets(2));
       final results = find.widgetWithText(ListTile, 'Transfer results');
       expect(
-        find.descendant(
-          of: results,
-          matching: find.text('Off in system settings'),
-        ),
+        find.descendant(of: results, matching: find.text('Off')),
         findsOneWidget,
       );
       await tester.tap(find.text('Incoming requests'));
@@ -162,15 +159,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Uses standard notifications'));
-      expect(find.text('Uses standard notifications'), findsOneWidget);
-      final tile = tester.widget<ListTile>(
-        find.ancestor(
-          of: find.text('Live updates'),
-          matching: find.byType(ListTile),
-        ),
-      );
-      expect(tile.onTap, isNull);
+      expect(find.text('Uses standard notifications'), findsNothing);
+      expect(find.text('Live updates'), findsNothing);
     },
   );
 }

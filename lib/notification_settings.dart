@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'settings_row_title.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key, this.autoAccept = false});
@@ -78,9 +79,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       IconData icon,
       String title,
       String section, {
-      String? detail,
-      String? statusKey,
-      bool enabled = true,
+      required String statusKey,
     }) {
       final subtitle = statusKey == 'allNotifications' && notificationsOff
           ? receivesAutomatically
@@ -88,20 +87,21 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                 : widget.autoAccept
                 ? t.notificationAutoAcceptStopped
                 : t.notificationBackgroundBlocked
-          : statusKey != 'liveAllowed' &&
-                (notificationsOff || status?[statusKey] == false)
-          ? t.notificationOff
-          : detail;
+          : null;
+      final categoryOff = !notificationsOff && status?[statusKey] == false;
       return ListTile(
         contentPadding: EdgeInsets.symmetric(horizontal: largeText ? 12 : 16),
         minTileHeight: 52,
         leading: largeText ? null : Icon(icon, size: 20),
-        title: Text(title),
+        title: SettingsRowTitle(
+          title,
+          value: categoryOff ? Text(t.notificationOff) : null,
+        ),
         subtitle: subtitle == null ? null : Text(subtitle),
-        trailing: enabled && !largeText
+        trailing: !largeText
             ? const Icon(Icons.chevron_right_rounded, size: 20)
             : null,
-        onTap: enabled ? () => _open(section) : null,
+        onTap: () => _open(section),
       );
     }
 
@@ -111,14 +111,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       endIndent: 20,
       color: colors.outlineVariant.withValues(alpha: .45),
     );
-    final liveSupported = status?['liveSupported'] == true;
-    final liveText = status == null
-        ? t.checking
-        : !liveSupported
-        ? t.notificationLiveUnsupported
-        : status?['liveAllowed'] == true
-        ? t.notificationLiveAllowed
-        : t.notificationLiveDisabled;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -182,20 +174,20 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Material(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: row(
-                    Icons.dynamic_feed_outlined,
-                    t.notificationLive,
-                    'notification_live',
-                    detail: liveText,
-                    statusKey: 'liveAllowed',
-                    enabled: liveSupported,
+                if (status?['liveSupported'] == true) ...[
+                  const SizedBox(height: 12),
+                  Material(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: row(
+                      Icons.dynamic_feed_outlined,
+                      t.notificationLive,
+                      'notification_live',
+                      statusKey: 'liveAllowed',
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
