@@ -1899,6 +1899,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final colors = Theme.of(context).colorScheme;
     return Tooltip(
       message: label,
+      excludeFromSemantics: true,
       child: Semantics(
         label: label,
         child: Icon(
@@ -2047,16 +2048,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       key: ValueKey('send-recipient-$peer'),
                       leading: largeText ? null : Icon(_deviceIcon(peer)),
                       title: Text(t.sendToDevice(peerState.displayName(peer))),
-                      subtitle: Text(switch (peerState.distinguishingCode(
-                        peer,
-                      )) {
-                        final code? =>
-                          '${t.deviceCodeShort(code)}\n${_presenceLabel(peer)}',
-                        null => _presenceLabel(peer),
-                      }),
-                      trailing: largeText
-                          ? null
-                          : const Icon(Icons.send_rounded),
+                      subtitle: switch (peerState.distinguishingCode(peer)) {
+                        final code? => Text(t.deviceCodeShort(code)),
+                        null => null,
+                      },
+                      trailing: _presenceIcon(peer),
                       onTap: () => Navigator.pop(context, peer),
                     ),
                 ],
@@ -2108,11 +2104,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       selection = await showDialog<({String peer, String text})>(
         context: context,
         builder: (_) => _TextComposeDialog(
-          devices: {
-            for (final id in peers.keys)
-              id: (name: _sendDeviceName(id), status: _presenceLabel(id)),
-          },
+          devices: {for (final id in peers.keys) id: _sendDeviceName(id)},
           isPaired: (id) => peers.containsKey(id),
+          presence: _presenceIcon,
         ),
       );
     } finally {
@@ -4019,7 +4013,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       overflow: largeText ? null : TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: Text(_presenceLabel(id)),
                     trailing: selectingPeers
                         ? Semantics(
                             label: peerState.displayName(id),
@@ -4030,17 +4023,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   : (_) => _togglePeerSelection(id),
                             ),
                           )
-                        : largeText
-                        ? null
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              ExcludeSemantics(child: _presenceIcon(id)),
-                              const SizedBox(width: 14),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                color: colors.onSurfaceVariant,
-                              ),
+                              _presenceIcon(id),
+                              if (!largeText) ...[
+                                const SizedBox(width: 14),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ],
                             ],
                           ),
                     onLongPress: _deviceActionsBlocked
@@ -4643,10 +4636,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 }
 
 class _TextComposeDialog extends StatefulWidget {
-  const _TextComposeDialog({required this.devices, required this.isPaired});
+  const _TextComposeDialog({
+    required this.devices,
+    required this.isPaired,
+    required this.presence,
+  });
 
-  final Map<String, ({String name, String status})> devices;
+  final Map<String, String> devices;
   final bool Function(String) isPaired;
+  final Widget Function(String) presence;
 
   @override
   State<_TextComposeDialog> createState() => _TextComposeDialogState();
@@ -4711,7 +4709,7 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
                   for (final device in widget.devices.values)
                     Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: Text(device.name, overflow: TextOverflow.ellipsis),
+                      child: Text(device, overflow: TextOverflow.ellipsis),
                     ),
                 ],
                 items: [
@@ -4720,8 +4718,12 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
                       value: entry.key,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          '${entry.value.name} · ${entry.value.status}',
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(entry.value)),
+                            const SizedBox(width: 8),
+                            widget.presence(entry.key),
+                          ],
                         ),
                       ),
                     ),
@@ -4760,7 +4762,7 @@ class _TextComposeDialogState extends State<_TextComposeDialog> {
           child: Text(
             target == null
                 ? t.sendAction
-                : t.sendToDevice(widget.devices[target]!.name),
+                : t.sendToDevice(widget.devices[target]!),
           ),
         ),
       ],
