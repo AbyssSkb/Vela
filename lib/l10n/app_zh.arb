@@ -22,7 +22,7 @@
   "remove": "移除",
   "rename": "重命名",
   "deviceDetails": "设备详情",
-  "renameDevice": "本机别名",
+  "renameDevice": "重命名设备",
   "useDeviceName": "恢复设备名称",
   "deviceNameRequired": "请输入设备名称",
   "nameTooLong": "设备名称过长",

@@ -76,7 +76,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceDetails => '设备详情';
 
   @override
-  String get renameDevice => '本机别名';
+  String get renameDevice => '重命名设备';
 
   @override
   String get useDeviceName => '恢复设备名称';

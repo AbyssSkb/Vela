@@ -2502,7 +2502,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
                   title: Text(t.renameDevice),
-                  subtitle: Text(t.deviceAliasHint),
                   onTap: () => Navigator.pop(context, 'rename'),
                 ),
                 if (peers[id] case final original?

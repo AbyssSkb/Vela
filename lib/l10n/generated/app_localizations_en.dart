@@ -77,7 +77,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceDetails => 'Device details';
 
   @override
-  String get renameDevice => 'Local alias';
+  String get renameDevice => 'Rename device';
 
   @override
   String get useDeviceName => 'Restore device name';
