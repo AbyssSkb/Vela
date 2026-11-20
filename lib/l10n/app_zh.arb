@@ -55,6 +55,13 @@
       "name": { "type": "String" }
     }
   },
+  "sendInsteadToDevice": "改发给 {name}",
+  "@sendInsteadToDevice": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "changeSendDevice": "更换设备",
   "connectDevices": "连接你的设备",
   "emptyDevices": "在两台设备上打开 Vela。一台选择「出示设备码」，另一台选择「添加设备」。",
   "showMyCode": "出示设备码",
@@ -134,6 +141,7 @@
     }
   },
   "sendDeviceChanged": "配对已变更，请重新选择设备。",
+  "originalSendDeviceUnavailable": "原设备已不可用。",
   "reviewSendContent": "查看待发送内容",
   "preparingSendContent": "正在准备内容…",
   "discardSend": "放弃发送",
@@ -350,9 +358,7 @@
     }
   },
   "viewHistory": "查看记录",
-  "dropFilesHere": "放开以准备发送文件",
   "dropFilesOnly": "暂不支持拖入文件夹",
-  "dropAlreadyPending": "请先处理已选择的内容",
   "tooManyFiles": "一次最多发送 100 个文件",
   "backgroundReceiving": "后台接收",
   "localBackgroundReceiving": "本机后台接收",
@@ -509,7 +515,7 @@
   "desktopTray": "系统托盘",
   "graphPairedDevicesHint": "连线表示已配对。切换到列表可查看连接状态。",
   "deviceRecheckHint": "请在另一台设备上打开 Vela，再检查连接状态。",
-  "addDeviceToContinueSending": "添加设备后即可继续发送这份内容。",
+  "addDeviceAndContinue": "添加设备并继续",
   "sendAction": "发送",
   "sendDeviceSelectAgain": "此设备已解除配对。请选择另一台设备。",
   "waitingForRecipient": "正在等待 {name} 响应",

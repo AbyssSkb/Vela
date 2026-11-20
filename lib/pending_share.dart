@@ -30,8 +30,7 @@ class PendingShare {
 
   String? quickSendRecipient(Iterable<String> pairedPeers) {
     final peer = preferredPeer;
-    if (peer == null) return pairedPeers.singleOrNull;
-    return pairedPeers.contains(peer) ? peer : null;
+    return pairedPeers.contains(peer) ? peer : pairedPeers.singleOrNull;
   }
 
   factory PendingShare.fromMap(Map<dynamic, dynamic> value) {

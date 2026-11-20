@@ -130,6 +130,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String sendInsteadToDevice(String name) {
+    return '改发给 $name';
+  }
+
+  @override
+  String get changeSendDevice => '更换设备';
+
+  @override
   String get connectDevices => '连接你的设备';
 
   @override
@@ -295,6 +303,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sendDeviceChanged => '配对已变更，请重新选择设备。';
+
+  @override
+  String get originalSendDeviceUnavailable => '原设备已不可用。';
 
   @override
   String get reviewSendContent => '查看待发送内容';
@@ -641,13 +652,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get viewHistory => '查看记录';
 
   @override
-  String get dropFilesHere => '放开以准备发送文件';
-
-  @override
   String get dropFilesOnly => '暂不支持拖入文件夹';
-
-  @override
-  String get dropAlreadyPending => '请先处理已选择的内容';
 
   @override
   String get tooManyFiles => '一次最多发送 100 个文件';
@@ -1120,7 +1125,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceRecheckHint => '请在另一台设备上打开 Vela，再检查连接状态。';
 
   @override
-  String get addDeviceToContinueSending => '添加设备后即可继续发送这份内容。';
+  String get addDeviceAndContinue => '添加设备并继续';
 
   @override
   String get sendAction => '发送';

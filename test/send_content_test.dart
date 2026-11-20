@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -546,16 +547,9 @@ void main() {
         await waitForHome(tester, () => peer.evaluate().isEmpty);
         final reselect = find.byKey(const ValueKey('choose-retry-device'));
         expect(retry, findsNothing);
+        expect(find.text('Send to Laptop instead'), findsOneWidget);
+        expect(node.sentPeer, isNull);
         await tester.tap(reselect);
-        final laptop = find.text('Send to Laptop');
-        await finishTransition(tester);
-        expect(find.text('Ready to send: Report.txt'), findsOneWidget);
-        await tester.binding.handlePopRoute();
-        await finishTransition(tester);
-        expect(reselect.hitTestable(), findsOneWidget);
-        await tester.tap(reselect);
-        await finishTransition(tester);
-        await tester.tap(laptop);
         await waitForHome(
           tester,
           () => find.text('Sent to Laptop').evaluate().isNotEmpty,
@@ -566,6 +560,123 @@ void main() {
       },
     );
   });
+
+  testWidgets(
+    'a system share waits for the open chooser and loads names later',
+    (tester) async {
+      final node = RecordingNode();
+      await withHomeTestEnvironment(
+        tester,
+        devices: devices,
+        api: fakes.FakeRustApi(node),
+        run: (directory) async {
+          final file = File('${directory.path}/Report.txt')
+            ..writeAsStringSync('Report');
+          final picker = FilePickerPlatform.instance;
+          FilePickerPlatform.instance = FilesPicker([file.path]);
+          addTearDown(() => FilePickerPlatform.instance = picker);
+          await openHome(tester);
+          await tester.tap(find.byKey(const ValueKey('send-file')));
+          await finishTransition(tester);
+          final messenger = tester.binding.defaultBinaryMessenger;
+          final names = Completer<List<String>>();
+          const filesChannel = MethodChannel('vela/files');
+          const shareChannel = MethodChannel('vela/share');
+          messenger.setMockMethodCallHandler(filesChannel, (_) => names.future);
+          addTearDown(
+            () => messenger.setMockMethodCallHandler(filesChannel, null),
+          );
+          messenger.setMockMethodCallHandler(shareChannel, (call) async {
+            if (call.method != 'take') return null;
+            return {
+              'uris': ['content://test/second'],
+            };
+          });
+          unawaited(
+            messenger.handlePlatformMessage(
+              shareChannel.name,
+              const StandardMethodCodec().encodeMethodCall(
+                const MethodCall('available'),
+              ),
+              (_) {},
+            ),
+          );
+          await finishTransition(tester);
+          expect(find.text('Ready to send: Report.txt'), findsOneWidget);
+          expect(node.attemptedPath, isNull);
+          await tester.binding.handlePopRoute();
+          await finishTransition(tester);
+          await finishTransition(tester);
+          expect(
+            find.text('Ready to send: 1 file').hitTestable(),
+            findsOneWidget,
+          );
+          expect(find.text('Send to Laptop').hitTestable(), findsOneWidget);
+          names.complete(['Screenshot.jpg']);
+          await tester.pump();
+          expect(
+            find.text('Ready to send: Screenshot.jpg').hitTestable(),
+            findsOneWidget,
+          );
+          expect(node.attemptedPath, isNull);
+        },
+      );
+    },
+    skip: !(Platform.isMacOS || Platform.isAndroid),
+  );
+
+  testWidgets(
+    'a device drop keeps its target and a later drop keeps its file',
+    (tester) async {
+      final node = RecordingNode();
+      await withHomeTestEnvironment(
+        tester,
+        devices: devices,
+        api: fakes.FakeRustApi(node),
+        run: (directory) async {
+          await openHome(tester);
+          await finishTransition(tester);
+          final target = tester.widget<DropTarget>(find.byType(DropTarget));
+          final phone = find.byKey(const ValueKey('peer-${fakes.peerId}'));
+          final position = tester.getCenter(phone);
+          final first = File('${directory.path}/First.txt')
+            ..writeAsStringSync('First');
+          final second = File('${directory.path}/Second.txt')
+            ..writeAsStringSync('Second');
+          for (final (file, at) in [
+            (first, position),
+            (second, const Offset(5, 5)),
+          ]) {
+            target.onDragDone!(
+              DropDoneDetails(
+                files: [DropItemFile(file.path)],
+                localPosition: at,
+                globalPosition: at,
+              ),
+            );
+          }
+          final button = find.widgetWithText(FilledButton, 'Send to Phone');
+          await waitForHome(tester, () => button.evaluate().isNotEmpty);
+          expect(find.text('Ready to send: First.txt'), findsOneWidget);
+          await tester.tap(button);
+          await waitForHome(tester, () => node.sentText == 'First');
+          await finishTransition(tester);
+          await waitForHome(
+            tester,
+            () => find
+                .text('Ready to send: Second.txt')
+                .hitTestable()
+                .evaluate()
+                .isNotEmpty,
+          );
+          expect(node.sentPeer, fakes.peerId);
+          expect(first.existsSync(), isTrue);
+          expect(second.existsSync(), isTrue);
+        },
+      );
+    },
+    skip: !(Platform.isMacOS || Platform.isWindows || Platform.isLinux),
+  );
 
   testWidgets('sending a folder deletes the temporary archive after success', (
     tester,
