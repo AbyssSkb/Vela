@@ -309,7 +309,7 @@ void main() {
           await finishTransition(tester);
           expect(find.byType(AlertDialog), findsNothing);
           expect(find.text('Choose a device'), findsOneWidget);
-          expect(find.text('Hello from Vela'), findsOneWidget);
+          expect(find.text('Hello from Vela'), findsNothing);
           expect(node.attemptedPath, isNull);
           await choosePhone(tester);
           await waitForSend(tester);

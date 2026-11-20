@@ -292,12 +292,6 @@
       }
     }
   },
-  "receivedSavedTo": "已保存至 {folder}",
-  "@receivedSavedTo": {
-    "placeholders": {
-      "folder": { "type": "String" }
-    }
-  },
   "openFile": "打开文件",
   "openReceiveFolder": "打开接收文件夹",
   "showInFolder": "打开所在文件夹",
@@ -358,11 +352,9 @@
   "tooManyFiles": "一次最多发送 100 个文件",
   "backgroundReceiving": "后台接收",
   "enableBackgroundReceiving": "允许后台接收",
-  "notificationBackgroundBlocked": "通知已关闭，接收需打开 Vela。",
-  "notificationAutoAcceptMuted": "通知已关闭，仍可自动接收。",
-  "notificationAutoAcceptStopped": "通知已关闭，请检查后台接收。",
   "notificationSettings": "通知",
   "notificationSystemSettings": "系统通知设置",
+  "notificationOn": "已开启",
   "notificationOff": "已关闭",
   "notificationRequests": "接收请求通知",
   "notificationProgress": "传输进度",

@@ -225,14 +225,19 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                     NotificationCompat.Builder(context, NotificationChannels.RESULTS)
                         .setSmallIcon(R.drawable.ic_stat_vela)
                         .setColor(Color.rgb(91, 91, 198))
-                        .setContentTitle(call.argument<String>("title") ?: "Vela")
-                        .setContentText(if (completed) null else message)
-                        .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                        .setContentTitle(
+                            if (completed && message.isNotBlank()) message
+                            else call.argument<String>("title") ?: "Vela",
+                        )
                         .setContentIntent(pending)
                         .setShowWhen(false)
                         .setAutoCancel(true)
                         .setOnlyAlertOnce(true)
                         .setTimeoutAfter(if (completed) COMPLETION_TIMEOUT_MS else 0L)
+                if (!completed)
+                    builder
+                        .setContentText(message)
+                        .setStyle(NotificationCompat.BigTextStyle().bigText(message))
                 if (batchId != null) {
                     builder.addAction(0, call.argument<String>("open") ?: "View batch", pending)
                 }

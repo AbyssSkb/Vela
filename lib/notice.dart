@@ -9,9 +9,12 @@ const _noticeShape = RoundedRectangleBorder(
 );
 const _noticeHorizontalPadding = EdgeInsets.symmetric(horizontal: 16);
 
-EdgeInsets _noticeVerticalPadding(double bottomInset) => bottomInset > 0
-    ? EdgeInsets.only(top: bottomInset)
-    : const EdgeInsets.symmetric(vertical: 12);
+EdgeInsets _noticeVerticalPadding(BuildContext context) {
+  final bottomInset = MediaQuery.paddingOf(context).bottom;
+  if (bottomInset == 0) return const EdgeInsets.symmetric(vertical: 12);
+  final landscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+  return EdgeInsets.only(top: landscape && bottomInset > 12 ? 12 : bottomInset);
+}
 
 class ActivityNotice extends StatelessWidget {
   const ActivityNotice({super.key, required this.child, this.error = false});
@@ -24,9 +27,7 @@ class ActivityNotice extends StatelessWidget {
     final foreground = error
         ? colors.onErrorContainer
         : colors.onSecondaryContainer;
-    final verticalPadding = _noticeVerticalPadding(
-      MediaQuery.paddingOf(context).bottom,
-    );
+    final verticalPadding = _noticeVerticalPadding(context);
     return Material(
       key: const ValueKey('activity-notice'),
       color: error ? colors.errorContainer : colors.secondaryContainer,
@@ -81,39 +82,53 @@ class NoticePrompt extends StatelessWidget {
     required this.title,
     this.content,
     required this.actions,
+    this.inlineActions = false,
   });
 
   final String title;
   final Widget? content;
   final List<Widget> actions;
+  final bool inlineActions;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Flexible(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (content != null) content!,
-            ],
+  Widget build(BuildContext context) {
+    final details = SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            liveRegion: true,
+            child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
           ),
-        ),
+          if (content != null) content!,
+        ],
       ),
-      OverflowBar(alignment: MainAxisAlignment.end, children: actions),
-    ],
-  );
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (inlineActions &&
+            constraints.maxWidth >= 280 &&
+            MediaQuery.textScalerOf(context).scale(1) <= 1.3) {
+          return Row(
+            children: [
+              Expanded(child: details),
+              const SizedBox(width: 8),
+              ...actions,
+            ],
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(child: details),
+            OverflowBar(alignment: MainAxisAlignment.end, children: actions),
+          ],
+        );
+      },
+    );
+  }
 }
 
 ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
@@ -265,9 +280,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
             view: View.of(context),
             child: Builder(
               builder: (context) => Padding(
-                padding: _noticeVerticalPadding(
-                  MediaQuery.paddingOf(context).bottom,
-                ),
+                padding: _noticeVerticalPadding(context),
                 child: content,
               ),
             ),

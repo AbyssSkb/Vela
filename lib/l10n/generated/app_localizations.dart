@@ -1034,12 +1034,6 @@ abstract class AppLocalizations {
   /// **'Show fewer files'**
   String get showFewerOfferedFiles;
 
-  /// No description provided for @receivedSavedTo.
-  ///
-  /// In en, this message translates to:
-  /// **'Saved to {folder}'**
-  String receivedSavedTo(String folder);
-
   /// No description provided for @openFile.
   ///
   /// In en, this message translates to:
@@ -1274,24 +1268,6 @@ abstract class AppLocalizations {
   /// **'Allow background receiving'**
   String get enableBackgroundReceiving;
 
-  /// No description provided for @notificationBackgroundBlocked.
-  ///
-  /// In en, this message translates to:
-  /// **'Notifications off. Open Vela to accept requests.'**
-  String get notificationBackgroundBlocked;
-
-  /// No description provided for @notificationAutoAcceptMuted.
-  ///
-  /// In en, this message translates to:
-  /// **'Notifications off. Auto-accept still works.'**
-  String get notificationAutoAcceptMuted;
-
-  /// No description provided for @notificationAutoAcceptStopped.
-  ///
-  /// In en, this message translates to:
-  /// **'Notifications off. Check background receiving.'**
-  String get notificationAutoAcceptStopped;
-
   /// No description provided for @notificationSettings.
   ///
   /// In en, this message translates to:
@@ -1303,6 +1279,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'System notification settings'**
   String get notificationSystemSettings;
+
+  /// No description provided for @notificationOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get notificationOn;
 
   /// No description provided for @notificationOff.
   ///

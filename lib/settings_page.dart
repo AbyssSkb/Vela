@@ -207,7 +207,7 @@ class _SettingsPageState extends State<SettingsPage>
       await Navigator.push(
         context,
         MaterialPageRoute<void>(
-          builder: (_) => NotificationSettingsPage(autoAccept: autoAccept),
+          builder: (_) => const NotificationSettingsPage(),
         ),
       );
     }
@@ -419,12 +419,13 @@ class _SettingsPageState extends State<SettingsPage>
                 Icons.notifications_outlined,
                 t.notificationSettings,
                 _showNotificationSettings,
-                value:
-                    backgroundStatus['allNotifications'] == false ||
-                        (background == BackgroundReceiving.macKeepAwake &&
-                            backgroundStatus['notifications'] == false)
-                    ? t.notificationOff
-                    : null,
+                value: switch (background == BackgroundReceiving.macKeepAwake
+                    ? backgroundStatus['notifications']
+                    : backgroundStatus['allNotifications']) {
+                  true => t.notificationOn,
+                  false => t.notificationOff,
+                  _ => null,
+                },
               ),
             ],
           ]),

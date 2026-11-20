@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('notification permission impact has room at large text sizes', (
+  testWidgets('blocked notifications show a status at large text sizes', (
     tester,
   ) async {
     const channel = MethodChannel('vela/background');
@@ -32,42 +32,38 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final explanation = find.textContaining('Open Vela to accept requests');
-    expect(explanation, findsOneWidget);
-    expect(tester.getSize(explanation).width, greaterThan(240));
+    expect(find.text('Off'), findsNWidgets(4));
+    expect(find.text('On'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('muted notification copy respects active automatic receiving', (
+  testWidgets('notification statuses refresh when returning from settings', (
     tester,
   ) async {
     const channel = MethodChannel('vela/background');
     final messenger = tester.binding.defaultBinaryMessenger;
-    var running = true;
+    var enabled = false;
     messenger.setMockMethodCallHandler(
       channel,
-      (_) async => {
-        'allNotifications': false,
-        'running': running,
-        'nodeReady': running,
-      },
+      (_) async => {'allNotifications': enabled, 'requestNotifications': true},
     );
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-    const page = MaterialApp(
-      locale: Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: NotificationSettingsPage(autoAccept: true),
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: NotificationSettingsPage(),
+      ),
     );
-    await tester.pumpWidget(page);
     await tester.pumpAndSettle();
-    expect(find.textContaining('Auto-accept still works.'), findsOneWidget);
-    expect(find.textContaining('Open Vela to accept requests'), findsNothing);
-    running = false;
+    expect(find.text('Off'), findsNWidgets(4));
+    enabled = true;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.textContaining('Check background receiving.'), findsOneWidget);
+    expect(find.text('On'), findsNWidgets(2));
+    expect(find.text('Off'), findsNothing);
   });
 
   testWidgets(

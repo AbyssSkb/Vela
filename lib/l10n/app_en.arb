@@ -302,12 +302,6 @@
       }
     }
   },
-  "receivedSavedTo": "Saved to {folder}",
-  "@receivedSavedTo": {
-    "placeholders": {
-      "folder": { "type": "String" }
-    }
-  },
   "openFile": "Open file",
   "openReceiveFolder": "Open receive folder",
   "showInFolder": "Open containing folder",
@@ -368,11 +362,9 @@
   "tooManyFiles": "You can send up to 100 files at once",
   "backgroundReceiving": "Background receiving",
   "enableBackgroundReceiving": "Allow background receiving",
-  "notificationBackgroundBlocked": "Notifications off. Open Vela to accept requests.",
-  "notificationAutoAcceptMuted": "Notifications off. Auto-accept still works.",
-  "notificationAutoAcceptStopped": "Notifications off. Check background receiving.",
   "notificationSettings": "Notifications",
   "notificationSystemSettings": "System notification settings",
+  "notificationOn": "On",
   "notificationOff": "Off",
   "notificationRequests": "Incoming request notifications",
   "notificationProgress": "Transfer progress",

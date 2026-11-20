@@ -2,6 +2,7 @@ import 'package:vela/background_settings.dart';
 import 'package:vela/desktop_platform.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/settings_page.dart';
+import 'package:vela/settings_row_title.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +29,25 @@ class FailingFirstWriteStore extends InMemorySharedPreferencesStore {
 void main() {
   const channel = MethodChannel('vela/background');
 
+  testWidgets('a short setting label leaves room for the full device name', (
+    tester,
+  ) async {
+    const name = 'sdk_gphone64_arm64';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 450,
+              child: SettingsRowTitle('Device name', value: Text(name)),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.getSize(find.text(name)).width, greaterThan(450 * .46));
+  });
   test(
     'background receiving defaults on and honors a saved off choice',
     () async {
