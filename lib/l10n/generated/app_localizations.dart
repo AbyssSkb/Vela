@@ -1313,7 +1313,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationOff.
   ///
   /// In en, this message translates to:
-  /// **'Off in system settings'**
+  /// **'Off'**
   String get notificationOff;
 
   /// No description provided for @notificationRequests.
@@ -1487,7 +1487,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundBatteryOptimized.
   ///
   /// In en, this message translates to:
-  /// **'Optimized'**
+  /// **'Not exempt'**
   String get backgroundBatteryOptimized;
 
   /// No description provided for @backgroundRestricted.

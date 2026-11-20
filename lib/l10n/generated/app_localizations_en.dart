@@ -723,7 +723,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSystemSettings => 'System notification settings';
 
   @override
-  String get notificationOff => 'Off in system settings';
+  String get notificationOff => 'Off';
 
   @override
   String get notificationRequests => 'Incoming requests';
@@ -812,7 +812,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundBatteryRestricted => 'Restricted';
 
   @override
-  String get backgroundBatteryOptimized => 'Optimized';
+  String get backgroundBatteryOptimized => 'Not exempt';
 
   @override
   String get backgroundRestricted => 'System background restrictions';

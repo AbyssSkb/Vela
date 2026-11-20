@@ -670,7 +670,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationSystemSettings => '系统通知设置';
 
   @override
-  String get notificationOff => '已在系统设置中关闭';
+  String get notificationOff => '已关闭';
 
   @override
   String get notificationRequests => '接收请求';
@@ -757,7 +757,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundBatteryRestricted => '受限';
 
   @override
-  String get backgroundBatteryOptimized => '已优化';
+  String get backgroundBatteryOptimized => '未豁免';
 
   @override
   String get backgroundRestricted => '系统后台限制';

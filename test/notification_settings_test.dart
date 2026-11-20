@@ -116,13 +116,10 @@ void main() {
             .subtitle,
         isNull,
       );
-      expect(find.text('Off in system settings'), findsNWidgets(2));
+      expect(find.text('Off'), findsNWidgets(2));
       final results = find.widgetWithText(ListTile, 'Transfer results');
       expect(
-        find.descendant(
-          of: results,
-          matching: find.text('Off in system settings'),
-        ),
+        find.descendant(of: results, matching: find.text('Off')),
         findsOneWidget,
       );
       await tester.tap(find.text('Incoming requests'));

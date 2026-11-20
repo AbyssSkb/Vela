@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'settings_row_title.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key, this.autoAccept = false});
@@ -86,14 +87,16 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                 : widget.autoAccept
                 ? t.notificationAutoAcceptStopped
                 : t.notificationBackgroundBlocked
-          : !notificationsOff && status?[statusKey] == false
-          ? t.notificationOff
           : null;
+      final categoryOff = !notificationsOff && status?[statusKey] == false;
       return ListTile(
         contentPadding: EdgeInsets.symmetric(horizontal: largeText ? 12 : 16),
         minTileHeight: 52,
         leading: largeText ? null : Icon(icon, size: 20),
-        title: Text(title),
+        title: SettingsRowTitle(
+          title,
+          value: categoryOff ? Text(t.notificationOff) : null,
+        ),
         subtitle: subtitle == null ? null : Text(subtitle),
         trailing: !largeText
             ? const Icon(Icons.chevron_right_rounded, size: 20)
