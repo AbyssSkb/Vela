@@ -117,6 +117,7 @@ class _SettingsPageState extends State<SettingsPage>
   BackgroundReceiving? get background =>
       BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase());
   bool? backgroundEnabled;
+  bool changingDesktopSetting = false;
   Map<Object?, Object?> backgroundStatus = {};
 
   @override
@@ -189,29 +190,60 @@ class _SettingsPageState extends State<SettingsPage>
     if (mounted) await _refreshBackground();
   }
 
-  Future<void> _showNotificationSettings() async {
-    if (background == BackgroundReceiving.macKeepAwake) {
-      try {
-        await BackgroundReceiving.channel.invokeMethod<void>('settings', {
-          'section': 'notification_requests',
-        });
-      } catch (_) {
-        if (mounted) {
-          showNotice(
-            context,
-            AppLocalizations.of(context)!.backgroundSettingsOpenFailed,
-            kind: NoticeKind.error,
-          );
-        }
+  Future<void> _openSystemSettings(String section) async {
+    try {
+      await BackgroundReceiving.channel.invokeMethod<void>('settings', {
+        'section': section,
+      });
+    } catch (_) {
+      if (mounted) {
+        showNotice(
+          context,
+          AppLocalizations.of(context)!.backgroundSettingsOpenFailed,
+          kind: NoticeKind.error,
+        );
       }
-    } else {
-      await Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => const NotificationSettingsPage(),
-        ),
-      );
     }
+  }
+
+  Future<void> _changeDesktopSetting(
+    Future<void> Function() change, {
+    required String errorMessage,
+  }) async {
+    setState(() => changingDesktopSetting = true);
+    try {
+      await change();
+    } catch (_) {
+      if (mounted) showNotice(context, errorMessage, kind: NoticeKind.error);
+    } finally {
+      if (mounted) await _refreshBackground();
+      if (mounted) setState(() => changingDesktopSetting = false);
+    }
+  }
+
+  Future<void> _toggleLogin(bool enabled) {
+    final t = AppLocalizations.of(context)!;
+    return _changeDesktopSetting(() async {
+      final state = await BackgroundReceiving.channel.invokeMethod<String>(
+        'setLaunchAtLogin',
+        enabled,
+      );
+      if (mounted && enabled && state == 'requiresApproval') {
+        showNotice(
+          context,
+          t.backgroundLoginApproval,
+          actionLabel: t.backgroundOpenLoginSettings,
+          onAction: () => _openSystemSettings('login'),
+        );
+      }
+    }, errorMessage: t.backgroundLoginFailed);
+  }
+
+  Future<void> _showNotificationSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const NotificationSettingsPage()),
+    );
     if (mounted) await _refreshBackground();
   }
 
@@ -327,6 +359,7 @@ class _SettingsPageState extends State<SettingsPage>
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final background = this.background;
+    final isMac = background == BackgroundReceiving.macKeepAwake;
     final languages = {
       'system': t.systemDefault,
       'zh': t.simplifiedChinese,
@@ -359,7 +392,7 @@ class _SettingsPageState extends State<SettingsPage>
       IconData icon,
       String title,
       bool value,
-      ValueChanged<bool> onChanged,
+      ValueChanged<bool>? onChanged,
     ) => SwitchListTile(
       secondary: Icon(icon, size: 20),
       title: Text(title),
@@ -413,16 +446,40 @@ class _SettingsPageState extends State<SettingsPage>
               () => _choose('appearance', appearance, appearances),
               value: appearances[appearance] ?? t.systemDefault,
             ),
-            if (background == BackgroundReceiving.androidService ||
-                background == BackgroundReceiving.macKeepAwake) ...[
+            if (backgroundStatus['loginSupported'] == true) ...[
+              divider(),
+              switchRow(
+                Icons.login_rounded,
+                t.backgroundLogin,
+                backgroundStatus['loginStatus'] == 'enabled' ||
+                    backgroundStatus['loginStatus'] == 'requiresApproval',
+                changingDesktopSetting ? null : _toggleLogin,
+              ),
+            ],
+            if (isMac) ...[
+              divider(),
+              switchRow(
+                Icons.notifications_outlined,
+                t.notificationSettings,
+                backgroundStatus['notifications'] == true,
+                changingDesktopSetting ||
+                        backgroundStatus['notifications'] == null
+                    ? null
+                    : (enabled) => _changeDesktopSetting(
+                        () => BackgroundReceiving.channel.invokeMethod<void>(
+                          'setRequestNotifications',
+                          enabled,
+                        ),
+                        errorMessage: t.backgroundSettingsOpenFailed,
+                      ),
+              ),
+            ] else if (background == BackgroundReceiving.androidService) ...[
               divider(),
               row(
                 Icons.notifications_outlined,
                 t.notificationSettings,
                 _showNotificationSettings,
-                value: switch (background == BackgroundReceiving.macKeepAwake
-                    ? backgroundStatus['notifications']
-                    : backgroundStatus['allNotifications']) {
+                value: switch (backgroundStatus['allNotifications']) {
                   true => t.notificationOn,
                   false => t.notificationOff,
                   _ => null,
@@ -432,16 +489,33 @@ class _SettingsPageState extends State<SettingsPage>
           ]),
           section(t.settingsReceiving, [
             if (background != null) ...[
-              row(
-                Icons.notifications_active_outlined,
-                t.backgroundReceiving,
-                _showBackgroundSettings,
-                value: background.statusText(
-                  t,
-                  backgroundEnabled,
-                  backgroundStatus,
+              if (background == BackgroundReceiving.androidService)
+                row(
+                  Icons.notifications_active_outlined,
+                  t.backgroundReceiving,
+                  _showBackgroundSettings,
+                  value: background.statusText(
+                    t,
+                    backgroundEnabled,
+                    backgroundStatus,
+                  ),
+                )
+              else
+                switchRow(
+                  Icons.notifications_active_outlined,
+                  t.backgroundReceiving,
+                  backgroundEnabled ?? background.defaultEnabled,
+                  changingDesktopSetting || backgroundEnabled == null
+                      ? null
+                      : (enabled) => _changeDesktopSetting(
+                          () => background.setPreferenceEnabled(
+                            widget.profile,
+                            enabled,
+                            onChanged: widget.backgroundChanged,
+                          ),
+                          errorMessage: t.backgroundUnavailable,
+                        ),
                 ),
-              ),
               divider(),
             ],
             if (Platform.isAndroid ||

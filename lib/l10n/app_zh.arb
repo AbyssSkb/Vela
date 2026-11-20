@@ -444,7 +444,6 @@
   "backgroundUnknown": "未知",
   "backgroundLowPowerStandbyRestricted": "低功耗待机会限制锁屏时的网络连接",
   "backgroundAutoStart": "自启动设置",
-  "macKeepAwake": "防止空闲睡眠",
   "backgroundLogin": "登录时启动",
   "backgroundLoginApproval": "请在系统设置中允许登录启动",
   "backgroundOpenLoginSettings": "打开登录项设置",

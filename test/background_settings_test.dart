@@ -133,13 +133,15 @@ void main() {
     const storage = MethodChannel('vela/storage');
     final messenger = tester.binding.defaultBinaryMessenger;
     var chosen = false;
-    String? opened;
+    var notificationsEnabled = false;
     messenger.setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'settings') {
-        opened = (call.arguments as Map)['section'] as String;
+      if (call.method == 'setRequestNotifications') {
+        notificationsEnabled = call.arguments as bool;
         return null;
       }
-      return {'active': true, 'notifications': opened != null};
+      if (call.method == 'settings')
+        fail('The switch should update Vela directly');
+      return {'active': true, 'notifications': notificationsEnabled};
     });
     messenger.setMockMethodCallHandler(storage, (call) async {
       if (call.method == 'choose') {
@@ -177,17 +179,15 @@ void main() {
       tester.getCenter(find.text('Language')).dy,
       tester.getCenter(find.text('English')).dy,
     );
-    final notifications = find.widgetWithText(ListTile, 'Notifications');
+    final notifications = find.widgetWithText(SwitchListTile, 'Notifications');
     await tester.ensureVisible(notifications);
-    final status = find.descendant(
-      of: notifications,
-      matching: find.text('Off'),
-    );
-    expect(status, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(notifications).value, isFalse);
     await tester.tap(notifications);
     await tester.pumpAndSettle();
-    expect(opened, 'notification_requests');
-    expect(status, findsNothing);
+    expect(tester.widget<SwitchListTile>(notifications).value, isTrue);
+    await tester.tap(notifications);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(notifications).value, isFalse);
     final autoAccept = find.widgetWithText(SwitchListTile, 'Auto accept');
     expect(tester.widget<SwitchListTile>(autoAccept).subtitle, isNull);
     expect(
@@ -320,6 +320,32 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> showDesktopSettings(
+    WidgetTester tester,
+    Future<void> Function() onChanged,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SettingsPage(
+          profile: 'test',
+          language: 'en',
+          appearance: 'light',
+          deviceName: 'Computer',
+          systemDeviceName: 'Computer',
+          changeSetting: (_, _) async {},
+          rename: (_) async {},
+          relaySettings: () async {},
+          diagnostics: () async {},
+          backgroundChanged: onChanged,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   for (final (state, label, section) in [
     ('battery', 'Battery optimization', 'battery_exemption'),
     ('restricted', 'Battery optimization', 'battery'),
@@ -388,12 +414,14 @@ void main() {
         );
       });
       var changed = false;
-      await showPage(tester, () async => changed = true);
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile).first).value,
-        isTrue,
+      await showDesktopSettings(tester, () async => changed = true);
+      final receive = find.widgetWithText(
+        SwitchListTile,
+        'Background receiving',
       );
-      await tester.tap(find.byType(SwitchListTile).first);
+      await tester.ensureVisible(receive);
+      expect(tester.widget<SwitchListTile>(receive).value, isTrue);
+      await tester.tap(receive);
       await tester.pumpAndSettle();
       expect(changed, isTrue);
       expect(
@@ -403,7 +431,9 @@ void main() {
         isFalse,
       );
       expect(calls, contains('setDesktopBackground'));
-      await tester.tap(find.byType(SwitchListTile).last);
+      final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
+      await tester.ensureVisible(loginSwitch);
+      await tester.tap(loginSwitch);
       await tester.pumpAndSettle();
       expect(login, isTrue);
       expect(calls, isNot(contains('start')));
@@ -698,81 +728,90 @@ void main() {
       },
     );
   }
-  testWidgets('Mac keep-awake and login states follow native results', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({'mac_background_receiving': false});
-    var active = false;
-    var login = 'notFound';
-    var changes = 0;
-    String? opened;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-      call,
-    ) async {
-      if (call.method == 'macBackgroundStatus') {
-        return {
-          'active': active,
-          'loginSupported': true,
-          'loginStatus': login,
-          'notifications': false,
-        };
-      }
-      if (call.method == 'setMacBackground') {
-        active = call.arguments as bool;
+  testWidgets(
+    'Mac settings expose background receiving and launch at login directly',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'mac_background_receiving': false,
+      });
+      var active = false;
+      var login = 'notFound';
+      var changes = 0;
+      String? opened;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        if (call.method == 'macBackgroundStatus') {
+          return {
+            'active': active,
+            'loginSupported': true,
+            'loginStatus': login,
+            'notifications': false,
+          };
+        }
+        if (call.method == 'setMacBackground') {
+          active = call.arguments as bool;
+          return null;
+        }
+        if (call.method == 'setLaunchAtLogin') {
+          login = 'requiresApproval';
+          return login;
+        }
+        if (call.method == 'settings') {
+          opened = (call.arguments as Map)['section'] as String;
+        }
         return null;
-      }
-      if (call.method == 'setLaunchAtLogin') {
-        login = 'requiresApproval';
-        return login;
-      }
-      if (call.method == 'settings') {
-        opened = (call.arguments as Map)['section'] as String;
-      }
-      return null;
-    });
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        channel,
-        null,
-      ),
-    );
-    await showPage(tester, () async {
-      changes++;
-    });
-    await tester.tap(find.byType(SwitchListTile).first);
-    await tester.pumpAndSettle();
-    expect(
-      (await SharedPreferences.getInstance()).getBool(
-        'mac_background_receiving',
-      ),
-      isTrue,
-    );
-    expect(active, isTrue);
-    expect(changes, 1);
-    expect(find.text('Incoming request notifications'), findsNothing);
-    final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
-    expect(tester.widget<SwitchListTile>(loginSwitch).onChanged, isNotNull);
-    expect(tester.widget<SwitchListTile>(loginSwitch).subtitle, isNull);
-    expect(find.text('Open Login Items'), findsNothing);
-    await tester.ensureVisible(loginSwitch);
-    await tester.tap(loginSwitch);
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Allow launch at login in System Settings'),
-      findsOneWidget,
-    );
-    expect(
-      find.ancestor(
-        of: find.text('Allow launch at login in System Settings'),
-        matching: find.byType(SnackBar),
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(find.widgetWithText(TextButton, 'Open Login Items'));
-    await tester.pump();
-    expect(opened, 'login');
-    expect(find.text('Open Login Items'), findsNothing);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await showDesktopSettings(tester, () async {
+        changes++;
+      });
+      final receive = find.widgetWithText(
+        SwitchListTile,
+        'Background receiving',
+      );
+      await tester.ensureVisible(receive);
+      await tester.tap(receive);
+      await tester.pumpAndSettle();
+      expect(
+        (await SharedPreferences.getInstance()).getBool(
+          'mac_background_receiving',
+        ),
+        isTrue,
+      );
+      expect(active, isTrue);
+      expect(changes, 1);
+      expect(find.text('Incoming request notifications'), findsNothing);
+      final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
+      expect(tester.widget<SwitchListTile>(loginSwitch).onChanged, isNotNull);
+      expect(tester.widget<SwitchListTile>(loginSwitch).subtitle, isNull);
+      expect(find.text('Open Login Items'), findsNothing);
+      await tester.ensureVisible(loginSwitch);
+      await tester.tap(loginSwitch);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Allow launch at login in System Settings'),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(
+          of: find.text('Allow launch at login in System Settings'),
+          matching: find.byType(SnackBar),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Open Login Items'));
+      await tester.pump();
+      expect(opened, 'login');
+      expect(find.text('Open Login Items'), findsNothing);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets('Mac keep-awake failure rolls back its setting', (tester) async {
     SharedPreferences.setMockInitialValues({'mac_background_receiving': false});
@@ -800,10 +839,12 @@ void main() {
         null,
       ),
     );
-    await showPage(tester, () async {
+    await showDesktopSettings(tester, () async {
       changes++;
     });
-    await tester.tap(find.byType(SwitchListTile).first);
+    final receive = find.widgetWithText(SwitchListTile, 'Background receiving');
+    await tester.ensureVisible(receive);
+    await tester.tap(receive);
     await tester.pumpAndSettle();
     expect(
       (await SharedPreferences.getInstance()).getBool(

@@ -14,6 +14,10 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
   private var offerGeneration = 0
   private let receiveDirectory = ReceiveDirectoryAccess()
   private let updater = VelaUpdater()
+  private let notificationPreference = "vela_receive_request_notifications"
+  private var requestNotificationsEnabled: Bool {
+    UserDefaults.standard.object(forKey: notificationPreference) as? Bool ?? true
+  }
 
   private func loginStatus() -> String {
     guard #available(macOS 13.0, *) else { return "unsupported" }
@@ -47,7 +51,10 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
 
   func shareAvailable() { shareChannel?.invokeMethod("available", arguments: nil) }
   func notifyVisible() {
-    (NSApplication.shared.delegate as? AppDelegate)?.clearTransferCompletion()
+    if let app = NSApplication.shared.delegate as? AppDelegate {
+      app.clearTransferCompletion()
+      app.updateMenuLight()
+    }
     backgroundChannel?.invokeMethod("visible", arguments: nil)
   }
   func prepareToTerminate(_ completion: @escaping () -> Void) {
@@ -59,6 +66,7 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
   }
   func hideWindow() {
     orderOut(nil)
+    (NSApplication.shared.delegate as? AppDelegate)?.updateMenuLight()
     backgroundChannel?.invokeMethod("hidden", arguments: nil)
   }
   func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -66,6 +74,9 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
     return false
   }
   func windowDidBecomeKey(_ notification: Notification) { notifyVisible() }
+  func windowDidMiniaturize(_ notification: Notification) {
+    (NSApplication.shared.delegate as? AppDelegate)?.updateMenuLight()
+  }
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -217,7 +228,7 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
             result([
               "active": (NSApplication.shared.delegate as? AppDelegate)?.backgroundActive ?? false,
               "loginSupported": login != "unsupported", "loginStatus": login,
-              "notifications": Self.canNotify(settings),
+              "notifications": self.requestNotificationsEnabled && Self.canNotify(settings),
             ])
           }
         }
@@ -246,6 +257,20 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         } catch {
           result(FlutterError(code: "login", message: error.localizedDescription, details: nil))
         }
+      case "setRequestNotifications":
+        guard let enabled = call.arguments as? Bool else {
+          result(FlutterError(code: "notification", message: "Missing notification setting", details: nil))
+          return
+        }
+        UserDefaults.standard.set(enabled, forKey: self.notificationPreference)
+        if !enabled {
+          self.offerGeneration += 1
+          center.removeDeliveredNotifications(withIdentifiers: ["incoming-offer"])
+          center.removePendingNotificationRequests(withIdentifiers: ["incoming-offer"])
+          result(nil)
+        } else {
+          Self.openNotificationSettings(center, onlyIfNeeded: true, result: result)
+        }
       case "settings":
         let section = (call.arguments as? [String: String])?["section"]
         if section == "notification_requests" {
@@ -263,7 +288,7 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
       case "isVisible":
         result(self.isVisible && NSApplication.shared.isActive)
       case "getWindowVisible":
-        result(self.isVisible)
+        result(self.isVisible && !self.isMiniaturized)
       case "setMenuLanguage":
         guard let language = call.arguments as? String else {
           result(FlutterError(code: "language", message: "Missing menu language", details: nil))
@@ -306,7 +331,8 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         let generation = self.offerGeneration
         center.getNotificationSettings { [weak self] settings in
           DispatchQueue.main.async {
-            guard Self.canNotify(settings), self?.offerGeneration == generation else { return }
+            guard let self, self.requestNotificationsEnabled, Self.canNotify(settings),
+              self.offerGeneration == generation else { return }
             let content = UNMutableNotificationContent()
             content.title = args["title"] as? String ?? "Vela"
             content.body = args["message"] as? String ?? "Incoming transfer"
@@ -356,10 +382,14 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
   }
 
   private static func openNotificationSettings(
-    _ center: UNUserNotificationCenter, result: @escaping FlutterResult
+    _ center: UNUserNotificationCenter, onlyIfNeeded: Bool = false, result: @escaping FlutterResult
   ) {
     center.getNotificationSettings { settings in
       DispatchQueue.main.async {
+        if onlyIfNeeded && canNotify(settings) {
+          result(nil)
+          return
+        }
         if settings.authorizationStatus == .notDetermined {
           center.requestAuthorization(options: [.alert, .sound]) { _, error in
             DispatchQueue.main.async {

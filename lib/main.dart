@@ -1534,6 +1534,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
       if (!currentNode()) return;
+      if (Platform.isMacOS &&
+          !BackgroundReceiving.macKeepAwake.enabled(prefs, widget.profile)) {
+        final windowVisible = await backgroundChannel.invokeMethod<bool>(
+          'getWindowVisible',
+        );
+        if (!currentNode()) return;
+        if (windowVisible == false) {
+          await offer.decline();
+          return;
+        }
+      }
       final devices = pairedDevices!;
       final sender = info.sender;
       final pairingRevision = devices.pairingRevisionFor(sender);
@@ -2733,6 +2744,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _showBackgroundSettings() async {
+    if (_backgroundSetting != BackgroundReceiving.androidService) {
+      await _showSettings();
+      return;
+    }
     await Navigator.push(
       context,
       MaterialPageRoute<void>(
