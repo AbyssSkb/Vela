@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'page_layout.dart';
 import 'src/rust/api/node.dart';
 
 List<(int, DateTime, String)> describeConnectionEvents(
@@ -344,288 +345,247 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
       color: colors.outlineVariant.withValues(alpha: .45),
     );
     return Scaffold(
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    Platform.isMacOS ? 38 : 8,
-                    20,
-                    0,
+      body: PageLayout(
+        header: Padding(
+          padding: EdgeInsets.fromLTRB(20, Platform.isMacOS ? 38 : 8, 20, 16),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.maybePop(context),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(t.diagnostics, style: titleStyle)),
+              if (current != null)
+                PopupMenuButton<void>(
+                  key: const ValueKey('diagnostics-actions'),
+                  tooltip: t.moreOptions,
+                  icon: const Icon(Icons.more_vert_rounded),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
+                  itemBuilder: (_) => [
+                    PopupMenuItem<void>(
+                      key: const ValueKey('diagnostics-copy'),
+                      onTap: _copy,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.copy_rounded, size: 20),
+                          const SizedBox(width: 12),
+                          Flexible(child: Text(text('复制报告', 'Copy report'))),
+                        ],
+                      ),
+                    ),
+                    if (current.events.isNotEmpty)
+                      PopupMenuItem<void>(
+                        key: const ValueKey('diagnostics-clear'),
+                        enabled: !clearing,
+                        onTap: _clear,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              onPressed: () => Navigator.maybePop(context),
-                              tooltip: MaterialLocalizations.of(context)
-                                  .backButtonTooltip,
-                              icon: const Icon(Icons.arrow_back_rounded),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(t.diagnostics, style: titleStyle),
-                            ),
-                            if (current != null)
-                              PopupMenuButton<void>(
-                                key: const ValueKey('diagnostics-actions'),
-                                tooltip: t.moreOptions,
-                                icon: const Icon(Icons.more_vert_rounded),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                            const Icon(Icons.playlist_remove_rounded, size: 20),
+                            const SizedBox(width: 12),
+                            Flexible(child: Text(t.diagnosticsClearEvents)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        body: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (notStarted || peersUnavailable)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (unreachable.isNotEmpty)
+                              Text(
+                                t.diagnosticsUnreachableDevices(
+                                  unreachable.join(', '),
                                 ),
-                                itemBuilder: (_) => [
-                                  PopupMenuItem<void>(
-                                    key: const ValueKey('diagnostics-copy'),
-                                    onTap: _copy,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.copy_rounded,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Flexible(
-                                          child: Text(
-                                            text('复制报告', 'Copy report'),
-                                          ),
-                                        ),
-                                      ],
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            Text(
+                              notStarted
+                                  ? t.diagnosticsStartupHelp
+                                  : t.diagnosticsDeviceHelp,
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                if (recovery != null)
+                                  TextButton(
+                                    onPressed: recovering
+                                        ? null
+                                        : () => _recover(recovery),
+                                    child: Text(
+                                      recovering
+                                          ? t.checking
+                                          : notStarted
+                                          ? t.diagnosticsRetryStartup
+                                          : t.refreshDevices,
                                     ),
                                   ),
-                                  if (current.events.isNotEmpty)
-                                    PopupMenuItem<void>(
-                                      key: const ValueKey('diagnostics-clear'),
-                                      enabled: !clearing,
-                                      onTap: _clear,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.playlist_remove_rounded,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Flexible(
-                                            child: Text(
-                                              t.diagnosticsClearEvents,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
+                                if (widget.openGuide != null)
+                                  TextButton(
+                                    onPressed: widget.openGuide,
+                                    child: Text(t.userGuide),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    Material(
+                      color: colors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(18),
+                      clipBehavior: Clip.antiAlias,
+                      child: SwitchListTile(
+                        key: const ValueKey('diagnostics-enabled'),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 4,
+                        ),
+                        title: Text(
+                          text('调试日志', 'Debug logging'),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        value: enabled,
+                        onChanged: changingEnabled ? null : _setEnabled,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (current == null)
+                      Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              failed
+                                  ? text('无法获取诊断信息', 'Diagnostics unavailable')
+                                  : text('正在加载', 'Loading'),
+                            ),
+                            if (failed)
+                              TextButton(
+                                onPressed: _load,
+                                child: Text(t.retry),
                               ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        if (notStarted || peersUnavailable)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (unreachable.isNotEmpty)
-                                  Text(
-                                    t.diagnosticsUnreachableDevices(
-                                      unreachable.join(', '),
-                                    ),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall,
+                      )
+                    else ...[
+                      if (updated != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                          child: Semantics(
+                            liveRegion: failed,
+                            child: Text(
+                              failed
+                                  ? t.diagnosticsStale(updated)
+                                  : t.diagnosticsUpdated(updated),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: failed
+                                        ? colors.error
+                                        : colors.onSurfaceVariant,
                                   ),
-                                Text(
-                                  notStarted
-                                      ? t.diagnosticsStartupHelp
-                                      : t.diagnosticsDeviceHelp,
-                                ),
-                                Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    if (recovery != null)
-                                      TextButton(
-                                        onPressed: recovering
-                                            ? null
-                                            : () => _recover(recovery),
-                                        child: Text(
-                                          recovering
-                                              ? t.checking
-                                              : notStarted
-                                              ? t.diagnosticsRetryStartup
-                                              : t.refreshDevices,
-                                        ),
-                                      ),
-                                    if (widget.openGuide != null)
-                                      TextButton(
-                                        onPressed: widget.openGuide,
-                                        child: Text(t.userGuide),
-                                      ),
-                                  ],
-                                ),
-                              ],
                             ),
-                          ),
-                        Material(
-                          color: colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(18),
-                          clipBehavior: Clip.antiAlias,
-                          child: SwitchListTile(
-                            key: const ValueKey('diagnostics-enabled'),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 4,
-                            ),
-                            title: Text(
-                              text('调试日志', 'Debug logging'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            value: enabled,
-                            onChanged: changingEnabled ? null : _setEnabled,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        if (current == null)
-                          Padding(
-                            padding: const EdgeInsets.all(18),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  failed
-                                      ? text(
-                                          '无法获取诊断信息',
-                                          'Diagnostics unavailable',
-                                        )
-                                      : text('正在加载', 'Loading'),
-                                ),
-                                if (failed)
-                                  TextButton(
-                                    onPressed: _load,
-                                    child: Text(t.retry),
-                                  ),
-                              ],
+                      Material(
+                        color: colors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(18),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            status(
+                              text('连接服务', 'Connection service'),
+                              current.nodeReady
+                                  ? text('就绪', 'Ready')
+                                  : text('未就绪', 'Not ready'),
                             ),
-                          )
-                        else ...[
-                          if (updated != null)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-                              child: Semantics(
-                                liveRegion: failed,
-                                child: Text(
-                                  failed
-                                      ? t.diagnosticsStale(updated)
-                                      : t.diagnosticsUpdated(updated),
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: failed
-                                            ? colors.error
-                                            : colors.onSurfaceVariant,
-                                      ),
-                                ),
-                              ),
+                            divider(),
+                            status(
+                              text('在线设备', 'Reachable devices'),
+                              '${current.reachableCount} / ${current.peerCount}',
                             ),
-                          Material(
-                            color: colors.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(18),
-                            clipBehavior: Clip.antiAlias,
-                            child: Column(
-                              children: [
-                                status(
-                                  text('连接服务', 'Connection service'),
-                                  current.nodeReady
-                                      ? text('就绪', 'Ready')
-                                      : text('未就绪', 'Not ready'),
-                                ),
-                                divider(),
-                                status(
-                                  text('在线设备', 'Reachable devices'),
-                                  '${current.reachableCount} / ${current.peerCount}',
-                                ),
-                                divider(),
-                                status(
-                                  text('就绪中继', 'Ready relays'),
-                                  '${current.readyRelayCount ?? '—'} / ${current.relayCount}',
-                                ),
-                              ],
+                            divider(),
+                            status(
+                              text('就绪中继', 'Ready relays'),
+                              '${current.readyRelayCount ?? '—'} / ${current.relayCount}',
                             ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
+                        child: Text(
+                          text('近期事件', 'Recent events'),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      if (current.events.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            text('暂无事件', 'No events'),
+                            style: TextStyle(color: colors.onSurfaceVariant),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
-                            child: Text(
-                              text('近期事件', 'Recent events'),
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          if (current.events.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              child: Text(
-                                text('暂无事件', 'No events'),
-                                style: TextStyle(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ],
-                    ),
-                  ),
+                        ),
+                    ],
+                  ],
                 ),
-                if (current != null && current.events.isNotEmpty)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    sliver: SliverList.builder(
-                      itemCount: current.events.length,
-                      itemBuilder: (context, index) {
-                        final first = index == 0;
-                        final last = index == current.events.length - 1;
-                        return Material(
-                          color: colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.vertical(
-                            top: first
-                                ? const Radius.circular(18)
-                                : Radius.zero,
-                            bottom: last
-                                ? const Radius.circular(18)
-                                : Radius.zero,
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              18,
-                              first ? 14 : 10,
-                              18,
-                              last ? 14 : 0,
-                            ),
-                            child: SelectableText(
-                              current.events[current.events.length - 1 - index],
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: colors.onSurfaceVariant),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              ],
+              ),
             ),
-          ),
+            if (current != null && current.events.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverList.builder(
+                  itemCount: current.events.length,
+                  itemBuilder: (context, index) {
+                    final first = index == 0;
+                    final last = index == current.events.length - 1;
+                    return Material(
+                      color: colors.surfaceContainerLow,
+                      borderRadius: BorderRadius.vertical(
+                        top: first ? const Radius.circular(18) : Radius.zero,
+                        bottom: last ? const Radius.circular(18) : Radius.zero,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          18,
+                          first ? 14 : 10,
+                          18,
+                          last ? 14 : 0,
+                        ),
+                        child: SelectableText(
+                          current.events[current.events.length - 1 - index],
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colors.onSurfaceVariant),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
         ),
       ),
     );

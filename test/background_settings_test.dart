@@ -1,6 +1,7 @@
 import 'package:vela/background_settings.dart';
 import 'package:vela/desktop_platform.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
+import 'package:vela/page_layout.dart';
 import 'package:vela/settings_page.dart';
 import 'package:vela/settings_row_title.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +29,33 @@ class FailingFirstWriteStore extends InMemorySharedPreferencesStore {
 
 void main() {
   const channel = MethodChannel('vela/background');
+
+  testWidgets('wide desktop headers reach the edges of the centered page', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const header = ValueKey('page-header');
+    const body = ValueKey('page-body');
+    for (final (platform, left) in [
+      (TargetPlatform.macOS, 0.0),
+      (TargetPlatform.android, 220.0),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: const PageLayout(
+            header: SizedBox(key: header, width: double.infinity, height: 48),
+            body: SizedBox(key: body, width: double.infinity, height: 80),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byKey(header)).dx, left);
+      expect(tester.getTopLeft(find.byKey(body)), const Offset(220, 48));
+      expect(tester.getSize(find.byKey(body)).width, 560);
+    }
+  });
 
   testWidgets('a short setting label leaves room for the full device name', (
     tester,
