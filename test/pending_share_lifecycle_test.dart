@@ -291,10 +291,23 @@ void main() {
         final pending = find.byKey(const ValueKey('pending-share'));
         await waitForHome(tester, () => pending.evaluate().isNotEmpty);
         expect(find.text('Ready to send: notes.txt'), findsOneWidget);
-        expect(find.text('Add a device to send this content.'), findsOneWidget);
-        expect(node.job.sends, 0);
-        await tester.tap(find.text('Cancel share'));
+        await tester.tap(find.text('Add device and continue'));
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.enterText(find.byKey(const ValueKey('peer-id')), peerId);
+        await tester.tap(find.byKey(const ValueKey('confirm-peer')));
+        final send = find.widgetWithText(FilledButton, 'Send to Phone');
+        await waitForHome(
+          tester,
+          () => send.hitTestable().evaluate().isNotEmpty,
+        );
+        expect(find.text('Ready to send: notes.txt'), findsOneWidget);
+        expect(node.job.sends, 0);
+        await tester.tap(send);
+        await waitForHome(tester, () => node.job.text == 'Notes');
+        await waitForHome(tester, () => pending.evaluate().isEmpty);
+        expect(node.job.text, 'Notes');
+        expect(node.job.peer, peerId);
         expect(pending, findsNothing);
         expect(file.existsSync(), isTrue);
       },
