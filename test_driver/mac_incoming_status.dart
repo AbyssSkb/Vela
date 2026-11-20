@@ -51,9 +51,10 @@ Future<void> main(List<String> args) async {
         final incomingMenu = await menu(b);
         if (incomingMenu['hasImage'] != true ||
             incomingMenu['windowVisible'] != true ||
-            incomingMenu['imageHash'] == idleMenu['imageHash']) {
+            (incomingMenu['lightColor'] as String).isEmpty ||
+            incomingMenu['lightColor'] == idleMenu['lightColor']) {
           throw StateError(
-            'Incoming request did not change the visible menu icon',
+            'Incoming request did not change the visible status light',
           );
         }
         if ((await status(b))['visible'] != false) {

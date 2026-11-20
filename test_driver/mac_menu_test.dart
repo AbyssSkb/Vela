@@ -16,21 +16,22 @@ Future<void> main(List<String> args) async {
     if (item['exists'] != true ||
         item['visible'] != true ||
         item['hasImage'] != true ||
-        item['windowVisible'] != true) {
+        item['windowVisible'] != true ||
+        (item['lightColor'] as String).isEmpty) {
       throw StateError('Menu item not visible: $item');
     }
-    final idleHash = item['imageHash'];
+    final idleColor = item['lightColor'];
     await driver.requestData(
       jsonEncode({'action': 'mac-menu-incoming-test', 'value': true}),
     );
-    if ((await menu())['imageHash'] == idleHash) {
-      throw StateError('Incoming request did not change the icon');
+    if ((await menu())['lightColor'] == idleColor) {
+      throw StateError('Incoming request did not change the status light');
     }
     await driver.requestData(
       jsonEncode({'action': 'mac-menu-incoming-test', 'value': false}),
     );
-    if ((await menu())['imageHash'] != idleHash) {
-      throw StateError('Icon did not return to idle');
+    if ((await menu())['lightColor'] != idleColor) {
+      throw StateError('Status light did not return to idle');
     }
     await driver.requestData(jsonEncode({'action': 'mac-close-test'}));
     if ((await window())['visible'] != false) {
