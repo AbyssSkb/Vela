@@ -218,18 +218,23 @@ class _VelaAppState extends State<VelaApp> {
       builder: (context, child) => Overlay.wrap(
         child: ValueListenableBuilder(
           valueListenable: liveActivity,
-          builder: (context, notice, _) => Column(
-            children: [
-              Expanded(
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeBottom: notice != null,
-                  child: child!,
+          builder: (context, notice, _) {
+            final visible = MediaQuery.viewInsetsOf(context).bottom > 0
+                ? null
+                : notice;
+            return Column(
+              children: [
+                Expanded(
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeBottom: visible != null,
+                    child: child!,
+                  ),
                 ),
-              ),
-              ?notice,
-            ],
-          ),
+                ?visible,
+              ],
+            );
+          },
         ),
       ),
       home: HomePage(
@@ -371,6 +376,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? lastMessage;
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _messageNotice;
   ({String message, String content, bool sent})? _sendReceipt;
+  Timer? _sendReceiptTimer;
   String? receivedPath;
   bool disposed = false;
   Timer? progressTimer;
@@ -751,6 +757,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }) {
     if (shuttingDown || updates.installing) throw StateError(t.transferBusy);
     ScaffoldMessenger.of(context).clearSnackBars();
+    _clearSendReceipt();
     final job = node!.newTransferJob();
     activeTransfer = job;
     _setTransferring(true);
@@ -3400,7 +3407,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         contentOperationActive = true;
         activity = t.connectingTo(name);
-        _sendReceipt = null;
         receivedPath = null;
       });
       transferStarted = true;
@@ -3420,11 +3426,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         setState(() {
           hasTransferred = true;
           activity = message;
-          _sendReceipt = (
-            message: message,
-            content: _sendReceiptContent(content),
-            sent: true,
-          );
+          _showSendReceipt(message, content, sent: true);
           if (identical(pendingShare, share)) pendingShare = null;
         });
         unawaited(presenceController.readCurrentSnapshot());
@@ -3458,11 +3460,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         resultKind = cancelled ? NoticeKind.info : NoticeKind.error;
         if (declined) {
           setState(() {
-            _sendReceipt = (
-              message: resultMessage!,
-              content: _sendReceiptContent(content),
-              sent: false,
-            );
+            _showSendReceipt(resultMessage!, content, sent: false);
             if (identical(pendingShare, share)) pendingShare = null;
           });
         } else if (!cancelled &&
@@ -3739,6 +3737,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     updates.removeListener(_updatesChanged);
     updates.dispose();
+    _sendReceiptTimer?.cancel();
     if (folderJob != null) unawaited(folderJob!.cancel());
     if (Platform.isMacOS) {
       unawaited(
@@ -4351,6 +4350,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         : _buildSendReceipt();
   }
 
+  void _showSendReceipt(
+    String message,
+    PreparedTransfer content, {
+    required bool sent,
+  }) {
+    _clearSendReceipt();
+    _sendReceipt = (
+      message: message,
+      content: _sendReceiptContent(content),
+      sent: sent,
+    );
+    if (!MediaQuery.accessibleNavigationOf(context)) {
+      _sendReceiptTimer = Timer(
+        receiptDuration,
+        () => setState(_clearSendReceipt),
+      );
+    }
+  }
+
+  void _clearSendReceipt() {
+    _sendReceiptTimer?.cancel();
+    _sendReceipt = null;
+  }
+
   Widget? _buildSendReceipt() {
     final receipt = _sendReceipt;
     if (receipt == null || _messageNotice != null) return null;
@@ -4389,7 +4412,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
           IconButton(
             tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-            onPressed: () => setState(() => _sendReceipt = null),
+            onPressed: () => setState(_clearSendReceipt),
             icon: const Icon(Icons.close_rounded),
           ),
         ],
@@ -4562,6 +4585,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    if (_sendReceipt != null &&
+        (keyboardVisible || ModalRoute.isCurrentOf(context) == false)) {
+      final old = _sendReceipt;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && identical(old, _sendReceipt)) {
+          setState(_clearSendReceipt);
+        }
+      });
+    }
     final notice = _buildActivityNotice();
     final showLiveActivity = widget.showLiveActivity;
     final appShowsActivity = _hasLiveActivity && showLiveActivity != null;
@@ -4573,7 +4606,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final page = Scaffold(
       body: SafeArea(child: LayoutBuilder(builder: _buildDeviceViewport)),
-      bottomNavigationBar: appShowsActivity ? null : notice,
+      bottomNavigationBar: appShowsActivity || keyboardVisible ? null : notice,
     );
     return PopScope(
       canPop: !selectingPeers,

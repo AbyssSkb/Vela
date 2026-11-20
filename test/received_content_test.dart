@@ -428,7 +428,7 @@ void main() {
   );
 
   testReceiving(
-    'keeps one bottom receipt and safe actions during a send and receive',
+    'dismisses the receive receipt when composing the next send',
     ContentOffer('file', {
       'a-very-long-screenshot-file-name-' * 4 + '.jpg': [1],
     }),
@@ -454,6 +454,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('send-text')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      expect(receiveNotice, findsNothing);
       await tester.enterText(find.byType(TextField), 'Reply from Vela');
       await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
@@ -463,14 +464,8 @@ void main() {
             effects.menuStates.where((state) => state == false).length >
             completed,
       );
-      expect(receiveNotice, findsOneWidget);
-      expect(sendNotice, findsNothing);
-      expect(find.text('Open file').hitTestable(), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('notice-close')));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
+      expect(receiveNotice, findsNothing);
       expect(sendNotice, findsOneWidget);
       expect(tester.getBottomLeft(sendNotice).dy, lessThan(616));
       expect(
