@@ -3,15 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="4dp"
-    android:paddingBottom="12dp">
+    android:paddingTop="6dp"
+    android:paddingBottom="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:paddingStart="24dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="6dp">
 
         <TextView
             android:layout_width="0dp"
@@ -19,7 +19,8 @@
             android:layout_weight="1"
             android:accessibilityHeading="true"
             android:text="@string/share_choose_device"
-            android:textAppearance="@android:style/TextAppearance.Material.Title" />
+            android:textAppearance="@android:style/TextAppearance.Material.Title"
+            android:textSize="18sp" />
 
         <ImageButton
             android:id="@+id/close_device_picker"
@@ -35,9 +36,8 @@
         android:id="@+id/share_devices"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:divider="@android:color/transparent"
-        android:dividerHeight="6dp"
-        android:drawSelectorOnTop="true"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp" />
+        android:divider="@color/share_device_divider"
+        android:dividerHeight="1dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp" />
 </LinearLayout>

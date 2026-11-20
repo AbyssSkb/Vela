@@ -6,7 +6,7 @@
     </style>
     <style name="SharePickerTheme" parent="@android:style/Theme.Material.Light.Dialog">
         <item name="android:colorAccent">#465AAF</item>
-        <item name="android:colorBackground">#F3F5FF</item>
+        <item name="android:colorBackground">#FAFAFD</item>
     </style>
     <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
