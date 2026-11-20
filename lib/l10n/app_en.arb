@@ -30,7 +30,6 @@
   "media": "Photos",
   "mediaPickFailed": "Couldn't open the photo picker. Try again.",
   "clipboard": "Clipboard",
-  "sendContentGroup": "Send content",
   "sendContentType": "Send {kind}",
   "@sendContentType": {
     "placeholders": {

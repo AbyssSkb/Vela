@@ -278,12 +278,6 @@ abstract class AppLocalizations {
   /// **'Clipboard'**
   String get clipboard;
 
-  /// No description provided for @sendContentGroup.
-  ///
-  /// In en, this message translates to:
-  /// **'Send content'**
-  String get sendContentGroup;
-
   /// No description provided for @sendContentType.
   ///
   /// In en, this message translates to:

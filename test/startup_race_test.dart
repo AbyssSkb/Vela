@@ -231,9 +231,6 @@ void main() {
       await mount(tester, dir);
       await waitUntil(tester, () => first.enableStarted.isCompleted);
       expect(api.starts, 1);
-      await tester.tap(find.byKey(const ValueKey('home-more')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.byKey(const ValueKey('home-settings')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Relay servers'));

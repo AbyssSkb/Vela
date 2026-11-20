@@ -21,7 +21,7 @@ The installation workflow also provides seven-day development previews. They use
 2. On the other device, choose **Add device** and enter the code, or scan the QR code on Android. Choose **Connect**.
 3. Compare the requesting device's code through a trusted channel. Approve the request on the device displaying its code.
 
-Your paired devices appear in a list by default. You can give a device a local alias or switch to the graph. Removing a device revokes trust on this device and closes its existing connections. A peer with online monitoring enabled can learn about the removal when it reconnects.
+Vela opens in the list on narrow screens and the graph in a wide, tall window. Use the toolbar to switch views. You can give a device a local alias. Removing a device revokes trust on this device and closes its existing connections. A peer with online monitoring enabled can learn about the removal when it reconnects.
 
 If you upgrade from a build that used the previous pairing protocol, pair the devices again. The upgrade preserves device identity, received files, and history.
 

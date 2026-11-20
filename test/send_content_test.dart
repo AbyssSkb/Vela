@@ -228,6 +228,8 @@ void main() {
             ),
             findsOneWidget,
           );
+          await tester.tap(find.byKey(const ValueKey('home-more')));
+          await finishTransition(tester);
           await tester.tap(find.byKey(const ValueKey('transfer-history')));
           await finishTransition(tester);
           expect(find.text('Sending to Phone').hitTestable(), findsOneWidget);
