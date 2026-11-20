@@ -225,6 +225,20 @@ class GraphPhysics {
       forces[id] = -velocities[id]! * 9 + wall * forceScale + centerPull;
     }
     final ids = positions.keys.toList();
+    if (collisionDiameter case final diameter?) {
+      final range = diameter * 1.5;
+      for (var i = 0; i < ids.length; i++) {
+        for (var j = i + 1; j < ids.length; j++) {
+          final a = ids[i], b = ids[j];
+          final delta = positions[a]! - positions[b]!;
+          final distance = delta.distance;
+          if (distance == 0 || distance >= range) continue;
+          final push = delta / distance * ((range - distance) * 45);
+          forces[a] = forces[a]! + push;
+          forces[b] = forces[b]! - push;
+        }
+      }
+    }
     final hub = linkCenter;
     if (hub != null && positions.containsKey(hub) && anchors.containsKey(hub)) {
       for (final id in ids) {
