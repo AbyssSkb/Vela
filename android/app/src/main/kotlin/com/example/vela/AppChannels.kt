@@ -30,6 +30,8 @@ import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal const val BACKGROUND_CHANNEL = "vela/background"
+
 internal fun addMissingExtension(file: File, findExtension: () -> String?): File {
     if (file.extension.isNotEmpty() && file.nameWithoutExtension.isNotEmpty()) return file
     val extension = findExtension() ?: return file
@@ -476,7 +478,7 @@ class AppChannels(private val context: VelaApplication) {
     fun install(engine: FlutterEngine) {
         val messenger = engine.dartExecutor.binaryMessenger
         updates.install(messenger)
-        MethodChannel(messenger, "vela/background").setMethodCallHandler(::handleBackground)
+        MethodChannel(messenger, BACKGROUND_CHANNEL).setMethodCallHandler(::handleBackground)
         MethodChannel(messenger, "vela/files").setMethodCallHandler(::handleFiles)
         MethodChannel(messenger, "vela/device").setMethodCallHandler { call, result ->
             if (call.method != "info") {
