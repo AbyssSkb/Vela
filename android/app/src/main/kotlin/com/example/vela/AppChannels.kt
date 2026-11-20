@@ -168,7 +168,6 @@ class AppChannels(private val context: VelaApplication) {
                     mapOf(
                         "running" to ReceivingService.running,
                         "nodeReady" to context.nodeReady,
-                        "bootRecovery" to BootReceiver.recoveryStatus(context),
                         "notifications" to
                             (NotificationManagerCompat.from(context)
                                 .areNotificationsEnabled() &&

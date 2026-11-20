@@ -61,7 +61,7 @@ void main() {
         expect(find.text('Request notifications are off'), findsOneWidget);
         await tester.tap(availability);
         await tester.pumpAndSettle();
-        expect(find.text('Open incoming request settings'), findsOneWidget);
+        expect(find.text('Allow background receiving'), findsOneWidget);
         permission = true;
         await tester.pageBack();
         await tester.pump();

@@ -13,7 +13,6 @@ import androidx.core.app.NotificationCompat
 
 class ReceivingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
-    private var bootCount: Int? = null
     private val handler = Handler(Looper.getMainLooper())
     private var engineRetryDelay = 1000L
     private val retryEngine = Runnable { startEngine() }
@@ -37,20 +36,11 @@ class ReceivingService : Service() {
         fun markReady(message: String?) {
             active?.let {
                 it.showForeground(message ?: it.getString(R.string.background_ready))
-                it.recordBootRecovery()
             }
         }
 
         fun markFailed() {
             active?.let { it.showForeground(it.getString(R.string.background_failed)) }
-        }
-    }
-
-    private fun recordBootRecovery() {
-        val boot = bootCount ?: return
-        bootCount = null
-        if ((application as VelaApplication).currentActivity == null) {
-            BootReceiver.recordRecovered(this, boot)
         }
     }
 
@@ -104,9 +94,6 @@ class ReceivingService : Service() {
             return START_NOT_STICKY
         }
         val application = application as VelaApplication
-        intent?.getIntExtra(BootReceiver.EXTRA_BOOT_COUNT, -1)?.takeIf { it >= 0 }?.let {
-            bootCount = it
-        }
         val message =
             if (application.nodeReady)
                 intent?.getStringExtra("message") ?: getString(R.string.background_ready)
