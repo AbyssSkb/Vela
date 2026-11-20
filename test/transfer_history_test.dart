@@ -157,6 +157,11 @@ void main() {
       ),
     );
     expect(find.text('Today'), findsOneWidget);
+    expect(
+      tester.getCenter(find.byTooltip('Search history')).dy,
+      tester.getCenter(find.byTooltip('Open receive folder')).dy,
+    );
+    expect(find.text('Open receive folder'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text(record.name));
     expect(opened, same(record));
@@ -273,10 +278,10 @@ void main() {
     await tester.tap(find.text('Select records'));
     await tester.pumpAndSettle();
     expect(find.text('0 selected'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, 'Select all'));
+    await tester.tap(find.byTooltip('Select all'));
     await tester.pump();
     expect(find.text('1 selected'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
+    await tester.tap(find.byTooltip('Remove record'));
     await tester.pumpAndSettle();
     expect(find.text('Remove 1 record?'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
@@ -405,10 +410,10 @@ void main() {
     await tester.longPress(find.text('first.pdf'));
     await tester.pump();
     expect(find.text('1 selected'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, 'Select all'));
+    await tester.tap(find.byTooltip('Select all'));
     await tester.pump();
     expect(find.text('2 selected'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
+    await tester.tap(find.byTooltip('Remove record'));
     await tester.pumpAndSettle();
     expect(
       tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
@@ -419,10 +424,6 @@ void main() {
     expect(removed, containsAll([first, second]));
     expect(records.value, [sent]);
     expect(find.text('No received items yet'), findsOneWidget);
-    expect(
-      find.text('Files, text, and links you receive will appear here.'),
-      findsOneWidget,
-    );
   });
 
   testWidgets('a batch view keeps select all and removal within that batch', (
@@ -466,10 +467,10 @@ void main() {
     expect(find.text('Clear history'), findsNothing);
     await tester.longPress(find.text('one.pdf'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(TextButton, 'Select all'));
+    await tester.tap(find.byTooltip('Select all'));
     await tester.pump();
     expect(find.text('2 selected'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
+    await tester.tap(find.byTooltip('Remove record'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Remove records only'));
     await tester.pumpAndSettle();
@@ -517,7 +518,7 @@ void main() {
     );
     await tester.longPress(find.text('photo.png'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(TextButton, 'Remove record'));
+    await tester.tap(find.byTooltip('Remove record'));
     await tester.pumpAndSettle();
     expect(
       tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
@@ -591,6 +592,7 @@ void main() {
     );
     var openedFolder = false;
     TransferRecord? revealed;
+    List<TransferRecord>? copied;
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
@@ -606,12 +608,26 @@ void main() {
           reveal: (record) async {
             revealed = record;
           },
+          copyFiles: (records) async => copied = records,
           remove: (_, {required bool deleteFiles}) async {},
         ),
       ),
     );
-    await tester.tap(find.widgetWithText(TextButton, 'Open receive folder'));
+    await tester.tap(find.byTooltip('Open receive folder'));
     expect(openedFolder, isTrue);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    final copy = find.ancestor(
+      of: find.text('Copy files'),
+      matching: find.byType(PopupMenuItem<String>),
+    );
+    expect(
+      find.descendant(of: copy, matching: find.byIcon(Icons.copy_rounded)),
+      findsOneWidget,
+    );
+    await tester.tap(copy);
+    await tester.pumpAndSettle();
+    expect(copied, [item]);
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Details'));

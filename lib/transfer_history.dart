@@ -359,14 +359,23 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
     }
   }
 
+  Future<void> _openFolder() async {
+    final t = AppLocalizations.of(context)!;
+    try {
+      await widget.openFolder();
+    } catch (_) {
+      if (mounted) showNotice(context, t.storageFailed, kind: NoticeKind.error);
+    }
+  }
+
   Widget _buildToolbar(BuildContext context, List<TransferRecord> records) {
     final t = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final visibleRecords = records.where(_inScope);
     final matches = visibleRecords.where(_matches);
     final batch = widget.batchId != null;
+    final copyBatch = batch && visibleRecords.any(_canCopy);
     final showClear = !searching && !batch && visibleRecords.isNotEmpty;
-    final showMenu = showClear || matches.isNotEmpty;
     final batchSenders = batch
         ? visibleRecords.map((item) => item.peer).toSet()
         : const <String>{};
@@ -378,9 +387,9 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        20,
+        12,
         theme.platform == TargetPlatform.macOS ? 38 : 8,
-        20,
+        12,
         8,
       ),
       child: Column(
@@ -391,24 +400,85 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
               IconButton(
                 onPressed: selecting
                     ? _closeSelection
+                    : searching
+                    ? _closeSearch
                     : () => Navigator.pop(context),
                 tooltip: selecting
                     ? t.cancel
+                    : searching
+                    ? t.close
                     : MaterialLocalizations.of(context).backButtonTooltip,
                 icon: Icon(
-                  selecting ? Icons.close_rounded : Icons.arrow_back_rounded,
+                  selecting || searching
+                      ? Icons.close_rounded
+                      : Icons.arrow_back_rounded,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                child: searching && !selecting
+                    ? TextField(
+                        controller: searchController,
+                        focusNode: searchFocus,
+                        onChanged: (value) =>
+                            setState(() => query = value.trim().toLowerCase()),
+                        decoration: InputDecoration(
+                          hintText: t.searchHistory,
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                      )
+                    : Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
-              if (!selecting && showMenu)
+              if (selecting) ...[
+                IconButton(
+                  tooltip: t.selectAll,
+                  onPressed: matches.isEmpty
+                      ? null
+                      : () => setState(() => selected.addAll(matches)),
+                  icon: const Icon(Icons.select_all_rounded),
+                ),
+                if (selected.any(_canCopy))
+                  IconButton(
+                    tooltip: t.historyCopyFiles,
+                    onPressed: () => _copyFiles(selected),
+                    icon: const Icon(Icons.copy_rounded),
+                  ),
+                IconButton(
+                  tooltip: t.removeRecord,
+                  onPressed: selected.isEmpty
+                      ? null
+                      : () => _confirmRemove(selected),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+              ] else if (!searching) ...[
+                if (copyBatch)
+                  IconButton(
+                    tooltip: t.historyCopyFiles,
+                    icon: const Icon(Icons.copy_rounded),
+                    onPressed: () => _copyFiles(visibleRecords),
+                  )
+                else
+                  IconButton(
+                    tooltip: t.openReceiveFolder,
+                    icon: const Icon(Icons.folder_open_rounded),
+                    onPressed: _openFolder,
+                  ),
+                if (visibleRecords.isNotEmpty)
+                  IconButton(
+                    tooltip: t.searchHistory,
+                    icon: const Icon(Icons.search_rounded),
+                    onPressed: _startSearch,
+                  ),
+              ],
+              if (!selecting && (showClear || matches.isNotEmpty))
                 PopupMenuButton<String>(
                   key: const ValueKey('history-actions'),
                   tooltip: t.manageRecords,
@@ -416,6 +486,8 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                   onSelected: (action) {
                     if (action == 'select') {
                       setState(() => selecting = true);
+                    } else if (action == 'folder') {
+                      _openFolder();
                     } else {
                       _confirmRemove(visibleRecords);
                     }
@@ -425,6 +497,11 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                       value: 'select',
                       child: Text(t.selectRecords),
                     ),
+                    if (copyBatch && !searching)
+                      PopupMenuItem(
+                        value: 'folder',
+                        child: Text(t.openReceiveFolder),
+                      ),
                     if (showClear)
                       PopupMenuItem(
                         value: 'clear',
@@ -443,87 +520,28 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                   if (batchSenders.length == 1)
                     t.historyReceivedFrom(batchSenders.single),
                 ].join(' · '),
-                style: theme.textTheme.bodyLarge,
+                style: theme.textTheme.bodySmall,
               ),
             ),
-          if (searching && !selecting)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-              child: TextField(
-                controller: searchController,
-                focusNode: searchFocus,
-                onChanged: (value) =>
-                    setState(() => query = value.trim().toLowerCase()),
-                decoration: InputDecoration(
-                  labelText: t.searchHistory,
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    tooltip: t.close,
-                    onPressed: _closeSearch,
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ),
-              ),
-            ),
-          Wrap(
-            spacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (selecting) ...[
-                TextButton(
-                  onPressed: matches.isEmpty
-                      ? null
-                      : () => setState(() => selected.addAll(matches)),
-                  child: Text(t.selectAll),
-                ),
-                TextButton(
-                  onPressed: selected.isEmpty
-                      ? null
-                      : () => _confirmRemove(selected),
-                  child: Text(t.removeRecord),
-                ),
-                if (selected.any(_canCopy))
-                  TextButton(
-                    onPressed: () => _copyFiles(selected),
-                    child: Text(t.historyCopyFiles),
-                  ),
-              ] else ...[
-                if (!searching && visibleRecords.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: _startSearch,
-                    icon: const Icon(Icons.search_rounded),
-                    label: Text(t.searchHistory),
-                  ),
-                TextButton.icon(
-                  onPressed: () async {
-                    try {
-                      await widget.openFolder();
-                    } catch (_) {
-                      if (context.mounted) {
-                        showNotice(
-                          context,
-                          t.storageFailed,
-                          kind: NoticeKind.error,
-                        );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.folder_open_rounded),
-                  label: Text(t.openReceiveFolder),
-                ),
-                if (batch && !searching && visibleRecords.any(_canCopy))
-                  TextButton.icon(
-                    onPressed: () => _copyFiles(visibleRecords),
-                    icon: const Icon(Icons.copy_rounded),
-                    label: Text(t.historyCopyFiles),
-                  ),
-              ],
-            ],
-          ),
         ],
       ),
     );
   }
+
+  PopupMenuItem<String> _recordAction(
+    String action,
+    IconData icon,
+    String label,
+  ) => PopupMenuItem(
+    value: action,
+    child: Row(
+      children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Flexible(child: Text(label)),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -581,29 +599,14 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                               return Center(
                                 child: Padding(
                                   padding: const EdgeInsets.all(24),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        widget.batchId == null
-                                            ? t.noTransferHistory
-                                            : t.receivedBatchUnavailable,
-                                        textAlign: TextAlign.center,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
-                                      ),
-                                      if (widget.batchId == null)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 6,
-                                          ),
-                                          child: Text(
-                                            t.transferHistoryEmptyHint,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                    ],
+                                  child: Text(
+                                    widget.batchId == null
+                                        ? t.noTransferHistory
+                                        : t.receivedBatchUnavailable,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: colors.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
                               );
@@ -833,98 +836,44 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                                   },
                                                   itemBuilder: (_) => [
                                                     if (_canCopy(item))
-                                                      PopupMenuItem(
-                                                        value: 'copy',
-                                                        child: Text(
-                                                          t.historyCopyFiles,
-                                                        ),
+                                                      _recordAction(
+                                                        'copy',
+                                                        Icons.copy_rounded,
+                                                        t.historyCopyFiles,
                                                       ),
                                                     if (item.fileReference !=
                                                             null &&
                                                         item.kind.isFile &&
                                                         (Platform.isAndroid ||
-                                                            Platform.isMacOS ||
                                                             DesktopPlatform
-                                                                .isWindowsOrLinux))
-                                                      PopupMenuItem(
-                                                        value: 'reveal',
-                                                        child: Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            const Icon(
-                                                              Icons
-                                                                  .folder_outlined,
-                                                              size: 20,
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 12,
-                                                            ),
-                                                            Text(
-                                                              Platform.isMacOS
-                                                                  ? t.revealInFinder
-                                                                  : t.showInFolder,
-                                                            ),
-                                                          ],
-                                                        ),
+                                                                .isDesktop))
+                                                      _recordAction(
+                                                        'reveal',
+                                                        Icons.folder_outlined,
+                                                        Platform.isMacOS
+                                                            ? t.revealInFinder
+                                                            : t.showInFolder,
                                                       ),
-                                                    PopupMenuItem(
-                                                      value: 'details',
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons
-                                                                .info_outline_rounded,
-                                                            size: 20,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 12,
-                                                          ),
-                                                          Text(t.recordDetails),
-                                                        ],
-                                                      ),
+                                                    _recordAction(
+                                                      'details',
+                                                      Icons
+                                                          .info_outline_rounded,
+                                                      t.recordDetails,
                                                     ),
                                                     if (item.fileReference !=
                                                             null &&
                                                         !item.kind.isText &&
                                                         Platform.isAndroid)
-                                                      PopupMenuItem(
-                                                        value: 'export',
-                                                        child: Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            const Icon(
-                                                              Icons
-                                                                  .save_alt_rounded,
-                                                              size: 20,
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 12,
-                                                            ),
-                                                            Text(t.saveAs),
-                                                          ],
-                                                        ),
+                                                      _recordAction(
+                                                        'export',
+                                                        Icons.save_alt_rounded,
+                                                        t.saveAs,
                                                       ),
-                                                    PopupMenuItem(
-                                                      value: 'remove',
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons
-                                                                .playlist_remove_rounded,
-                                                            size: 20,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 12,
-                                                          ),
-                                                          Text(t.removeRecord),
-                                                        ],
-                                                      ),
+                                                    _recordAction(
+                                                      'remove',
+                                                      Icons
+                                                          .playlist_remove_rounded,
+                                                      t.removeRecord,
                                                     ),
                                                   ],
                                                 ),

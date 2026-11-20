@@ -538,7 +538,7 @@ void main() {
     expect(find.text('Received batch'), findsOneWidget);
     final batchIds = records.map((record) => record.batchId).toSet();
     expect(batchIds.single, isNotNull);
-    await tester.tap(find.text('Copy files'));
+    await tester.tap(find.byTooltip('Copy files'));
     await waitFor(
       tester,
       find.descendant(
@@ -560,7 +560,7 @@ void main() {
     (tester, effects) async {
       expect(effects.fileCopyAttempts, isEmpty);
       await tester.tap(find.text('View this batch'));
-      final copy = find.text('Copy files');
+      final copy = find.byTooltip('Copy files');
       await waitFor(tester, copy);
       await tester.tap(copy);
       await waitFor(
