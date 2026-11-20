@@ -7,15 +7,7 @@ const receiptDuration = Duration(seconds: 8);
 const _noticeShape = RoundedRectangleBorder(
   borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
 );
-const _noticePadding = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
-
-Widget _noticeSurface(Key key, Color color, Widget child) => Material(
-  key: key,
-  color: color,
-  shape: _noticeShape,
-  clipBehavior: Clip.antiAlias,
-  child: Padding(padding: _noticePadding, child: child),
-);
+const _noticePadding = EdgeInsets.fromLTRB(16, 8, 16, 0);
 
 class ActivityNotice extends StatelessWidget {
   const ActivityNotice({super.key, required this.child});
@@ -23,30 +15,25 @@ class ActivityNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return ColoredBox(
-      color: theme.scaffoldBackgroundColor,
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      key: const ValueKey('activity-notice'),
+      color: colors.secondaryContainer,
+      shape: _noticeShape,
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        left: false,
-        right: false,
-        child: _noticeSurface(
-          const ValueKey('activity-notice'),
-          colors.secondaryContainer,
-          SafeArea(
-            top: false,
-            bottom: false,
-            child: IconTheme.merge(
-              data: IconThemeData(color: colors.onSecondaryContainer),
-              child: DefaultTextStyle.merge(
-                style: TextStyle(
-                  color: colors.onSecondaryContainer,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                child: child,
+        child: Padding(
+          padding: _noticePadding,
+          child: IconTheme.merge(
+            data: IconThemeData(color: colors.onSecondaryContainer),
+            child: DefaultTextStyle.merge(
+              style: TextStyle(
+                color: colors.onSecondaryContainer,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
+              child: child,
             ),
           ),
         ),
@@ -157,10 +144,12 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
   messenger.clearSnackBars();
   final controller = messenger.showSnackBar(
     SnackBar(
+      key: const ValueKey('message-notice'),
       behavior: SnackBarBehavior.fixed,
-      backgroundColor: Colors.transparent,
+      backgroundColor: background,
       elevation: 0,
-      padding: EdgeInsets.zero,
+      padding: _noticePadding,
+      shape: _noticeShape,
       clipBehavior: Clip.antiAlias,
       hitTestBehavior: HitTestBehavior.deferToChild,
       duration: onAction == null
@@ -177,31 +166,25 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
             return const SizedBox.shrink();
           }
           final scale = MediaQuery.textScalerOf(context).scale(1);
-          final stackActions =
-              actions.isNotEmpty &&
-              (constraints.maxWidth - _noticePadding.horizontal < 320 ||
-                  scale > 1.3);
-          return _noticeSurface(
-            const ValueKey('message-notice'),
-            background,
-            stackActions
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      details,
-                      OverflowBar(
-                        alignment: MainAxisAlignment.end,
-                        children: actions,
-                      ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(child: details),
-                      ...actions,
-                    ],
-                  ),
+          if (actions.isNotEmpty &&
+              (constraints.maxWidth < 320 || scale > 1.3)) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                details,
+                OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  children: actions,
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: details),
+              ...actions,
+            ],
           );
         },
       ),
