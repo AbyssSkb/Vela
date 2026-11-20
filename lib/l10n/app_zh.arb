@@ -388,7 +388,7 @@
   "backgroundAppNotificationsOff": "Vela 通知已关闭",
   "backgroundOpenRequestSettings": "打开接收请求通知设置",
   "backgroundOpenBatterySettings": "打开应用设置",
-  "backgroundAllowLockedReceiving": "允许锁屏接收",
+  "backgroundOpenBatteryOptimizationSettings": "电池优化设置",
   "backgroundBatteryLimitsLockedReceiving": "电池优化可能中断锁屏接收",
   "backgroundSettingsOpenFailed": "无法打开系统设置。",
   "backgroundCheckBattery": "请检查电池设置",

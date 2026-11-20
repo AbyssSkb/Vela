@@ -34,7 +34,7 @@ enum BackgroundReceiving {
     desktopTray => 'desktop_background_receiving',
   };
 
-  bool get defaultEnabled => this == desktopTray;
+  bool get defaultEnabled => true;
   bool enabled(SharedPreferences? prefs, String profile) =>
       prefs?.getBool(preferenceKey(profile)) ?? defaultEnabled;
 
@@ -47,9 +47,7 @@ enum BackgroundReceiving {
   }) {
     if (this != androidService) return null;
     return switch (status) {
-      {'allNotifications': false}
-          when !autoAccept || status['running'] == false =>
-        'notification_app',
+      {'allNotifications': false} when !autoAccept => 'notification_app',
       {'notifications': false} when !autoAccept => 'notification_requests',
       {'restricted': true} => 'battery',
       {'running': false} || {'nodeReady': false} => null,
@@ -282,6 +280,9 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
   Future<void> _openSettings(String section) async {
     try {
       await channel.invokeMethod<void>('settings', {'section': section});
+      if (mounted && isMac && section == 'notification_requests') {
+        await _refresh();
+      }
     } catch (_) {
       if (mounted) {
         showNotice(
@@ -319,7 +320,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       'notification_app' => t.notificationSystemSettings,
       'notification_requests' => t.backgroundOpenRequestSettings,
       'battery' => t.backgroundOpenBatterySettings,
-      'battery_exemption' => t.backgroundAllowLockedReceiving,
+      'battery_exemption' => t.backgroundOpenBatteryOptimizationSettings,
       _ => null,
     };
     final needsRetry =
@@ -334,7 +335,9 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     final detail = needsAttention || enabled == null
         ? summary
         : isMac
-        ? t.macKeepAwakeHint
+        ? enabled == true && !autoAccept && status['notifications'] == false
+              ? t.backgroundAllowRequests
+              : t.macKeepAwakeHint
         : enabled == true
         ? summary
         : null;
@@ -478,14 +481,21 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                           status['trayAvailable'] as bool?,
                           null,
                         )
-                      else if (isMac)
+                      else if (isMac) ...[
                         check(
                           t.macKeepAwakeActive,
                           status['active'] as bool?,
                           null,
                           whenBlocked: t.backgroundMacInactive,
-                        )
-                      else ...[
+                        ),
+                        if (!autoAccept)
+                          check(
+                            t.notificationRequests,
+                            status['notifications'] as bool?,
+                            'notification_requests',
+                            whenBlocked: t.backgroundNeedsAttention,
+                          ),
+                      ] else ...[
                         check(
                           t.backgroundRunning,
                           status['running'] as bool?,

@@ -56,12 +56,12 @@ The receiving device asks for approval by default. You can enable automatic acce
 
 ## Receive in the background
 
-Open **Settings → Receiving** to check whether this device is ready and to find the relevant system settings.
+Background receiving is on by default. Open **Settings → Receiving** to check this device and find the relevant system settings.
 
 | Platform | Keep Vela available |
 | --- | --- |
-| Android | Enable **Allow background receiving**. If Vela shows **Allow receiving while locked**, tap it to open the system battery exemption prompt. You can accept or decline requests from notifications. After a reboot, unlock once for the enabled service to restart. |
-| macOS | Close the window to leave Vela in the menu bar. The optional **Keep available in background** setting prevents idle sleep. Closing the lid and manual sleep still suspend the connection. On macOS 13 or later, you can enable launch at login separately. |
+| Android | Use **Background checks** to check notifications and battery optimization and open the relevant system settings. You can accept or decline requests from notifications. After a reboot, unlock once for the enabled service to restart. |
+| macOS | Close the window to leave Vela in the menu bar. **Keep available in background** prevents idle sleep. **Incoming requests** in **Background checks** shows notification access. The first authorization is requested only when you select that row. Closing the lid and manual sleep still suspend the connection. On macOS 13 or later, you can enable launch at login separately. |
 | Windows and Linux | With background receiving enabled and a tray available, closing the window leaves Vela in the system tray. Open or quit it from the tray menu. If the tray is unavailable, keep the window open. Sleep or logout stops reception. |
 
 On **ColorOS**, open Vela's app info and check its battery settings for **Allow background activity** and **Auto launch**. On **HyperOS**, check **Background autostart** and **No restrictions** for Vela. On **One UI**, check Samsung's **Never sleeping apps** list. The names and location can vary by build. [ColorOS settings example](https://consumer.huawei.com/cn/support/content/zh-cn15848664/) · [HyperOS autostart](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [HyperOS battery settings](https://www.mi.com/global/support/faq/details/KA-538010/) · [Samsung app management](https://developer.samsung.com/mobile/app-management.html)

@@ -398,7 +398,7 @@
   "backgroundAppNotificationsOff": "Vela notifications are off",
   "backgroundOpenRequestSettings": "Open incoming request settings",
   "backgroundOpenBatterySettings": "Open app settings",
-  "backgroundAllowLockedReceiving": "Allow receiving while locked",
+  "backgroundOpenBatteryOptimizationSettings": "Battery optimization settings",
   "backgroundBatteryLimitsLockedReceiving": "Battery optimization can interrupt receiving while locked",
   "backgroundSettingsOpenFailed": "Could not open system settings.",
   "backgroundCheckBattery": "Check battery settings",

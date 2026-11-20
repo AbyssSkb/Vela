@@ -1280,7 +1280,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               .invokeMethod<void>('clearOffer')
               .catchError((Object _) {}),
         );
-        if (p.getBool('background_receive_${widget.profile}') ?? false) {
+        if (BackgroundReceiving.androidService.enabled(p, widget.profile)) {
           unawaited(
             backgroundChannel
                 .invokeMethod<bool>('resume', {'message': t.backgroundReady})

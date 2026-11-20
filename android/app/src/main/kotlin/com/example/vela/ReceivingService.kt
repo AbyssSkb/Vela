@@ -26,6 +26,10 @@ class ReceivingService : Service() {
         @Volatile var running = false
         private var active: ReceivingService? = null
 
+        fun isEnabled(context: Context): Boolean =
+            context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                .getBoolean("flutter.background_receive_default", true)
+
         fun markStarting() {
             active?.let { it.showForeground(it.getString(R.string.background_starting)) }
         }
@@ -95,10 +99,7 @@ class ReceivingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (
-            !getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                .getBoolean("flutter.background_receive_default", false)
-        ) {
+        if (!isEnabled(this)) {
             stopSelf(startId)
             return START_NOT_STICKY
         }
