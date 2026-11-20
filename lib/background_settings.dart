@@ -319,6 +319,21 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       status,
       autoAccept: autoAccept,
     );
+    final detail = needsAttention || enabled == null
+        ? summary
+        : isMac
+        ? t.macKeepAwakeHint
+        : enabled == true
+        ? summary
+        : null;
+    final login = status['loginStatus'];
+    final loginDetail = switch (login) {
+      'enabled' || 'notRegistered' => null,
+      'requiresApproval' => t.backgroundLoginApproval,
+      'notFound' => t.backgroundLoginNotFound,
+      'unsupported' => t.backgroundLoginUnsupported,
+      _ => t.backgroundUnknown,
+    };
     Widget recoveryButton(String label, VoidCallback? onPressed) => Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
       child: Align(
@@ -378,29 +393,27 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 Material(
-                  color: needsAttention
-                      ? colors.errorContainer
-                      : colors.secondaryContainer,
-                  borderRadius: BorderRadius.circular(20),
+                  color: colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      ListTile(
-                        textColor: needsAttention
-                            ? colors.onErrorContainer
-                            : null,
-                        leading: needsAttention
-                            ? Icon(
-                                Icons.error_outline_rounded,
-                                color: colors.onErrorContainer,
-                              )
-                            : null,
-                        title: Text(t.localBackgroundReceiving),
-                        subtitle: Semantics(
-                          liveRegion: true,
-                          child: Text(summary),
+                      SwitchListTile(
+                        title: Text(
+                          isMac ? t.macKeepAwake : t.enableBackgroundReceiving,
                         ),
+                        subtitle: detail == null
+                            ? null
+                            : Text(
+                                detail,
+                                style: needsAttention
+                                    ? TextStyle(color: colors.error)
+                                    : null,
+                              ),
+                        value: enabled ?? false,
+                        onChanged: changing || enabled == null ? null : _toggle,
                       ),
                       if (recovery != null && recoveryLabel != null)
                         recoveryButton(
@@ -412,71 +425,40 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                           t.retry,
                           changing ? null : () => _toggle(true),
                         ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Material(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(20),
-                  child: SwitchListTile(
-                    title: Text(
-                      isMac ? t.macKeepAwake : t.enableBackgroundReceiving,
-                    ),
-                    value: enabled ?? false,
-                    onChanged: changing || enabled == null ? null : _toggle,
-                  ),
-                ),
-                if (isMac || usesTray) ...[
-                  const SizedBox(height: 12),
-                  Material(
-                    color: colors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(20),
-                    child: Column(
-                      children: [
+                      if (isMac || usesTray) ...[
+                        const Divider(height: 1, indent: 16, endIndent: 16),
                         SwitchListTile(
                           title: Text(t.backgroundLogin),
-                          subtitle: Text(switch (status['loginStatus']) {
-                            'enabled' => t.backgroundAllowed,
-                            'notRegistered' => t.backgroundOff,
-                            'requiresApproval' => t.backgroundLoginApproval,
-                            'notFound' => t.backgroundLoginNotFound,
-                            'unsupported' => t.backgroundLoginUnsupported,
-                            _ => t.backgroundUnknown,
-                          }),
+                          subtitle: loginDetail == null
+                              ? null
+                              : Text(loginDetail),
                           value:
-                              status['loginStatus'] == 'enabled' ||
-                              status['loginStatus'] == 'requiresApproval',
+                              login == 'enabled' || login == 'requiresApproval',
                           onChanged:
                               changing || status['loginSupported'] != true
                               ? null
                               : _toggleLogin,
                         ),
                         if (isMac &&
-                            (status['loginStatus'] == 'requiresApproval' ||
-                                status['loginStatus'] == 'notFound'))
+                            (login == 'requiresApproval' ||
+                                login == 'notFound'))
                           recoveryButton(
                             t.backgroundOpenLoginSettings,
                             () => _openSettings('login'),
                           ),
                       ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    t.backgroundDiagnostic,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Material(
                   color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   clipBehavior: Clip.antiAlias,
-                  child: Column(
+                  child: ExpansionTile(
+                    title: Text(t.backgroundDiagnostic),
+                    shape: const Border(),
+                    collapsedShape: const Border(),
                     children: [
                       if (usesTray)
                         check(
@@ -546,40 +528,23 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                             status['lowPowerStandbyExempt'] as bool?,
                             null,
                           ),
+                        ListTile(
+                          leading: const Icon(Icons.open_in_new_rounded),
+                          title: Text(t.backgroundAutoStart),
+                          subtitle: Text(
+                            isOplus
+                                ? t.backgroundAutoStartOplusHint
+                                : t.backgroundAutoStartHint,
+                          ),
+                          onTap: () => _openSettings('autostart'),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.open_in_new_rounded),
+                          title: Text(t.backgroundVendorGuide),
+                          onTap: () => _openSettings('guide'),
+                        ),
                       ],
                     ],
-                  ),
-                ),
-                if (!isMac && !usesTray) ...[
-                  const SizedBox(height: 12),
-                  ListTile(
-                    leading: const Icon(Icons.open_in_new_rounded),
-                    title: Text(t.backgroundAutoStart),
-                    subtitle: Text(
-                      isOplus
-                          ? t.backgroundAutoStartOplusHint
-                          : t.backgroundAutoStartHint,
-                    ),
-                    onTap: () => _openSettings('autostart'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.open_in_new_rounded),
-                    title: Text(t.backgroundVendorGuide),
-                    onTap: () => _openSettings('guide'),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    isMac
-                        ? '${t.macKeepAwakeHint}\n\n${t.macKeepAwakeLimits}'
-                        : usesTray
-                        ? enabled == true && status['trayAvailable'] == true
-                              ? '${t.desktopBackgroundHint}\n\n${t.desktopBackgroundLimits}'
-                              : t.desktopBackgroundLimits
-                        : '${t.backgroundDescription}\n\n${t.backgroundLimits}',
-                    style: TextStyle(color: colors.onSurfaceVariant),
                   ),
                 ),
               ],

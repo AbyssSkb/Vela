@@ -347,14 +347,8 @@ abstract class AppLocalizations {
   /// No description provided for @emptyDevices.
   ///
   /// In en, this message translates to:
-  /// **'Open Vela on both devices. Choose Show device code on one and Add device on the other.'**
+  /// **'Open Vela on both devices. Choose Device code on one and Add device on the other.'**
   String get emptyDevices;
-
-  /// No description provided for @showMyCode.
-  ///
-  /// In en, this message translates to:
-  /// **'Show device code'**
-  String get showMyCode;
 
   /// No description provided for @deviceCode.
   ///
@@ -389,13 +383,13 @@ abstract class AppLocalizations {
   /// No description provided for @enterOrScan.
   ///
   /// In en, this message translates to:
-  /// **'On the other device, choose Show device code. Enter the code here or scan the QR code.'**
+  /// **'On the other device, choose Device code. Enter the code here or scan the QR code.'**
   String get enterOrScan;
 
   /// No description provided for @enterCode.
   ///
   /// In en, this message translates to:
-  /// **'On the other device, choose Show device code and enter its code here.'**
+  /// **'On the other device, choose Device code and enter its code here.'**
   String get enterCode;
 
   /// No description provided for @scanCode.
@@ -431,7 +425,7 @@ abstract class AppLocalizations {
   /// No description provided for @invalidDeviceQr.
   ///
   /// In en, this message translates to:
-  /// **'Choose Show device code on the other device and scan its QR code.'**
+  /// **'Choose Device code on the other device and scan its QR code.'**
   String get invalidDeviceQr;
 
   /// No description provided for @invalidDeviceCode.
@@ -467,7 +461,7 @@ abstract class AppLocalizations {
   /// No description provided for @confirmOwnDevice.
   ///
   /// In en, this message translates to:
-  /// **'On the requesting device, choose Show device code. Match the first and last eight characters with the code below.'**
+  /// **'On the requesting device, choose Device code. Match the first and last eight characters with the code below.'**
   String get confirmOwnDevice;
 
   /// No description provided for @reject.
@@ -1313,13 +1307,13 @@ abstract class AppLocalizations {
   /// No description provided for @notificationAutoAcceptMuted.
   ///
   /// In en, this message translates to:
-  /// **'Vela accepts transfers automatically while the service is running. Notifications are off.'**
+  /// **'Notifications off. Auto-accept active.'**
   String get notificationAutoAcceptMuted;
 
   /// No description provided for @notificationAutoAcceptStopped.
   ///
   /// In en, this message translates to:
-  /// **'Notifications are off. Check Background receiving to resume automatic acceptance.'**
+  /// **'Notifications off. Check background receiving.'**
   String get notificationAutoAcceptStopped;
 
   /// No description provided for @notificationSettings.
@@ -1346,35 +1340,17 @@ abstract class AppLocalizations {
   /// **'Incoming requests'**
   String get notificationRequests;
 
-  /// No description provided for @notificationRequestsHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Alerts when a device sends content, with accept and decline actions'**
-  String get notificationRequestsHint;
-
   /// No description provided for @notificationProgress.
   ///
   /// In en, this message translates to:
   /// **'Transfer progress'**
   String get notificationProgress;
 
-  /// No description provided for @notificationProgressHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Shows transfer progress and live updates'**
-  String get notificationProgressHint;
-
   /// No description provided for @notificationResults.
   ///
   /// In en, this message translates to:
   /// **'Transfer results'**
   String get notificationResults;
-
-  /// No description provided for @notificationResultsHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Keeps completion and failure notifications, with an option to open files'**
-  String get notificationResultsHint;
 
   /// No description provided for @notificationLive.
   ///
@@ -1391,20 +1367,14 @@ abstract class AppLocalizations {
   /// No description provided for @notificationLiveDisabled.
   ///
   /// In en, this message translates to:
-  /// **'Not allowed; standard notifications are used'**
+  /// **'Off in system settings'**
   String get notificationLiveDisabled;
 
   /// No description provided for @notificationLiveUnsupported.
   ///
   /// In en, this message translates to:
-  /// **'This system uses standard notifications'**
+  /// **'Uses standard notifications'**
   String get notificationLiveUnsupported;
-
-  /// No description provided for @notificationChannelHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Adjust banners, sound, vibration and lock-screen display in system settings'**
-  String get notificationChannelHint;
 
   /// No description provided for @notificationCompleted.
   ///
@@ -1418,12 +1388,6 @@ abstract class AppLocalizations {
   /// **'Done'**
   String get notificationCompletedShort;
 
-  /// No description provided for @backgroundDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep a connection available and receive requests in the background. A system notification is shown and battery use may increase.'**
-  String get backgroundDescription;
-
   /// No description provided for @backgroundReady.
   ///
   /// In en, this message translates to:
@@ -1433,55 +1397,55 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundStartHint.
   ///
   /// In en, this message translates to:
-  /// **'Off · Turn on to receive while Vela is in the background.'**
+  /// **'Off'**
   String get backgroundStartHint;
 
   /// No description provided for @backgroundMacMaySleep.
   ///
   /// In en, this message translates to:
-  /// **'Receives with the window closed while the Mac is awake.'**
+  /// **'Receives while awake'**
   String get backgroundMacMaySleep;
 
   /// No description provided for @backgroundMacInactive.
   ///
   /// In en, this message translates to:
-  /// **'The Mac can still enter idle sleep.'**
+  /// **'Idle sleep is still allowed'**
   String get backgroundMacInactive;
 
   /// No description provided for @backgroundMacAwake.
   ///
   /// In en, this message translates to:
-  /// **'Receives with the window closed. Idle sleep is prevented.'**
+  /// **'Idle sleep blocked'**
   String get backgroundMacAwake;
 
   /// No description provided for @backgroundTrayUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'No system tray available. Leave the window open to receive.'**
+  /// **'Keep the window open'**
   String get backgroundTrayUnavailable;
 
   /// No description provided for @backgroundTrayReady.
   ///
   /// In en, this message translates to:
-  /// **'Receives from the tray while the computer is awake.'**
+  /// **'Tray active'**
   String get backgroundTrayReady;
 
   /// No description provided for @backgroundServiceStopped.
   ///
   /// In en, this message translates to:
-  /// **'Not ready · Check the receiving service and node below.'**
+  /// **'Service not ready'**
   String get backgroundServiceStopped;
 
   /// No description provided for @backgroundAllowRequests.
   ///
   /// In en, this message translates to:
-  /// **'Allow incoming request notifications to accept in the background.'**
+  /// **'Request notifications are off'**
   String get backgroundAllowRequests;
 
   /// No description provided for @backgroundAppNotificationsOff.
   ///
   /// In en, this message translates to:
-  /// **'Notifications for Vela are off in system settings.'**
+  /// **'Vela notifications are off'**
   String get backgroundAppNotificationsOff;
 
   /// No description provided for @backgroundOpenRequestSettings.
@@ -1505,13 +1469,13 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundCheckBattery.
   ///
   /// In en, this message translates to:
-  /// **'Check battery settings to keep background receiving available.'**
+  /// **'Check battery settings'**
   String get backgroundCheckBattery;
 
   /// No description provided for @backgroundServiceReady.
   ///
   /// In en, this message translates to:
-  /// **'Receiving service is running.'**
+  /// **'Service running'**
   String get backgroundServiceReady;
 
   /// No description provided for @settingsTroubleshooting.
@@ -1525,12 +1489,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'User guide'**
   String get userGuide;
-
-  /// No description provided for @userGuideHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Find steps to fix pairing, transfers, and background receiving'**
-  String get userGuideHint;
 
   /// No description provided for @backgroundUnavailable.
   ///
@@ -1610,12 +1568,6 @@ abstract class AppLocalizations {
   /// **'View manufacturer guidance'**
   String get backgroundVendorGuide;
 
-  /// No description provided for @backgroundLimits.
-  ///
-  /// In en, this message translates to:
-  /// **'These checks reflect current system settings and cannot guarantee that every manufacturer will keep the app running.'**
-  String get backgroundLimits;
-
   /// No description provided for @backgroundOffer.
   ///
   /// In en, this message translates to:
@@ -1676,12 +1628,6 @@ abstract class AppLocalizations {
   /// **'Show window for incoming requests'**
   String get focusOnReceive;
 
-  /// No description provided for @focusOnReceiveHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Bring Vela to the foreground automatically'**
-  String get focusOnReceiveHint;
-
   /// No description provided for @autoAccept.
   ///
   /// In en, this message translates to:
@@ -1691,7 +1637,7 @@ abstract class AppLocalizations {
   /// No description provided for @autoAcceptHint.
   ///
   /// In en, this message translates to:
-  /// **'Accept transfers from paired devices without asking. Clipboard shares replace this device’s clipboard.'**
+  /// **'Paired devices can send without approval, including clipboard shares.'**
   String get autoAcceptHint;
 
   /// No description provided for @retry.
@@ -1718,11 +1664,11 @@ abstract class AppLocalizations {
   /// **'Yesterday'**
   String get yesterday;
 
-  /// No description provided for @settingsDevice.
+  /// No description provided for @settingsGeneral.
   ///
   /// In en, this message translates to:
-  /// **'Device'**
-  String get settingsDevice;
+  /// **'General'**
+  String get settingsGeneral;
 
   /// No description provided for @settingsReceiving.
   ///
@@ -1778,12 +1724,6 @@ abstract class AppLocalizations {
   /// **'Couldn\'t save to the selected location. The file is kept in Vela.'**
   String get savedPrivately;
 
-  /// No description provided for @settingsDisplay.
-  ///
-  /// In en, this message translates to:
-  /// **'Display'**
-  String get settingsDisplay;
-
   /// No description provided for @settingsAbout.
   ///
   /// In en, this message translates to:
@@ -1807,12 +1747,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Relay servers'**
   String get relaySettings;
-
-  /// No description provided for @relaySettingsHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage custom relays'**
-  String get relaySettingsHint;
 
   /// No description provided for @relayPurpose.
   ///
@@ -2027,7 +1961,7 @@ abstract class AppLocalizations {
   /// No description provided for @macKeepAwakeHint.
   ///
   /// In en, this message translates to:
-  /// **'Prevent idle sleep while Vela is running. The display can still turn off; battery use may increase.'**
+  /// **'Prevent idle sleep while Vela runs'**
   String get macKeepAwakeHint;
 
   /// No description provided for @macKeepAwakeActive.
@@ -2035,12 +1969,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Keep-awake activity'**
   String get macKeepAwakeActive;
-
-  /// No description provided for @macKeepAwakeLimits.
-  ///
-  /// In en, this message translates to:
-  /// **'Vela may still sleep when the lid is closed or sleep is requested.'**
-  String get macKeepAwakeLimits;
 
   /// No description provided for @backgroundLogin.
   ///
@@ -2174,12 +2102,6 @@ abstract class AppLocalizations {
   /// **'Text must be no larger than 1 MiB'**
   String get textTooLarge;
 
-  /// No description provided for @desktopBackgroundHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep Vela in the system tray when the window is closed. Quit from the tray menu to stop receiving.'**
-  String get desktopBackgroundHint;
-
   /// No description provided for @trayOpen.
   ///
   /// In en, this message translates to:
@@ -2191,12 +2113,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Quit'**
   String get trayQuit;
-
-  /// No description provided for @desktopBackgroundLimits.
-  ///
-  /// In en, this message translates to:
-  /// **'Receiving stops when Vela is quit or the computer sleeps. Tray availability depends on your desktop environment.'**
-  String get desktopBackgroundLimits;
 
   /// No description provided for @desktopTray.
   ///

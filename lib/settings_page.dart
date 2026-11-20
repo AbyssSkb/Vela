@@ -310,18 +310,15 @@ class _SettingsPageState extends State<SettingsPage>
     Widget row(
       IconData icon,
       String title,
-      String value,
       VoidCallback onTap, {
+      String? value,
       Widget? trailing,
-      int? maxLines,
     }) => ListTile(
       leading: Icon(icon, size: 20),
       title: Text(title),
-      subtitle: Text(
-        value,
-        maxLines: maxLines,
-        overflow: maxLines == null ? null : TextOverflow.ellipsis,
-      ),
+      subtitle: value == null
+          ? null
+          : Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: trailing ?? const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: onTap,
     );
@@ -334,13 +331,13 @@ class _SettingsPageState extends State<SettingsPage>
     Widget switchRow(
       IconData icon,
       String title,
-      String subtitle,
       bool value,
-      ValueChanged<bool> onChanged,
-    ) => SwitchListTile(
+      ValueChanged<bool> onChanged, {
+      String? subtitle,
+    }) => SwitchListTile(
       secondary: Icon(icon, size: 20),
       title: Text(title),
-      subtitle: Text(subtitle),
+      subtitle: subtitle == null ? null : Text(subtitle),
       value: value,
       onChanged: onChanged,
     );
@@ -372,23 +369,37 @@ class _SettingsPageState extends State<SettingsPage>
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 20,
+        spacing: 16,
         children: [
-          section(t.settingsDevice, [
-            row(Icons.devices_outlined, t.deviceName, name, _rename),
+          section(t.settingsGeneral, [
+            row(Icons.devices_outlined, t.deviceName, _rename, value: name),
+            divider(),
+            row(
+              Icons.language_rounded,
+              t.language,
+              () => _choose('language', language, languages),
+              value: languages[language] ?? t.systemDefault,
+            ),
+            divider(),
+            row(
+              Icons.palette_outlined,
+              t.appearance,
+              () => _choose('appearance', appearance, appearances),
+              value: appearances[appearance] ?? t.systemDefault,
+            ),
           ]),
           section(t.settingsReceiving, [
             if (background != null) ...[
               row(
                 Icons.notifications_active_outlined,
                 t.backgroundReceiving,
-                background.statusText(
+                _showBackgroundSettings,
+                value: background.statusText(
                   t,
                   backgroundEnabled,
                   backgroundStatus,
                   autoAccept: autoAccept,
                 ),
-                _showBackgroundSettings,
               ),
               divider(),
             ],
@@ -397,16 +408,13 @@ class _SettingsPageState extends State<SettingsPage>
                 DesktopPlatform.isWindowsOrLinux) ...[
               row(
                 Icons.folder_outlined,
-                saveLocationAvailable
-                    ? t.saveLocation
-                    : t.chooseSaveLocationAgain,
-                !saveLocationAvailable
+                t.saveLocation,
+                () => _chooseSaveLocation(),
+                value: !saveLocationAvailable
                     ? t.saveLocationUnavailable
                     : defaultSaveLocation
                     ? t.downloadsFolder
                     : (saveLocationLabel ?? t.chooseFolder),
-                () => _chooseSaveLocation(),
-                maxLines: saveLocationAvailable ? 3 : null,
                 trailing: !defaultSaveLocation || !saveLocationAvailable
                     ? IconButton(
                         tooltip: t.useDownloads,
@@ -417,47 +425,35 @@ class _SettingsPageState extends State<SettingsPage>
               ),
               divider(),
             ],
-            switchRow(
-              Icons.move_to_inbox_outlined,
-              t.autoAccept,
-              t.autoAcceptHint,
-              autoAccept,
-              (value) async {
+            switchRow(Icons.move_to_inbox_outlined, t.autoAccept, autoAccept, (
+              value,
+            ) async {
+              final prefs = await SharedPreferences.getInstance();
+              if (await prefs.setBool('auto_accept_${widget.profile}', value) &&
+                  mounted) {
+                setState(() => autoAccept = value);
+              }
+            }, subtitle: t.autoAcceptHint),
+            if (Platform.isMacOS) ...[
+              divider(),
+              switchRow(Icons.open_in_new_rounded, t.focusOnReceive, macFocus, (
+                value,
+              ) async {
                 final prefs = await SharedPreferences.getInstance();
                 if (await prefs.setBool(
-                      'auto_accept_${widget.profile}',
+                      'mac_focus_on_offer_${widget.profile}',
                       value,
                     ) &&
                     mounted) {
-                  setState(() => autoAccept = value);
+                  setState(() => macFocus = value);
                 }
-              },
-            ),
-            if (Platform.isMacOS) ...[
-              divider(),
-              switchRow(
-                Icons.open_in_new_rounded,
-                t.focusOnReceive,
-                t.focusOnReceiveHint,
-                macFocus,
-                (value) async {
-                  final prefs = await SharedPreferences.getInstance();
-                  if (await prefs.setBool(
-                        'mac_focus_on_offer_${widget.profile}',
-                        value,
-                      ) &&
-                      mounted) {
-                    setState(() => macFocus = value);
-                  }
-                },
-              ),
+              }),
             ],
             if (Platform.isAndroid) ...[
               divider(),
               row(
                 Icons.notifications_outlined,
                 t.notificationSettings,
-                t.notificationChannelHint,
                 () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
@@ -468,35 +464,12 @@ class _SettingsPageState extends State<SettingsPage>
               ),
             ],
           ]),
-          section(t.settingsDisplay, [
-            row(
-              Icons.language_rounded,
-              t.language,
-              languages[language] ?? t.systemDefault,
-              () => _choose('language', language, languages),
-            ),
-            divider(),
-            row(
-              Icons.palette_outlined,
-              t.appearance,
-              appearances[appearance] ?? t.systemDefault,
-              () => _choose('appearance', appearance, appearances),
-            ),
-          ]),
           section(t.settingsTroubleshooting, [
-            row(
-              Icons.dns_outlined,
-              t.relaySettings,
-              t.relaySettingsHint,
-              widget.relaySettings,
-            ),
+            row(Icons.dns_outlined, t.relaySettings, widget.relaySettings),
             divider(),
             row(
               Icons.monitor_heart_outlined,
               t.diagnostics,
-              Localizations.localeOf(context).languageCode == 'zh'
-                  ? '查看连接状态与事件'
-                  : 'Connection status and events',
               widget.diagnostics,
             ),
             if (widget.openGuide != null) ...[
@@ -504,7 +477,6 @@ class _SettingsPageState extends State<SettingsPage>
               row(
                 Icons.help_outline_rounded,
                 t.userGuide,
-                t.userGuideHint,
                 widget.openGuide!,
                 trailing: const Icon(Icons.open_in_new_rounded, size: 20),
               ),
@@ -564,8 +536,8 @@ class _SettingsPageState extends State<SettingsPage>
                       ),
                       minLeadingWidth: 24,
                       horizontalTitleGap: 12,
-                      minVerticalPadding: 10,
-                      minTileHeight: 64,
+                      minVerticalPadding: 6,
+                      minTileHeight: 52,
                       visualDensity: VisualDensity.standard,
                       iconColor: colors.onSurfaceVariant,
                       titleTextStyle: theme.textTheme.titleMedium?.copyWith(

@@ -141,10 +141,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectDevices => '连接你的设备';
 
   @override
-  String get emptyDevices => '在两台设备上打开 Vela。一台选择「出示设备码」，另一台选择「添加设备」。';
-
-  @override
-  String get showMyCode => '出示设备码';
+  String get emptyDevices => '在两台设备上打开 Vela。一台选择「设备码」，另一台选择「添加设备」。';
 
   @override
   String get deviceCode => '设备码';
@@ -162,10 +159,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get showDeviceCode => '在另一台设备上选择「添加设备」，扫描二维码或输入设备码，再回到本机确认配对。';
 
   @override
-  String get enterOrScan => '在另一台设备上选择「出示设备码」。在这里输入设备码或扫描二维码。';
+  String get enterOrScan => '在另一台设备上选择「设备码」。在这里输入设备码或扫描二维码。';
 
   @override
-  String get enterCode => '在另一台设备上选择「出示设备码」，然后在这里输入它的设备码。';
+  String get enterCode => '在另一台设备上选择「设备码」，然后在这里输入它的设备码。';
 
   @override
   String get scanCode => '扫码填写设备码';
@@ -183,7 +180,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get enterCodeManually => '手动输入设备码';
 
   @override
-  String get invalidDeviceQr => '请在另一台设备上选择「出示设备码」，再扫描它的二维码。';
+  String get invalidDeviceQr => '请在另一台设备上选择「设备码」，再扫描它的二维码。';
 
   @override
   String get invalidDeviceCode => '请输入 64 位设备码';
@@ -201,7 +198,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pairRequest => '添加设备？';
 
   @override
-  String get confirmOwnDevice => '在发起请求的设备上选择「出示设备码」，与下方的首尾各 8 位核对。';
+  String get confirmOwnDevice => '在发起请求的设备上选择「设备码」，与下方的首尾各 8 位核对。';
 
   @override
   String get reject => '拒绝';
@@ -670,10 +667,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationBackgroundBlocked => '通知已关闭。请打开 Vela 确认接收请求。';
 
   @override
-  String get notificationAutoAcceptMuted => '后台服务运行时仍会自动接收。通知已关闭。';
+  String get notificationAutoAcceptMuted => '通知已关闭，自动接收运行中。';
 
   @override
-  String get notificationAutoAcceptStopped => '通知已关闭。请检查「后台接收」以恢复自动接收。';
+  String get notificationAutoAcceptStopped => '通知已关闭，请检查后台接收。';
 
   @override
   String get notificationSettings => '通知';
@@ -688,19 +685,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationRequests => '接收请求';
 
   @override
-  String get notificationRequestsHint => '设备发来内容时提醒，可在通知中接收或拒绝';
-
-  @override
   String get notificationProgress => '传输进度';
 
   @override
-  String get notificationProgressHint => '显示传输进度和实时活动';
-
-  @override
   String get notificationResults => '传输结果';
-
-  @override
-  String get notificationResultsHint => '完成或失败后保留通知，可打开接收的文件';
 
   @override
   String get notificationLive => '实时活动';
@@ -709,13 +697,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationLiveAllowed => '已允许，展示形式由系统决定';
 
   @override
-  String get notificationLiveDisabled => '未允许，将使用普通通知';
+  String get notificationLiveDisabled => '系统设置中已关闭';
 
   @override
-  String get notificationLiveUnsupported => '当前系统使用普通通知';
-
-  @override
-  String get notificationChannelHint => '可在系统设置中调整横幅、声音、振动和锁屏显示';
+  String get notificationLiveUnsupported => '此系统使用普通通知';
 
   @override
   String get notificationCompleted => '传输完成';
@@ -724,37 +709,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationCompletedShort => '已完成';
 
   @override
-  String get backgroundDescription => '允许应用在后台保持连接并接收请求。运行时会显示系统通知，可能增加耗电。';
-
-  @override
   String get backgroundReady => '正在等待设备发送';
 
   @override
-  String get backgroundStartHint => '未开启 · 开启后可在后台接收。';
+  String get backgroundStartHint => '未开启';
 
   @override
-  String get backgroundMacMaySleep => '关闭窗口后仍可接收，Mac 睡眠时会中断。';
+  String get backgroundMacMaySleep => '唤醒时可接收';
 
   @override
-  String get backgroundMacInactive => '当前未阻止 Mac 进入空闲睡眠。';
+  String get backgroundMacInactive => '仍可进入空闲睡眠';
 
   @override
-  String get backgroundMacAwake => '关闭窗口后仍可接收，已阻止空闲睡眠。';
+  String get backgroundMacAwake => '已阻止空闲睡眠';
 
   @override
-  String get backgroundTrayUnavailable => '系统托盘不可用，请保持窗口打开以接收。';
+  String get backgroundTrayUnavailable => '需保持窗口打开';
 
   @override
-  String get backgroundTrayReady => '电脑未睡眠时可在托盘中接收。';
+  String get backgroundTrayReady => '托盘接收已开启';
 
   @override
-  String get backgroundServiceStopped => '未就绪 · 请检查下方的接收服务和节点状态。';
+  String get backgroundServiceStopped => '接收服务未就绪';
 
   @override
-  String get backgroundAllowRequests => '请允许接收请求通知，以便在后台确认接收。';
+  String get backgroundAllowRequests => '接收请求通知已关闭';
 
   @override
-  String get backgroundAppNotificationsOff => 'Vela 的通知已在系统设置中关闭。';
+  String get backgroundAppNotificationsOff => 'Vela 通知已关闭';
 
   @override
   String get backgroundOpenRequestSettings => '打开接收请求通知设置';
@@ -766,19 +748,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundSettingsOpenFailed => '无法打开系统设置。';
 
   @override
-  String get backgroundCheckBattery => '请检查电池设置，以便在后台接收。';
+  String get backgroundCheckBattery => '请检查电池设置';
 
   @override
-  String get backgroundServiceReady => '接收服务正在运行。';
+  String get backgroundServiceReady => '接收服务运行中';
 
   @override
   String get settingsTroubleshooting => '故障排查';
 
   @override
   String get userGuide => '使用指南';
-
-  @override
-  String get userGuideHint => '查看配对、传输和后台接收的排查步骤';
 
   @override
   String get backgroundUnavailable => '无法更改后台接收，请检查系统设置。';
@@ -820,9 +799,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundVendorGuide => '查看手机厂商指引';
 
   @override
-  String get backgroundLimits => '检查结果反映当前系统设置，不能保证所有厂商系统都不会结束应用。';
-
-  @override
   String get backgroundOffer => '有设备正在发送内容';
 
   @override
@@ -853,13 +829,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get focusOnReceive => '收到请求时显示窗口';
 
   @override
-  String get focusOnReceiveHint => '自动打开 Vela 并切到前台';
-
-  @override
   String get autoAccept => '自动接收';
 
   @override
-  String get autoAcceptHint => '自动接收已配对设备发来的内容。对方分享的剪贴板会替换本机剪贴板内容。';
+  String get autoAcceptHint => '已配对设备可直接发送，包括剪贴板。';
 
   @override
   String get retry => '重试';
@@ -874,7 +847,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get yesterday => '昨天';
 
   @override
-  String get settingsDevice => '设备';
+  String get settingsGeneral => '常规';
 
   @override
   String get settingsReceiving => '接收';
@@ -904,9 +877,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get savedPrivately => '无法保存到所选位置，文件已保存在应用中';
 
   @override
-  String get settingsDisplay => '显示';
-
-  @override
   String get settingsAbout => '关于 Vela';
 
   @override
@@ -917,9 +887,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get relaySettings => '中继服务器';
-
-  @override
-  String get relaySettingsHint => '管理自定义中继';
 
   @override
   String get relayPurpose => '设备无法直连时，Vela 可能会通过中继传输。默认已配置公共中继。';
@@ -1029,13 +996,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get macKeepAwake => '后台保持可用';
 
   @override
-  String get macKeepAwakeHint => 'Vela 运行时防止因空闲进入睡眠，屏幕仍可关闭，可能增加耗电。';
+  String get macKeepAwakeHint => 'Vela 运行时防止空闲睡眠';
 
   @override
   String get macKeepAwakeActive => '保持唤醒状态';
-
-  @override
-  String get macKeepAwakeLimits => '合盖或手动睡眠时，Mac 仍可能进入睡眠。';
 
   @override
   String get backgroundLogin => '登录时启动';
@@ -1104,16 +1068,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get textTooLarge => '文字不能超过 1 MiB';
 
   @override
-  String get desktopBackgroundHint => '关闭窗口后，Vela 继续在系统托盘运行。请从托盘菜单退出以停止接收。';
-
-  @override
   String get trayOpen => '打开 Vela';
 
   @override
   String get trayQuit => '退出';
-
-  @override
-  String get desktopBackgroundLimits => '退出 Vela 或电脑进入睡眠后会停止接收。托盘是否可用取决于桌面环境。';
 
   @override
   String get desktopTray => '系统托盘';

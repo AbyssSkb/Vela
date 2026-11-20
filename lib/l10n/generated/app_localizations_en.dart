@@ -143,10 +143,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emptyDevices =>
-      'Open Vela on both devices. Choose Show device code on one and Add device on the other.';
-
-  @override
-  String get showMyCode => 'Show device code';
+      'Open Vela on both devices. Choose Device code on one and Add device on the other.';
 
   @override
   String get deviceCode => 'Device code';
@@ -167,11 +164,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get enterOrScan =>
-      'On the other device, choose Show device code. Enter the code here or scan the QR code.';
+      'On the other device, choose Device code. Enter the code here or scan the QR code.';
 
   @override
   String get enterCode =>
-      'On the other device, choose Show device code and enter its code here.';
+      'On the other device, choose Device code and enter its code here.';
 
   @override
   String get scanCode => 'Scan device code';
@@ -192,7 +189,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidDeviceQr =>
-      'Choose Show device code on the other device and scan its QR code.';
+      'Choose Device code on the other device and scan its QR code.';
 
   @override
   String get invalidDeviceCode => 'Enter a 64-character device code';
@@ -212,7 +209,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmOwnDevice =>
-      'On the requesting device, choose Show device code. Match the first and last eight characters with the code below.';
+      'On the requesting device, choose Device code. Match the first and last eight characters with the code below.';
 
   @override
   String get reject => 'Decline';
@@ -725,11 +722,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationAutoAcceptMuted =>
-      'Vela accepts transfers automatically while the service is running. Notifications are off.';
+      'Notifications off. Auto-accept active.';
 
   @override
   String get notificationAutoAcceptStopped =>
-      'Notifications are off. Check Background receiving to resume automatic acceptance.';
+      'Notifications off. Check background receiving.';
 
   @override
   String get notificationSettings => 'Notifications';
@@ -744,22 +741,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationRequests => 'Incoming requests';
 
   @override
-  String get notificationRequestsHint =>
-      'Alerts when a device sends content, with accept and decline actions';
-
-  @override
   String get notificationProgress => 'Transfer progress';
 
   @override
-  String get notificationProgressHint =>
-      'Shows transfer progress and live updates';
-
-  @override
   String get notificationResults => 'Transfer results';
-
-  @override
-  String get notificationResultsHint =>
-      'Keeps completion and failure notifications, with an option to open files';
 
   @override
   String get notificationLive => 'Live updates';
@@ -769,16 +754,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Allowed; presentation is decided by the system';
 
   @override
-  String get notificationLiveDisabled =>
-      'Not allowed; standard notifications are used';
+  String get notificationLiveDisabled => 'Off in system settings';
 
   @override
-  String get notificationLiveUnsupported =>
-      'This system uses standard notifications';
-
-  @override
-  String get notificationChannelHint =>
-      'Adjust banners, sound, vibration and lock-screen display in system settings';
+  String get notificationLiveUnsupported => 'Uses standard notifications';
 
   @override
   String get notificationCompleted => 'Transfer complete';
@@ -787,46 +766,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationCompletedShort => 'Done';
 
   @override
-  String get backgroundDescription =>
-      'Keep a connection available and receive requests in the background. A system notification is shown and battery use may increase.';
-
-  @override
   String get backgroundReady => 'Waiting for devices';
 
   @override
-  String get backgroundStartHint =>
-      'Off · Turn on to receive while Vela is in the background.';
+  String get backgroundStartHint => 'Off';
 
   @override
-  String get backgroundMacMaySleep =>
-      'Receives with the window closed while the Mac is awake.';
+  String get backgroundMacMaySleep => 'Receives while awake';
 
   @override
-  String get backgroundMacInactive => 'The Mac can still enter idle sleep.';
+  String get backgroundMacInactive => 'Idle sleep is still allowed';
 
   @override
-  String get backgroundMacAwake =>
-      'Receives with the window closed. Idle sleep is prevented.';
+  String get backgroundMacAwake => 'Idle sleep blocked';
 
   @override
-  String get backgroundTrayUnavailable =>
-      'No system tray available. Leave the window open to receive.';
+  String get backgroundTrayUnavailable => 'Keep the window open';
 
   @override
-  String get backgroundTrayReady =>
-      'Receives from the tray while the computer is awake.';
+  String get backgroundTrayReady => 'Tray active';
 
   @override
-  String get backgroundServiceStopped =>
-      'Not ready · Check the receiving service and node below.';
+  String get backgroundServiceStopped => 'Service not ready';
 
   @override
-  String get backgroundAllowRequests =>
-      'Allow incoming request notifications to accept in the background.';
+  String get backgroundAllowRequests => 'Request notifications are off';
 
   @override
-  String get backgroundAppNotificationsOff =>
-      'Notifications for Vela are off in system settings.';
+  String get backgroundAppNotificationsOff => 'Vela notifications are off';
 
   @override
   String get backgroundOpenRequestSettings => 'Open incoming request settings';
@@ -838,21 +805,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundSettingsOpenFailed => 'Could not open system settings.';
 
   @override
-  String get backgroundCheckBattery =>
-      'Check battery settings to keep background receiving available.';
+  String get backgroundCheckBattery => 'Check battery settings';
 
   @override
-  String get backgroundServiceReady => 'Receiving service is running.';
+  String get backgroundServiceReady => 'Service running';
 
   @override
   String get settingsTroubleshooting => 'Troubleshooting';
 
   @override
   String get userGuide => 'User guide';
-
-  @override
-  String get userGuideHint =>
-      'Find steps to fix pairing, transfers, and background receiving';
 
   @override
   String get backgroundUnavailable =>
@@ -899,10 +861,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundVendorGuide => 'View manufacturer guidance';
 
   @override
-  String get backgroundLimits =>
-      'These checks reflect current system settings and cannot guarantee that every manufacturer will keep the app running.';
-
-  @override
   String get backgroundOffer => 'A device is sending content';
 
   @override
@@ -933,14 +891,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get focusOnReceive => 'Show window for incoming requests';
 
   @override
-  String get focusOnReceiveHint => 'Bring Vela to the foreground automatically';
-
-  @override
   String get autoAccept => 'Auto accept';
 
   @override
   String get autoAcceptHint =>
-      'Accept transfers from paired devices without asking. Clipboard shares replace this device’s clipboard.';
+      'Paired devices can send without approval, including clipboard shares.';
 
   @override
   String get retry => 'Retry';
@@ -955,7 +910,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get yesterday => 'Yesterday';
 
   @override
-  String get settingsDevice => 'Device';
+  String get settingsGeneral => 'General';
 
   @override
   String get settingsReceiving => 'Receiving';
@@ -987,9 +942,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t save to the selected location. The file is kept in Vela.';
 
   @override
-  String get settingsDisplay => 'Display';
-
-  @override
   String get settingsAbout => 'About Vela';
 
   @override
@@ -1000,9 +952,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get relaySettings => 'Relay servers';
-
-  @override
-  String get relaySettingsHint => 'Manage custom relays';
 
   @override
   String get relayPurpose =>
@@ -1117,15 +1066,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get macKeepAwake => 'Keep available in background';
 
   @override
-  String get macKeepAwakeHint =>
-      'Prevent idle sleep while Vela is running. The display can still turn off; battery use may increase.';
+  String get macKeepAwakeHint => 'Prevent idle sleep while Vela runs';
 
   @override
   String get macKeepAwakeActive => 'Keep-awake activity';
-
-  @override
-  String get macKeepAwakeLimits =>
-      'Vela may still sleep when the lid is closed or sleep is requested.';
 
   @override
   String get backgroundLogin => 'Open at login';
@@ -1196,18 +1140,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get textTooLarge => 'Text must be no larger than 1 MiB';
 
   @override
-  String get desktopBackgroundHint =>
-      'Keep Vela in the system tray when the window is closed. Quit from the tray menu to stop receiving.';
-
-  @override
   String get trayOpen => 'Open Vela';
 
   @override
   String get trayQuit => 'Quit';
-
-  @override
-  String get desktopBackgroundLimits =>
-      'Receiving stops when Vela is quit or the computer sleeps. Tray availability depends on your desktop environment.';
 
   @override
   String get desktopTray => 'System tray';

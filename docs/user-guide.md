@@ -17,7 +17,7 @@ The installation workflow also provides seven-day development previews. They use
 
 ## Pair devices
 
-1. Open Vela on both devices. On one device, choose **Show device code**.
+1. Open Vela on both devices. On one device, choose **Device code**.
 2. On the other device, choose **Add device** and enter the code, or scan the QR code on Android. Choose **Connect**.
 3. Compare the requesting device's code through a trusted channel. Approve the request on the device displaying its code.
 
