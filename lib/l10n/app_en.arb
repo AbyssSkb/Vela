@@ -425,7 +425,7 @@
   "saveFileFailed": "Could not save file",
   "openLink": "Open link",
   "openLinkFailed": "Could not open link",
-  "focusOnReceive": "Show window for incoming requests",
+  "openAfterReceive": "Show window after receiving",
   "autoAccept": "Auto accept",
   "autoAcceptHint": "Automatically accept incoming transfers from paired devices.",
   "retry": "Retry",

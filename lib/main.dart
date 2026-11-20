@@ -481,6 +481,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _updateDesktopStatus('setTrayLabels', {
         'open': t.trayOpen,
         'quit': t.trayQuit,
+        'transferring': t.notificationTransferring,
+        'completed': t.notificationCompleted,
+        'incoming': t.incomingShort,
       });
     }
   }
@@ -1493,7 +1496,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     TransferJob? job;
     IncomingOfferPrompt? prompt;
     var receivedFromPeer = false;
-    void releaseJob() {
+    void releaseJob({bool completed = false}) {
       final ownedJob = job;
       if (ownedJob == null) return;
       job = null;
@@ -1507,7 +1510,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           activity = null;
         });
       }
-      _setTransferring(false);
+      if (completed && mounted) {
+        _updateDesktopStatus(
+          'transferCompleted',
+          prefs?.getBool(DesktopPlatform.openAfterReceiveKey(widget.profile)) ??
+              false,
+        );
+      } else {
+        _setTransferring(false);
+      }
     }
 
     bool currentNode() => mounted && !disposed && identical(node, source);
@@ -1566,9 +1577,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           inBackground: !appForeground,
           autoAccept: autoAccept,
           updatesClipboard: kind.updatesClipboard,
-          focusWindow:
-              Platform.isMacOS &&
-              (prefs?.getBool('mac_focus_on_offer_${widget.profile}') ?? true),
         );
       } finally {
         if (identical(incomingPrompt, prompt)) incomingPrompt = null;
@@ -1629,10 +1637,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         isCancelled: () => cancelling,
       );
       if (received == null) return;
-      releaseJob();
+      releaseJob(completed: true);
       _recordDiagnostic('received', sender);
       if (mounted) {
-        final message = _showReceivedContent(
+        _showReceivedContent(
           kind,
           info.name,
           received.files,
@@ -1641,7 +1649,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           batchId: batchId,
           savedPrivately: received.savedPrivately,
         );
-        await prompt.completed(message, foreground: foreground);
       }
     } catch (error) {
       if (!identical(node, source) || disposed || !mounted) return;
@@ -1669,7 +1676,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  String _showReceivedContent(
+  void _showReceivedContent(
     TransferKind kind,
     String offeredName,
     List<SavedReceivedFile> files,
@@ -1748,7 +1755,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             )
           : () => _openReceived(first.reference),
     );
-    return message;
   }
 
   void _invalidatePeerMembership(PeerState updated, Set<String> changed) {
@@ -3534,7 +3540,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       activeSendOperations--;
       if (!sendCompleted) sendingJob?.cancel();
       if (identical(activeTransfer, sendingJob)) activeTransfer = null;
-      if (transferStarted) _setTransferring(false);
+      if (sendCompleted) {
+        _updateDesktopStatus('transferCompleted', false);
+      } else if (transferStarted) {
+        _setTransferring(false);
+      }
       if (declined) {
         await _releaseSendSession(session);
       } else if (retry == null && !sendCompleted) {

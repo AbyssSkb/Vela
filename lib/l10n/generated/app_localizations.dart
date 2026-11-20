@@ -1616,11 +1616,11 @@ abstract class AppLocalizations {
   /// **'Could not open link'**
   String get openLinkFailed;
 
-  /// No description provided for @focusOnReceive.
+  /// No description provided for @openAfterReceive.
   ///
   /// In en, this message translates to:
-  /// **'Show window for incoming requests'**
-  String get focusOnReceive;
+  /// **'Show window after receiving'**
+  String get openAfterReceive;
 
   /// No description provided for @autoAccept.
   ///

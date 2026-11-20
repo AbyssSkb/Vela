@@ -103,13 +103,32 @@ void main() {
               TargetPlatform.macOS;
           expect(
             labels.last,
-            mac ? 'en' : {'open': 'Open Vela', 'quit': 'Quit'},
+            mac
+                ? 'en'
+                : {
+                    'open': 'Open Vela',
+                    'quit': 'Quit',
+                    'transferring': 'Transferring',
+                    'completed': 'Transfer complete',
+                    'incoming': 'Incoming',
+                  },
           );
           await tester
               .widget<HomePage>(find.byType(HomePage))
               .changeSetting('language', 'zh');
           await tester.pump();
-          expect(labels.last, mac ? 'zh' : {'open': '打开 Vela', 'quit': '退出'});
+          expect(
+            labels.last,
+            mac
+                ? 'zh'
+                : {
+                    'open': '打开 Vela',
+                    'quit': '退出',
+                    'transferring': '正在传输',
+                    'completed': '传输完成',
+                    'incoming': '待接收',
+                  },
+          );
         },
       );
     },

@@ -884,7 +884,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openLinkFailed => 'Could not open link';
 
   @override
-  String get focusOnReceive => 'Show window for incoming requests';
+  String get openAfterReceive => 'Show window after receiving';
 
   @override
   String get autoAccept => 'Auto accept';

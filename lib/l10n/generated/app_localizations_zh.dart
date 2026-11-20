@@ -823,7 +823,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get openLinkFailed => '无法打开链接';
 
   @override
-  String get focusOnReceive => '收到请求时显示窗口';
+  String get openAfterReceive => '接收完成后显示窗口';
 
   @override
   String get autoAccept => '自动接收';

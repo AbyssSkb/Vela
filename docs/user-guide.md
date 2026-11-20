@@ -66,6 +66,8 @@ Open **Settings → Receiving** to check whether this device is ready and to fin
 
 On supported Android systems, transfer progress may also appear in a status-bar capsule. Keeping a device available in the background can increase power use.
 
+On desktop, the menu bar or tray icon shows when a transfer is in progress or has finished. Open Vela from the icon or an incoming request notification to approve a transfer manually. Turn on **Settings → Receiving → Show window after receiving** to bring Vela forward after content has been saved. This setting starts off.
+
 ## Update Vela
 
 In an update-enabled release, Vela checks for updates in the background. To check or install manually, open **Settings → About Vela → App updates**. When an update is ready, finish any transfer, pairing, or folder operation before confirming installation.

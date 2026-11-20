@@ -152,10 +152,18 @@ void DesktopIntegration::UpdateTray() {
   if (!tray_available_) return;
   auto data = TrayData(window_);
   data.uFlags = NIF_TIP | NIF_SHOWTIP;
-  const auto text = L"Vela - " +
-                    (transferring_ ? std::wstring(L"Transferring")
-                                   : incoming_ ? std::wstring(L"Incoming transfer")
-                                               : node_status_);
+  const auto text = L"Vela - " + (incoming_ ? incoming_label_
+                                 : transferring_ ? transferring_label_
+                                 : completed_ ? completed_label_
+                                              : node_status_);
+  const int icon = incoming_ ? IDI_TRAY_INCOMING
+                   : transferring_ ? IDI_TRAY_TRANSFERRING
+                   : completed_ ? IDI_TRAY_COMPLETED
+                                : IDI_APP_ICON;
+  data.hIcon = static_cast<HICON>(LoadImageW(
+      GetModuleHandleW(nullptr), MAKEINTRESOURCEW(icon), IMAGE_ICON,
+      GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED));
+  if (data.hIcon) data.uFlags |= NIF_ICON;
   wcsncpy_s(data.szTip, text.c_str(), _TRUNCATE);
   Shell_NotifyIconW(NIM_MODIFY, &data);
 }
@@ -242,7 +250,13 @@ std::optional<LRESULT> DesktopIntegration::HandleMessage(UINT message,
       if (wparam == PBT_APMRESUMEAUTOMATIC) Emit("systemWake");
       break;
     case WM_ACTIVATE:
-      if (LOWORD(wparam) != WA_INACTIVE) Emit("visible");
+      if (LOWORD(wparam) != WA_INACTIVE) {
+        if (completed_) {
+          completed_ = false;
+          UpdateTray();
+        }
+        Emit("visible");
+      }
       break;
     case WM_SIZE:
       if (wparam == SIZE_MINIMIZED) Emit("hidden");
@@ -329,18 +343,38 @@ void DesktopIntegration::HandleBackground(
       if (!*value && !IsWindowVisible(window_)) ShowWindow();
     } else {
       transferring_ = *value;
+      if (transferring_) completed_ = false;
       UpdateTray();
     }
+    result->Success();
+  } else if (method == "transferCompleted") {
+    const auto* show = call.arguments() ? std::get_if<bool>(call.arguments()) : nullptr;
+    if (!show) {
+      result->Error("arguments", "Expected a boolean");
+      return;
+    }
+    transferring_ = false;
+    completed_ = GetForegroundWindow() != window_ || IsIconic(window_);
+    UpdateTray();
+    if (completed_ && *show) ShowWindow();
     result->Success();
   } else if (method == "setTrayLabels") {
     const auto open = Wide(StringArgument(call.arguments(), "open"));
     const auto quit = Wide(StringArgument(call.arguments(), "quit"));
-    if (open.empty() || quit.empty()) {
-      result->Error("arguments", "Expected Open and Quit labels");
+    const auto incoming = Wide(StringArgument(call.arguments(), "incoming"));
+    const auto transferring = Wide(StringArgument(call.arguments(), "transferring"));
+    const auto completed = Wide(StringArgument(call.arguments(), "completed"));
+    if (open.empty() || quit.empty() || incoming.empty() ||
+        transferring.empty() || completed.empty()) {
+      result->Error("arguments", "Expected tray labels");
       return;
     }
     open_label_ = open;
     quit_label_ = quit;
+    incoming_label_ = incoming;
+    transferring_label_ = transferring;
+    completed_label_ = completed;
+    UpdateTray();
     result->Success();
   } else if (method == "setNodeStatus") {
     const auto* status = call.arguments() ? std::get_if<std::string>(call.arguments()) : nullptr;

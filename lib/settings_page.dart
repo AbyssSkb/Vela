@@ -110,7 +110,7 @@ class _SettingsPageState extends State<SettingsPage>
   late String appearance = widget.appearance;
   late String name = widget.deviceName;
   static const receivedStorage = ReceivedStorage();
-  bool macFocus = true, autoAccept = false;
+  bool openAfterReceive = false, autoAccept = false;
   bool defaultSaveLocation = true, saveLocationAvailable = true;
   String? saveLocationLabel;
   BackgroundReceiving? get background =>
@@ -126,8 +126,11 @@ class _SettingsPageState extends State<SettingsPage>
     SharedPreferences.getInstance().then((prefs) {
       if (mounted) {
         setState(() {
-          macFocus =
-              prefs.getBool('mac_focus_on_offer_${widget.profile}') ?? true;
+          openAfterReceive =
+              prefs.getBool(
+                DesktopPlatform.openAfterReceiveKey(widget.profile),
+              ) ??
+              false;
           autoAccept = prefs.getBool('auto_accept_${widget.profile}') ?? false;
         });
       }
@@ -435,20 +438,23 @@ class _SettingsPageState extends State<SettingsPage>
                 setState(() => autoAccept = value);
               }
             }, hint: t.autoAcceptHint),
-            if (Platform.isMacOS) ...[
+            if (DesktopPlatform.isDesktop) ...[
               divider(),
-              switchRow(Icons.open_in_new_rounded, t.focusOnReceive, macFocus, (
-                value,
-              ) async {
-                final prefs = await SharedPreferences.getInstance();
-                if (await prefs.setBool(
-                      'mac_focus_on_offer_${widget.profile}',
-                      value,
-                    ) &&
-                    mounted) {
-                  setState(() => macFocus = value);
-                }
-              }),
+              switchRow(
+                Icons.open_in_new_rounded,
+                t.openAfterReceive,
+                openAfterReceive,
+                (value) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  if (await prefs.setBool(
+                        DesktopPlatform.openAfterReceiveKey(widget.profile),
+                        value,
+                      ) &&
+                      mounted) {
+                    setState(() => openAfterReceive = value);
+                  }
+                },
+              ),
             ],
             if (Platform.isAndroid) ...[
               divider(),

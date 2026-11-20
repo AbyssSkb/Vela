@@ -1,4 +1,5 @@
 import 'package:vela/background_settings.dart';
+import 'package:vela/desktop_platform.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/settings_page.dart';
 import 'package:flutter/material.dart';
@@ -118,6 +119,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(chosen, isTrue);
     expect(find.text('Shared files'), findsOneWidget);
+    final showWindow = find.widgetWithText(
+      SwitchListTile,
+      'Show window after receiving',
+    );
+    await tester.ensureVisible(showWindow);
+    expect(tester.widget<SwitchListTile>(showWindow).value, isFalse);
+    await tester.tap(showWindow);
+    await tester.pumpAndSettle();
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(DesktopPlatform.openAfterReceiveKey('test')), isTrue);
     await tester.ensureVisible(find.text('Diagnostics'));
     expect(find.byTooltip('Back').hitTestable(), findsOneWidget);
   }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
