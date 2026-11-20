@@ -222,16 +222,12 @@ class _VelaAppState extends State<VelaApp> {
             final visible = MediaQuery.viewInsetsOf(context).bottom > 0
                 ? null
                 : notice;
-            return Column(
+            return Stack(
+              fit: StackFit.expand,
               children: [
-                Expanded(
-                  child: MediaQuery.removePadding(
-                    context: context,
-                    removeBottom: visible != null,
-                    child: child!,
-                  ),
-                ),
-                ?visible,
+                child!,
+                if (visible != null)
+                  Positioned(left: 0, right: 0, bottom: 0, child: visible),
               ],
             );
           },
@@ -4708,8 +4704,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       });
     }
     final page = Scaffold(
-      body: SafeArea(child: LayoutBuilder(builder: _buildDeviceViewport)),
-      bottomNavigationBar: appShowsActivity || keyboardVisible ? null : notice,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          SafeArea(child: LayoutBuilder(builder: _buildDeviceViewport)),
+          if (!appShowsActivity && !keyboardVisible && notice != null)
+            Positioned(left: 0, right: 0, bottom: 0, child: notice),
+        ],
+      ),
     );
     return PopScope(
       canPop: !selectingPeers,
