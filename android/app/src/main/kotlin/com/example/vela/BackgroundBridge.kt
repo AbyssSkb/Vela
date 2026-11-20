@@ -300,6 +300,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                                     Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                         Intent.FLAG_ACTIVITY_NEW_TASK
                                 )
+                                .withExternalFileViewer(context)
                         val open =
                             PendingIntent.getActivity(
                                 context,

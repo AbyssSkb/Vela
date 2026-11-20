@@ -29,6 +29,8 @@ If you upgrade from a build that used the previous pairing protocol, pair the de
 
 Start in Vela, choose Vela from the system share menu on Android or macOS, or drop files into the desktop app.
 
+On Android, choose **Send with Vela** from a file's **Open with** menu or from the actions shown for selected text. If a document provider offers an export format for a virtual file, Vela can send that export. Confirm the destination in Vela before sending. To send a folder, use **Folder** inside Vela.
+
 On Android 10 and later, the system share menu can suggest paired Vela devices. Choose a device there, then confirm the destination in Vela. The system decides which shortcuts to show. Choose Vela from the app list to see all paired devices.
 
 | What you want to send | Choose |

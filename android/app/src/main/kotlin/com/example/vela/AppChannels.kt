@@ -16,12 +16,15 @@ import android.os.PowerManager
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.provider.Settings
+import android.webkit.MimeTypeMap
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.InputStream
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -348,6 +351,41 @@ class AppChannels(private val context: VelaApplication) {
             ?.substringAfterLast('\\')
             ?.takeIf { it.isNotBlank() && it != "." && it != ".." }
 
+    private fun materializeContent(uri: Uri): File {
+        require(uri.scheme == "content") { "Invalid content URI" }
+        val resolver = context.contentResolver
+        val name = runCatching { itemName(uri) }.getOrNull() ?: "shared-file"
+        val directory = File(context.cacheDir, "clipboard/${UUID.randomUUID()}")
+
+        fun copy(input: InputStream, fileName: String): File = input.use { source ->
+            check(directory.mkdirs()) { "Cannot create a temporary file directory" }
+            val file = File(directory, fileName)
+            file.outputStream().use { output -> source.copyTo(output) }
+            file
+        }
+
+        try {
+            val original = try {
+                resolver.openInputStream(uri)
+            } catch (_: FileNotFoundException) {
+                null
+            }
+            if (original != null) return copy(original, name)
+
+            val type = resolver.getStreamTypes(uri, "*/*")?.firstOrNull()
+                ?: throw FileNotFoundException("No readable representation for the shared file")
+            val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type)
+            val fileName = if (extension != null && !name.endsWith(".$extension", ignoreCase = true))
+                "$name.$extension" else name
+            val asset = resolver.openTypedAssetFileDescriptor(uri, type, null)
+                ?: throw FileNotFoundException("Cannot open the shared file")
+            return asset.use { copy(it.createInputStream(), fileName) }
+        } catch (error: Exception) {
+            directory.deleteRecursively()
+            throw error
+        }
+    }
+
     private fun handleClipboard(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "writeText" -> {
@@ -381,16 +419,7 @@ class AppChannels(private val context: VelaApplication) {
                 }
                 executor.execute {
                     try {
-                        val uri = Uri.parse(value)
-                        val name = itemName(uri) ?: "clipboard-file"
-                        val directory =
-                            File(context.cacheDir, "clipboard/${UUID.randomUUID()}").apply {
-                                mkdirs()
-                            }
-                        val file = File(directory, name)
-                        context.contentResolver.openInputStream(uri)?.use { input ->
-                            file.outputStream().use { output -> input.copyTo(output) }
-                        } ?: error("Cannot read clipboard file")
+                        val file = materializeContent(Uri.parse(value))
                         main.post { result.success(file.absolutePath) }
                     } catch (e: Exception) {
                         main.post { result.error("clipboard", e.message, null) }
