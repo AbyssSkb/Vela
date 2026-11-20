@@ -26,7 +26,6 @@ Future<void> main(List<String> args) async {
     final recipient = find.byValueKey('choose-share-device');
     await android.waitFor(recipient, timeout: const Duration(seconds: 60));
     await android.tap(recipient);
-    await android.tap(find.text('发送给 $macName'));
     await mac.waitFor(
       find.byValueKey('accept-offer'),
       timeout: const Duration(seconds: 60),
