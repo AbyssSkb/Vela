@@ -225,6 +225,7 @@ class MainActivity : FlutterActivity() {
     fun openBackgroundSettings(section: String?, result: MethodChannel.Result) {
         NotificationChannels.ensure(this)
         val uri = Uri.fromParts("package", packageName, null)
+        val appSettings = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
         val intent =
             when (section) {
                 "notifications" ->
@@ -272,52 +273,44 @@ class MainActivity : FlutterActivity() {
                     else
                         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                "battery" ->
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+                "battery" -> appSettings
+                "battery_exemption" ->
+                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, uri)
                 "autostart" -> Intent(Settings.ACTION_SETTINGS)
                 "guide" -> {
-                    val vendor =
-                        Build.MANUFACTURER.lowercase()
-                            .replace(Regex("[^a-z0-9]"), "")
-                    val known =
-                        setOf(
-                            "samsung",
-                            "xiaomi",
-                            "huawei",
-                            "oneplus",
-                            "oppo",
-                            "vivo",
-                            "sony",
-                            "nokia",
-                            "asus",
-                            "motorola",
-                        )
+                    val guide =
+                        if (resources.configuration.locales[0].language == "zh")
+                            "user-guide.zh-CN.md#后台接收"
+                        else "user-guide.md#receive-in-the-background"
                     Intent(
                         Intent.ACTION_VIEW,
-                        Uri.parse(
-                            "https://dontkillmyapp.com/" +
-                                if (vendor in known) vendor else ""
-                        ),
+                        Uri.parse("https://github.com/AbyssSkb/Vela/blob/main/docs/$guide"),
                     )
                 }
-                else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+                else -> appSettings
             }
-        try {
-            startActivity(intent)
-            result.success(null)
-        } catch (e: android.content.ActivityNotFoundException) {
+        val fallbacks =
+            when (section) {
+                "battery_exemption" ->
+                    listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), appSettings)
+                "battery", "autostart", "guide" -> listOf(appSettings)
+                else ->
+                    listOf(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    )
+            }
+        var failure: Exception? = null
+        for (settings in (listOf(intent) + fallbacks).distinctBy { it.action }) {
             try {
-                startActivity(
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                )
+                startActivity(settings)
                 result.success(null)
-            } catch (fallback: Exception) {
-                result.error("settings", fallback.message, null)
+                return
+            } catch (e: Exception) {
+                failure = e
             }
-        } catch (e: Exception) {
-            result.error("settings", e.message, null)
         }
+        result.error("settings", failure?.message, null)
     }
 
     fun handleFilesCall(call: MethodCall, result: MethodChannel.Result) {

@@ -119,6 +119,10 @@ class VelaApplication : Application() {
                     }
                 }
 
+                override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+                    if (current == network && !blocked) changed()
+                }
+
                 override fun onCapabilitiesChanged(
                     network: Network,
                     capabilities: NetworkCapabilities,
