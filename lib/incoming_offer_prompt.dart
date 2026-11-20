@@ -103,6 +103,7 @@ class IncomingOfferPrompt {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => NoticePrompt(
           title: t.shareFrom(senderName()),
+          inlineActions: batchFiles.isEmpty && !updatesClipboard,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

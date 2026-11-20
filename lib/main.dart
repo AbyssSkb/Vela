@@ -405,12 +405,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _shareReads = Future.value();
   bool _confirmedShareAvailable = Platform.isAndroid;
   bool _confirmedShareActive = false;
-  ({
-    String name,
-    String? preview,
-    Future<String>? resolvedName,
-    Completer<String?> recipient,
-  })?
+  ({String? name, Future<String>? resolvedName, Completer<String?> recipient})?
   _homeSend;
   ({
     String peer,
@@ -1717,11 +1712,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         : t.openFile;
     final historyKind = kind.historyKind(offeredName);
     final restoreFolder = historyKind.canRestoreFolder;
-    final folder = !kind.isFile || savedPrivately || restoreFolder
-        ? null
-        : Platform.isAndroid
-        ? (first.folderLabel ?? t.downloadsFolder)
-        : File(first.reference).parent.path;
     setState(() {
       activity = message;
       receivedPath = openable ? first.reference : null;
@@ -1740,7 +1730,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
     _message(
       message,
-      detail: folder == null ? null : t.receivedSavedTo(folder),
       kind: content.historySaved && !savedPrivately && !content.clipboardFailed
           ? NoticeKind.success
           : NoticeKind.info,
@@ -2145,8 +2134,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<String?> _chooseHomePeer(
-    String name, {
-    String? preview,
+    String? name, {
     Future<String>? resolvedName,
   }) async {
     if (!mounted || peers.isEmpty || _sendUnavailable) return null;
@@ -2154,7 +2142,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() {
       _homeSend = (
         name: name,
-        preview: preview,
         resolvedName: resolvedName,
         recipient: recipient,
       );
@@ -2220,9 +2207,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
     );
     if (text == null || !mounted) return;
-    final id = await _duringSendSelection(
-      () => _chooseHomePeer(t.textContent, preview: text),
-    );
+    final id = await _duringSendSelection(() => _chooseHomePeer(null));
     if (id != null && mounted) {
       await _sendShare(id, PendingShare(text: text, typed: true));
     }
@@ -2435,9 +2420,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         _message(
           t.folderRestored,
-          detail: Platform.isAndroid
-              ? null
-              : t.receivedSavedTo(File(path).parent.path),
           kind: NoticeKind.success,
           actionLabel: t.open,
           onAction: () => _openReceived(path),
@@ -3156,8 +3138,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final target =
           id ??
           await _chooseHomePeer(
-            _preparedContentName(content),
-            preview: content.textPreview ?? content.share?.text,
+            clipboard
+                ? _sendReceiptContent(content)
+                : _preparedContentName(content),
           );
       if (target == null ||
           !mounted ||
@@ -4520,9 +4503,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 await Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) => NotificationSettingsPage(
-                      autoAccept: availability.autoAccept,
-                    ),
+                    builder: (_) => const NotificationSettingsPage(),
                   ),
                 );
                 await _refreshBackgroundAvailability();
@@ -4556,16 +4537,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(t.chooseDevice),
-                  FutureBuilder<String>(
-                    future: send.resolvedName,
-                    builder: (context, snapshot) => Text(
-                      send.preview == null
-                          ? snapshot.data ?? send.name
-                          : _textPreview(send.preview!, 80),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  if (send.name case final name?)
+                    FutureBuilder<String>(
+                      future: send.resolvedName,
+                      builder: (context, snapshot) => Text(
+                        snapshot.data ?? name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

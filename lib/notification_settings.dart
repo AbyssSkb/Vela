@@ -6,8 +6,7 @@ import 'notice.dart';
 import 'settings_row_title.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
-  const NotificationSettingsPage({super.key, this.autoAccept = false});
-  final bool autoAccept;
+  const NotificationSettingsPage({super.key});
   @override
   State<NotificationSettingsPage> createState() =>
       _NotificationSettingsPageState();
@@ -71,33 +70,23 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     final colors = Theme.of(context).colorScheme;
     final largeText = MediaQuery.textScalerOf(context).scale(16) >= 24;
     final notificationsOff = status?['allNotifications'] == false;
-    final receivesAutomatically =
-        widget.autoAccept &&
-        status?['running'] == true &&
-        status?['nodeReady'] == true;
     Widget row(
       IconData icon,
       String title,
       String section, {
       required String statusKey,
     }) {
-      final subtitle = statusKey == 'allNotifications' && notificationsOff
-          ? receivesAutomatically
-                ? t.notificationAutoAcceptMuted
-                : widget.autoAccept
-                ? t.notificationAutoAcceptStopped
-                : t.notificationBackgroundBlocked
-          : null;
-      final categoryOff = !notificationsOff && status?[statusKey] == false;
+      final enabled = notificationsOff ? false : status?[statusKey] as bool?;
       return ListTile(
         contentPadding: EdgeInsets.symmetric(horizontal: largeText ? 12 : 16),
         minTileHeight: 52,
         leading: largeText ? null : Icon(icon, size: 20),
         title: SettingsRowTitle(
           title,
-          value: categoryOff ? Text(t.notificationOff) : null,
+          value: enabled == null
+              ? null
+              : Text(enabled ? t.notificationOn : t.notificationOff),
         ),
-        subtitle: subtitle == null ? null : Text(subtitle),
         trailing: !largeText
             ? const Icon(Icons.chevron_right_rounded, size: 20)
             : null,

@@ -566,11 +566,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showFewerOfferedFiles => 'Show fewer files';
 
   @override
-  String receivedSavedTo(String folder) {
-    return 'Saved to $folder';
-  }
-
-  @override
   String get openFile => 'Open file';
 
   @override
@@ -701,22 +696,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enableBackgroundReceiving => 'Allow background receiving';
 
   @override
-  String get notificationBackgroundBlocked =>
-      'Notifications off. Open Vela to accept requests.';
-
-  @override
-  String get notificationAutoAcceptMuted =>
-      'Notifications off. Auto-accept still works.';
-
-  @override
-  String get notificationAutoAcceptStopped =>
-      'Notifications off. Check background receiving.';
-
-  @override
   String get notificationSettings => 'Notifications';
 
   @override
   String get notificationSystemSettings => 'System notification settings';
+
+  @override
+  String get notificationOn => 'On';
 
   @override
   String get notificationOff => 'Off';

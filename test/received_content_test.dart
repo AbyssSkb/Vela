@@ -534,7 +534,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final records = TransferRecord.decode(prefs.getString('history_test'));
     final saved = File(records.first.fileReference!).parent.path;
-    expect(find.text('Saved to $saved'), findsOneWidget);
+    expect(find.text('Saved to $saved'), findsNothing);
     await tester.tap(find.text('View this batch'));
     await waitFor(tester, find.text('one.txt'));
     expect(find.text('two.pdf'), findsOneWidget);

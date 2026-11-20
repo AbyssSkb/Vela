@@ -57,6 +57,12 @@ void main() {
     await tester.pump();
     expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 12);
     expect(tester.getRect(button).bottom, 628);
+    tester.view.physicalSize = const Size(640, 320);
+    tester.view.viewPadding = insets;
+    tester.view.padding = insets;
+    await tester.pump();
+    expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 12);
+    expect(tester.getRect(button).bottom, 296);
     await tester.tap(find.byIcon(Icons.close));
     expect(cancelled, isTrue);
     expect(tester.takeException(), isNull);
@@ -169,8 +175,41 @@ void main() {
       }
     }
     expect(find.text('Received'), findsOneWidget);
+    tester.view.physicalSize = const Size(800, 360);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+    tester.view.padding = const FakeViewPadding(bottom: 24);
+    await tester.pump();
+    expect(tester.getRect(open).top - tester.getTopLeft(panel).dy, 12);
+    expect(tester.getRect(open).bottom, 336);
     await tester.tap(open);
     expect(opened, isTrue);
+  });
+  testWidgets('short confirmations align their message and actions', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: ActivityNotice(
+            child: NoticePrompt(
+              title: 'From Mac',
+              inlineActions: true,
+              actions: [
+                TextButton(onPressed: () {}, child: const Text('Decline')),
+                FilledButton(onPressed: () {}, child: const Text('Receive')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final action = tester.getRect(find.text('Receive'));
+    final title = tester.getRect(find.text('From Mac'));
+    expect(title.right, lessThan(action.left));
+    expect(title.center.dy, action.center.dy);
+    expect(tester.takeException(), isNull);
   });
   testWidgets('received file notice keeps an accessible open action', (
     tester,

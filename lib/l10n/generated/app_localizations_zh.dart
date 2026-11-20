@@ -524,11 +524,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get showFewerOfferedFiles => '收起文件列表';
 
   @override
-  String receivedSavedTo(String folder) {
-    return '已保存至 $folder';
-  }
-
-  @override
   String get openFile => '打开文件';
 
   @override
@@ -652,19 +647,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get enableBackgroundReceiving => '允许后台接收';
 
   @override
-  String get notificationBackgroundBlocked => '通知已关闭，接收需打开 Vela。';
-
-  @override
-  String get notificationAutoAcceptMuted => '通知已关闭，仍可自动接收。';
-
-  @override
-  String get notificationAutoAcceptStopped => '通知已关闭，请检查后台接收。';
-
-  @override
   String get notificationSettings => '通知';
 
   @override
   String get notificationSystemSettings => '系统通知设置';
+
+  @override
+  String get notificationOn => '已开启';
 
   @override
   String get notificationOff => '已关闭';

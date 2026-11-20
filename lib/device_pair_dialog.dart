@@ -83,16 +83,15 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                     vertical: 14,
                   ),
                   border: const OutlineInputBorder(),
+                  suffixIcon: canScan
+                      ? IconButton(
+                          onPressed: _scan,
+                          tooltip: t.scanCode,
+                          icon: const Icon(Icons.qr_code_scanner_rounded),
+                        )
+                      : null,
                 ),
               ),
-              if (canScan) ...[
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _scan,
-                  icon: const Icon(Icons.qr_code_scanner_rounded),
-                  label: Text(t.scanCode),
-                ),
-              ],
             ],
           ),
         ),

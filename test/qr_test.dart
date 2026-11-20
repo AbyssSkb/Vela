@@ -48,7 +48,7 @@ void main() {
       ),
     );
     final t = lookupAppLocalizations(const Locale('en'));
-    await tester.tap(find.text(t.scanCode));
+    await tester.tap(find.byTooltip(t.scanCode));
     await tester.pumpAndSettle();
     expect(find.text(t.cameraPermissionNeeded), findsOneWidget);
     await tester.tap(find.text(t.backgroundOpenBatterySettings));

@@ -378,18 +378,50 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                               PopupMenuButton<void>(
                                 key: const ValueKey('diagnostics-actions'),
                                 tooltip: t.moreOptions,
+                                icon: const Icon(Icons.more_vert_rounded),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                                 itemBuilder: (_) => [
                                   PopupMenuItem<void>(
                                     key: const ValueKey('diagnostics-copy'),
                                     onTap: _copy,
-                                    child: Text(text('复制报告', 'Copy report')),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.copy_rounded,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Flexible(
+                                          child: Text(
+                                            text('复制报告', 'Copy report'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   if (current.events.isNotEmpty)
                                     PopupMenuItem<void>(
                                       key: const ValueKey('diagnostics-clear'),
                                       enabled: !clearing,
                                       onTap: _clear,
-                                      child: Text(t.diagnosticsClearEvents),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.playlist_remove_rounded,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Flexible(
+                                            child: Text(
+                                              t.diagnosticsClearEvents,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                 ],
                               ),

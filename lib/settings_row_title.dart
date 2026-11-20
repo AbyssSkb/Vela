@@ -13,16 +13,19 @@ class SettingsRowTitle extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) => Row(
         children: [
-          Expanded(child: Text(title)),
-          const SizedBox(width: 8),
           ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: constraints.maxWidth * .46),
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth * .58),
+            child: Text(title),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
             child: DefaultTextStyle(
               style: theme.textTheme.bodyMedium!.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
               child: value!,
             ),
           ),
