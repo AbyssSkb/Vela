@@ -58,7 +58,14 @@ jobs:
       - name: Archive the simulator app
         run: |
           flutter build ios --simulator --no-codesign --debug --no-pub
-          ditto -c -k --keepParent build/ios/iphonesimulator/Runner.app "$RUNNER_TEMP/Vela-iPad-simulator.zip"
+          preview="$RUNNER_TEMP/Vela-iPad-simulator"
+          ditto build/ios/iphonesimulator/Runner.app "$preview/Runner.app"
+          cargo metadata --locked --format-version 1 --manifest-path rust/Cargo.toml \
+            --filter-platform aarch64-apple-ios-sim > "$RUNNER_TEMP/ios-metadata.json"
+          python3 tool/release/notices.py --metadata "$RUNNER_TEMP/ios-metadata.json" --output "$preview/third-party-notices"
+          cp LICENSE "$preview/VELA-LICENSE.txt"
+          cp rust_builder/cargokit/LICENSE "$preview/third-party-notices/CARGOKIT-LICENSE.txt"
+          ditto -c -k --keepParent "$preview" "$RUNNER_TEMP/Vela-iPad-simulator.zip"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: Vela-iPad-simulator
