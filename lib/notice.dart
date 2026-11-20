@@ -7,7 +7,7 @@ const receiptDuration = Duration(seconds: 8);
 const _noticeShape = RoundedRectangleBorder(
   borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
 );
-const _noticePadding = EdgeInsets.all(16);
+const _noticePadding = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
 
 class ActivityNotice extends StatelessWidget {
   const ActivityNotice({super.key, required this.child});
@@ -167,7 +167,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
           }
           final scale = MediaQuery.textScalerOf(context).scale(1);
           if (actions.isNotEmpty &&
-              (constraints.maxWidth < 340 || scale > 1.3)) {
+              (constraints.maxWidth < 320 || scale > 1.3)) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,

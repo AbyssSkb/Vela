@@ -144,6 +144,7 @@ void main() {
     );
     final open = find.byKey(const ValueKey('notice-action'));
     final close = find.byKey(const ValueKey('notice-close'));
+    expect(tester.getSize(panel).height, lessThanOrEqualTo(96));
     expect(tester.getRect(open).bottom, lessThanOrEqualTo(776));
     expect(tester.getRect(close).bottom, lessThanOrEqualTo(776));
     expect(find.text('Received'), findsOneWidget);
@@ -226,7 +227,7 @@ void main() {
     expect(detail.overflow, TextOverflow.ellipsis);
     expect(
       tester.getSize(find.byType(SnackBar)).height,
-      inInclusiveRange(112, 144),
+      lessThanOrEqualTo(128),
     );
   });
 
