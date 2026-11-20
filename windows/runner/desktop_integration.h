@@ -42,11 +42,15 @@ class DesktopIntegration {
   bool background_enabled_ = true;
   bool transferring_ = false;
   bool incoming_ = false;
+  bool completed_ = false;
   bool quitting_ = false;
   bool shutdown_complete_ = false;
   std::wstring node_status_ = L"Starting";
   std::wstring open_label_ = L"Open Vela";
   std::wstring quit_label_ = L"Quit";
+  std::wstring incoming_label_ = L"Incoming transfer";
+  std::wstring transferring_label_ = L"Transferring";
+  std::wstring completed_label_ = L"Transfer complete";
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> background_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> files_;
 };

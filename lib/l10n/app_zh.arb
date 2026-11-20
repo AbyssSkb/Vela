@@ -416,7 +416,7 @@
   "saveFileFailed": "无法保存文件",
   "openLink": "打开链接",
   "openLinkFailed": "无法打开链接",
-  "focusOnReceive": "收到请求时显示窗口",
+  "openAfterReceive": "接收完成后显示窗口",
   "autoAccept": "自动接收",
   "autoAcceptHint": "已配对设备可直接发送，包括剪贴板。",
   "retry": "重试",

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:vela/desktop_platform.dart';
 import 'package:vela/incoming_offer_prompt.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/main.dart';
@@ -22,10 +23,11 @@ import 'support/fakes.dart';
 import 'support/home_environment.dart' show unmountTestHome, waitForHome;
 
 class ContentOffer implements IncomingRequest {
-  ContentOffer(this.kind, this.files);
+  ContentOffer(this.kind, this.files, {this.failReceive = false});
 
   final String kind;
   final Map<String, List<int>> files;
+  final bool failReceive;
 
   @override
   Future<void> waitForConnectionClose() => Completer<void>().future;
@@ -46,6 +48,7 @@ class ContentOffer implements IncomingRequest {
     required String directory,
     required TransferJob job,
   }) async {
+    if (failReceive) throw const FileSystemException('Could not save file');
     final file = File('$directory/${files.keys.single}');
     await file.writeAsBytes(files.values.single);
     return file.path;
@@ -110,7 +113,7 @@ class RestoreApi extends FakeRustApi {
 
 class ReceiveEffects {
   final restored = RestoreJob();
-  final menuStates = <Object>[];
+  final menuStates = <(String, Object?)>[];
   final copiedTexts = <String>[];
   final fileCopyAttempts = <List<String>>[];
   List<int>? copiedImage;
@@ -130,13 +133,19 @@ void testReceiving(
   bool macOnly = false,
   bool failClipboardFiles = false,
   bool failClipboardText = false,
+  bool inBackground = false,
+  bool? openAfterReceive,
 }) {
   testWidgets(description, (tester) async {
     final dir = Directory.systemTemp.createTempSync('vela-received-content-');
     final effects = ReceiveEffects();
     databaseFactory = databaseFactoryFfi;
     await seedPeerState(tester, dir, PeerState(peers: {peerId: 'Phone'}));
-    SharedPreferences.setMockInitialValues({'auto_accept_test': true});
+    SharedPreferences.setMockInitialValues({
+      'auto_accept_test': true,
+      if (openAfterReceive != null)
+        DesktopPlatform.openAfterReceiveKey('test'): openAfterReceive,
+    });
     final node = ReceivingNode(offer);
     RustLib.initMock(api: RestoreApi(node, effects.restored));
 
@@ -147,12 +156,9 @@ void testReceiving(
         _,
       ) async => null,
       const MethodChannel('vela/background'): (call) async {
-        if (call.method == 'setNodeStatus' ||
-            call.method == 'setTransferring') {
-          effects.menuStates.add(call.arguments as Object);
-        }
+        effects.menuStates.add((call.method, call.arguments));
         return call.method == 'getWindowVisible' || call.method == 'isVisible'
-            ? true
+            ? !inBackground
             : null;
       },
       const MethodChannel('vela/device'): (_) async => {
@@ -261,7 +267,6 @@ void main() {
                       size: '20 B',
                       inBackground: false,
                       autoAccept: false,
-                      focusWindow: false,
                     );
               },
               child: const Text('Offer'),
@@ -320,16 +325,51 @@ void main() {
     },
   );
 
+  for (final showWindow in [null, true]) {
+    testReceiving(
+      'background receive reports completion with show window set to $showWindow',
+      link,
+      (_, effects) async {
+        expect(
+          effects.menuStates,
+          containsAllInOrder([
+            ('setNodeStatus', 'starting'),
+            ('setNodeStatus', 'ready'),
+            ('setTransferring', true),
+            ('transferCompleted', showWindow ?? false),
+          ]),
+        );
+        expect(
+          effects.menuStates.where((state) => state.$1 == 'offer'),
+          isEmpty,
+        );
+      },
+      inBackground: true,
+      openAfterReceive: showWindow,
+    );
+  }
+
   testReceiving(
-    'macOS menu reflects node readiness and an active receive',
-    link,
-    (_, effects) async {
+    'failed background receive clears progress without showing a window',
+    ContentOffer('file', {
+      'photo.jpg': [1],
+    }, failReceive: true),
+    (tester, effects) async {
       expect(
         effects.menuStates,
-        containsAllInOrder(['starting', 'ready', true, false]),
+        containsAllInOrder([
+          ('setTransferring', true),
+          ('setTransferring', false),
+        ]),
       );
+      expect(
+        effects.menuStates.where((state) => state.$1 == 'transferCompleted'),
+        isEmpty,
+      );
+      await tester.pump(const Duration(seconds: 1));
     },
-    macOnly: true,
+    inBackground: true,
+    openAfterReceive: true,
   );
 
   testReceiving(
@@ -449,7 +489,7 @@ void main() {
       );
 
       final completed = effects.menuStates
-          .where((state) => state == false)
+          .where((state) => state.$1 == 'transferCompleted')
           .length;
       await tester.tap(find.byKey(const ValueKey('send-text')));
       await tester.pump();
@@ -461,7 +501,9 @@ void main() {
       await waitForHome(
         tester,
         () =>
-            effects.menuStates.where((state) => state == false).length >
+            effects.menuStates
+                .where((state) => state.$1 == 'transferCompleted')
+                .length >
             completed,
       );
       await tester.pump();

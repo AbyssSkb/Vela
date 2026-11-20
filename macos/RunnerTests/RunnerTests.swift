@@ -36,6 +36,21 @@ class RunnerTests: XCTestCase {
     XCTAssertFalse(app.backgroundActive)
   }
 
+  func testBackgroundCompletionLastsUntilTheWindowOpensOrAnotherTransferStarts() {
+    let app = AppDelegate()
+    app.setNodeStatus("ready")
+    app.setTransferring(true)
+    app.finishTransfer(inBackground: true)
+    XCTAssertEqual(app.menuStatus, "completed")
+    app.clearTransferCompletion()
+    XCTAssertEqual(app.menuStatus, "ready")
+    app.finishTransfer(inBackground: true)
+    app.setTransferring(true)
+    XCTAssertEqual(app.menuStatus, "transferring")
+    app.finishTransfer(inBackground: false)
+    XCTAssertEqual(app.menuStatus, "ready")
+  }
+
   func testOnlyLoginLaunchEventIsRecognized() {
     let event = NSAppleEventDescriptor(
       eventClass: AEEventClass(kCoreEventClass), eventID: AEEventID(kAEOpenApplication),

@@ -33,6 +33,12 @@ class DesktopIntegration {
 
     indicator_ = app_indicator_new(APPLICATION_ID, APPLICATION_ID,
                                    APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
+    g_autofree gchar* executable = g_file_read_link("/proc/self/exe", nullptr);
+    if (executable != nullptr) {
+      g_autofree gchar* directory = g_path_get_dirname(executable);
+      g_autofree gchar* icons = g_build_filename(directory, "data", "tray", nullptr);
+      app_indicator_set_icon_theme_path(indicator_, icons);
+    }
     app_indicator_set_title(indicator_, "Vela");
     auto* menu = gtk_menu_new();
     show_item_ = gtk_menu_item_new_with_label("Open Vela");
@@ -50,6 +56,7 @@ class DesktopIntegration {
     g_signal_connect(window_, "delete-event", G_CALLBACK(DeleteWindow), this);
     g_signal_connect(window_, "map-event", G_CALLBACK(WindowMapped), this);
     g_signal_connect(window_, "unmap-event", G_CALLBACK(WindowUnmapped), this);
+    g_signal_connect(window_, "focus-in-event", G_CALLBACK(WindowFocused), this);
     network_ = G_NETWORK_MONITOR(g_object_ref(g_network_monitor_get_default()));
     g_signal_connect(network_, "network-changed", G_CALLBACK(NetworkChanged),
                      this);
@@ -103,6 +110,26 @@ class DesktopIntegration {
   guint sleep_subscription_ = 0;
   bool background_enabled_ = true;
   bool quitting_ = false;
+  bool incoming_ = false;
+  bool transferring_ = false;
+  bool completed_ = false;
+  std::string node_status_ = "Starting";
+  std::string incoming_label_ = "Incoming transfer";
+  std::string transferring_label_ = "Transferring";
+  std::string completed_label_ = "Transfer complete";
+
+  void UpdateIndicator() {
+    const auto* icon = incoming_ ? "vela-incoming"
+                     : transferring_ ? "vela-transferring"
+                     : completed_ ? "vela-completed"
+                                  : APPLICATION_ID;
+    const auto title = std::string("Vela · ") +
+                       (incoming_ ? incoming_label_
+                        : transferring_ ? transferring_label_
+                        : completed_ ? completed_label_ : node_status_);
+    app_indicator_set_icon_full(indicator_, icon, title.c_str());
+    app_indicator_set_title(indicator_, title.c_str());
+  }
 
   bool TrayAvailable() const {
     gboolean connected = FALSE;
@@ -161,6 +188,16 @@ class DesktopIntegration {
 
   static gboolean WindowUnmapped(GtkWidget*, GdkEvent*, gpointer data) {
     static_cast<DesktopIntegration*>(data)->Event("hidden");
+    return FALSE;
+  }
+
+  static gboolean WindowFocused(GtkWidget*, GdkEvent*, gpointer data) {
+    auto* self = static_cast<DesktopIntegration*>(data);
+    if (self->completed_) {
+      self->completed_ = false;
+      self->UpdateIndicator();
+    }
+    self->Event("visible");
     return FALSE;
   }
 
@@ -235,14 +272,20 @@ class DesktopIntegration {
   }
 
   void ClearOffer() {
+    if (incoming_) {
+      incoming_ = false;
+      UpdateIndicator();
+    }
     if (offer_ == nullptr) return;
     notify_notification_clear_actions(offer_);
     notify_notification_close(offer_, nullptr);
     g_clear_object(&offer_);
   }
 
-  void Offer(const char* title, const char* message) {
+  bool Offer(const char* title, const char* message) {
     ClearOffer();
+    incoming_ = true;
+    UpdateIndicator();
     g_autofree gchar* escaped = g_markup_escape_text(message, -1);
     offer_ = notify_notification_new(title, escaped, APPLICATION_ID);
     notify_notification_add_action(
@@ -251,7 +294,7 @@ class DesktopIntegration {
           Show(static_cast<DesktopIntegration*>(data));
         },
         this, nullptr);
-    if (!notify_notification_show(offer_, nullptr)) Show(this);
+    return notify_notification_show(offer_, nullptr);
   }
 
   static const char* StringArgument(FlValue* arguments, const char* key) {
@@ -310,29 +353,58 @@ class DesktopIntegration {
     } else if (strcmp(method, "offer") == 0) {
       auto* title = StringArgument(arguments, "title");
       auto* message = StringArgument(arguments, "message");
-      self->Offer(title == nullptr ? "Vela" : title,
-                   message == nullptr ? "Incoming transfer" : message);
+      if (!self->Offer(title == nullptr ? "Vela" : title,
+                       message == nullptr ? "Incoming transfer" : message)) {
+        fl_method_call_respond_error(call, "notification",
+                                     "Could not show the notification", nullptr, nullptr);
+        return;
+      }
     } else if (strcmp(method, "clearOffer") == 0) {
       self->ClearOffer();
     } else if (strcmp(method, "setTrayLabels") == 0) {
       const auto* open = StringArgument(arguments, "open");
       const auto* quit = StringArgument(arguments, "quit");
-      if (open == nullptr || *open == '\0' || quit == nullptr || *quit == '\0') {
+      const auto* incoming = StringArgument(arguments, "incoming");
+      const auto* transferring = StringArgument(arguments, "transferring");
+      const auto* completed = StringArgument(arguments, "completed");
+      if (open == nullptr || *open == '\0' || quit == nullptr || *quit == '\0' ||
+          incoming == nullptr || transferring == nullptr || completed == nullptr) {
         fl_method_call_respond_error(call, "arguments",
-                                     "Expected Open and Quit labels", nullptr,
+                                     "Expected tray labels", nullptr,
                                      nullptr);
         return;
       }
       gtk_menu_item_set_label(GTK_MENU_ITEM(self->show_item_), open);
       gtk_menu_item_set_label(GTK_MENU_ITEM(self->quit_item_), quit);
+      self->incoming_label_ = incoming;
+      self->transferring_label_ = transferring;
+      self->completed_label_ = completed;
+      self->UpdateIndicator();
     } else if (strcmp(method, "setNodeStatus") == 0) {
       if (arguments != nullptr &&
           fl_value_get_type(arguments) == FL_VALUE_TYPE_STRING) {
-        const auto title = std::string("Vela · ") +
-                           fl_value_get_string(arguments);
-        app_indicator_set_title(self->indicator_, title.c_str());
+        self->node_status_ = fl_value_get_string(arguments);
+        self->UpdateIndicator();
       }
-    } else if (strcmp(method, "setTransferring") != 0) {
+    } else if (strcmp(method, "setTransferring") == 0 ||
+               strcmp(method, "transferCompleted") == 0) {
+      if (arguments == nullptr || fl_value_get_type(arguments) != FL_VALUE_TYPE_BOOL) {
+        fl_method_call_respond_error(call, "arguments", "Expected a boolean",
+                                     nullptr, nullptr);
+        return;
+      }
+      const bool value = fl_value_get_bool(arguments);
+      if (strcmp(method, "setTransferring") == 0) {
+        self->transferring_ = value;
+        if (value) self->completed_ = false;
+        self->UpdateIndicator();
+      } else {
+        self->transferring_ = false;
+        self->completed_ = self->window_ == nullptr || !gtk_window_is_active(self->window_);
+        self->UpdateIndicator();
+        if (self->completed_ && value) Show(self);
+      }
+    } else {
       fl_method_call_respond_not_implemented(call, nullptr);
       return;
     }

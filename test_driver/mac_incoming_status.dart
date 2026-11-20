@@ -36,9 +36,6 @@ Future<void> main(List<String> args) async {
                     as Map)['name']
                 as String;
         await pair.addPeer(a, b, id, nameA, nameB);
-        await b.requestData(
-          jsonEncode({'action': 'mac-focus-test', 'value': false}),
-        );
         await b.requestData(jsonEncode({'action': 'mac-close-test'}));
         if ((await status(b))['visible'] != false) {
           throw StateError('Close did not hide window');
@@ -60,7 +57,7 @@ Future<void> main(List<String> args) async {
           );
         }
         if ((await status(b))['visible'] != false) {
-          throw StateError('Window opened with focus disabled');
+          throw StateError('Incoming request opened the window');
         }
         await a.tap(find.byValueKey('cancel-transfer'));
         await until(() async => (await status(b))['incoming'] == false);

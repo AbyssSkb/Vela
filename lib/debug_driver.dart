@@ -91,13 +91,6 @@ void _registerDebugDriver() {
         );
         return 'shown';
       }
-      if (data['action'] == 'mac-focus-test' && Platform.isMacOS) {
-        await state.prefs!.setBool(
-          'mac_focus_on_offer_${state.widget.profile}',
-          data['value'] as bool,
-        );
-        return 'set';
-      }
       if (data['action'] == 'mac-close-test' && Platform.isMacOS) {
         await _HomePageState.backgroundChannel.invokeMethod<void>('testClose');
         return 'closed';

@@ -14,7 +14,12 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   private(set) var incoming = false
   private(set) var nodeStatus = "starting"
   private(set) var transferring = false
-  var menuStatus: String { incoming ? "notification" : transferring ? "transferring" : nodeStatus }
+  private var completed = false
+  var menuStatus: String {
+    if incoming { return "notification" }
+    if transferring { return "transferring" }
+    return completed ? "completed" : nodeStatus
+  }
 
   var backgroundActive: Bool { backgroundActivity != nil }
 
@@ -128,6 +133,10 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
             path.line(to: NSPoint(x: 17, y: 17))
             path.move(to: NSPoint(x: 17, y: 12))
             path.line(to: NSPoint(x: 12, y: 17))
+          } else if status == "completed" {
+            path.move(to: NSPoint(x: 12, y: 14))
+            path.line(to: NSPoint(x: 14, y: 12))
+            path.line(to: NSPoint(x: 17, y: 16))
           } else {
             path.move(to: NSPoint(x: 12, y: 13))
             path.line(to: NSPoint(x: 15.5, y: 16.5))
@@ -158,6 +167,19 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
 
   func setTransferring(_ transferring: Bool) {
     self.transferring = transferring
+    if transferring { completed = false }
+    updateMenuImage()
+  }
+
+  func finishTransfer(inBackground: Bool) {
+    transferring = false
+    completed = inBackground
+    updateMenuImage()
+  }
+
+  func clearTransferCompletion() {
+    guard completed else { return }
+    completed = false
     updateMenuImage()
   }
 
@@ -172,6 +194,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     case "starting": return chinese ? "Vela — 正在启动" : "Vela — Starting"
     case "failed": return chinese ? "Vela — 启动失败" : "Vela — Could not start"
     case "transferring": return chinese ? "Vela — 正在传输" : "Vela — Transferring"
+    case "completed": return chinese ? "Vela — 传输完成" : "Vela — Transfer complete"
     case "notification": return chinese ? "Vela — 有通知" : "Vela — Notification"
     default: return chinese ? "Vela — 可以接收" : "Vela — Ready to receive"
     }
@@ -187,6 +210,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     if let window = NSApplication.shared.windows.first(where: { $0 is MainFlutterWindow })
       as? MainFlutterWindow
     {
+      if window.isMiniaturized { window.deminiaturize(nil) }
       window.makeKeyAndOrderFront(nil)
       window.notifyVisible()
     }

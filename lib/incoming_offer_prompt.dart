@@ -21,7 +21,6 @@ class IncomingOfferPrompt {
       _backgroundAction.isCompleted ? _backgroundAction.future : null;
   bool openedDialog = false;
   bool _notificationShown = false;
-  bool _autoAcceptedInBackground = false;
 
   void becameVisible() {
     if (!_backgroundAction.isCompleted) {
@@ -49,12 +48,11 @@ class IncomingOfferPrompt {
     required String size,
     required bool inBackground,
     required bool autoAccept,
-    required bool focusWindow,
     bool updatesClipboard = false,
   }) async {
     final t = AppLocalizations.of(context)!;
-    if (inBackground) {
-      _autoAcceptedInBackground = autoAccept;
+    if (inBackground && (!autoAccept || Platform.isAndroid)) {
+      _notificationShown = true;
       try {
         await _channel.invokeMethod<void>('offer', {
           'title': Platform.isAndroid
@@ -67,12 +65,10 @@ class IncomingOfferPrompt {
                 ].join('\n')
               : t.backgroundOffer,
           'shortText': t.incomingShort,
-          'focus': focusWindow,
           'id': notificationId,
           'accept': t.receive,
           'reject': t.reject,
         });
-        _notificationShown = true;
       } catch (e) {
         debugPrint('Could not show incoming notification: $e');
       }
@@ -165,21 +161,6 @@ class IncomingOfferPrompt {
         ),
       ),
     );
-  }
-
-  Future<void> completed(String message, {required bool foreground}) async {
-    if (_autoAcceptedInBackground && !foreground && !Platform.isAndroid) {
-      try {
-        await _channel.invokeMethod<void>('offer', {
-          'title': 'Vela',
-          'message': message,
-          'focus': false,
-        });
-        _notificationShown = false;
-      } catch (e) {
-        debugPrint('Could not show completion notification: $e');
-      }
-    }
   }
 
   Future<void> clearNotification() async {

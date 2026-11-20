@@ -42,7 +42,10 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
   }
 
   func shareAvailable() { shareChannel?.invokeMethod("available", arguments: nil) }
-  func notifyVisible() { backgroundChannel?.invokeMethod("visible", arguments: nil) }
+  func notifyVisible() {
+    (NSApplication.shared.delegate as? AppDelegate)?.clearTransferCompletion()
+    backgroundChannel?.invokeMethod("visible", arguments: nil)
+  }
   func prepareToTerminate(_ completion: @escaping () -> Void) {
     guard let channel = backgroundChannel else {
       completion()
@@ -268,11 +271,20 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         }
         (NSApplication.shared.delegate as? AppDelegate)?.setTransferring(transferring)
         result(nil)
+      case "transferCompleted":
+        guard let showOnCompletion = call.arguments as? Bool else {
+          result(FlutterError(code: "status", message: "Missing completion setting", details: nil))
+          return
+        }
+        let app = NSApplication.shared.delegate as? AppDelegate
+        let inBackground = !self.isVisible || self.isMiniaturized || !NSApp.isActive
+        app?.finishTransfer(inBackground: inBackground)
+        if inBackground && showOnCompletion { app?.showWindow() }
+        result(nil)
       case "offer":
         let args = call.arguments as? [String: Any] ?? [:]
         let app = NSApplication.shared.delegate as? AppDelegate
         app?.setIncoming(true)
-        if args["focus"] as? Bool == true { app?.showWindow() }
         self.offerGeneration += 1
         let generation = self.offerGeneration
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] allowed, _ in
