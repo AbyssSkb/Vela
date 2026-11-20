@@ -326,7 +326,6 @@
   "connectingShort": "Linking",
   "incomingShort": "Incoming",
   "noTransferHistory": "No received items yet",
-  "transferHistoryEmptyHint": "Files, text, and links you receive will appear here.",
   "manageRecords": "Manage records",
   "selectRecords": "Select records",
   "clearSearch": "Clear search",

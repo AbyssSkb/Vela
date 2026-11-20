@@ -1148,12 +1148,6 @@ abstract class AppLocalizations {
   /// **'No received items yet'**
   String get noTransferHistory;
 
-  /// No description provided for @transferHistoryEmptyHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Files, text, and links you receive will appear here.'**
-  String get transferHistoryEmptyHint;
-
   /// No description provided for @manageRecords.
   ///
   /// In en, this message translates to:
