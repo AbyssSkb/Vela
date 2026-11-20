@@ -678,6 +678,74 @@ void main() {
     skip: !(Platform.isMacOS || Platform.isWindows || Platform.isLinux),
   );
 
+  for (final targetStillPaired in [true, false]) {
+    testWidgets(
+      targetStillPaired
+          ? 'a confirmed Android share sends without a second recipient click'
+          : 'a stale confirmed Android share keeps the file for a named replacement',
+      (tester) async {
+        final node = RecordingNode();
+        await withHomeTestEnvironment(
+          tester,
+          devices: onlyPhone,
+          api: fakes.FakeRustApi(node),
+          run: (directory) async {
+            await openHome(tester);
+            final staged = File('${directory.path}/Shared.jpg')
+              ..writeAsStringSync('shared photo');
+            final messenger = tester.binding.defaultBinaryMessenger;
+            const share = MethodChannel('vela/share');
+            const clipboard = MethodChannel('vela/clipboard');
+            var waiting = true;
+            String? completed;
+            messenger.setMockMethodCallHandler(share, (call) async {
+              if (call.method == 'completeConfirmed') {
+                completed = call.arguments as String;
+              }
+              if (!waiting || call.method != 'takeConfirmed') return null;
+              waiting = false;
+              return {
+                'uris': ['content://test/photo'],
+                'preferredPeer': targetStillPaired ? fakes.peerId : 'c' * 64,
+                'serviceRequest': 'native-request',
+              };
+            });
+            messenger.setMockMethodCallHandler(
+              clipboard,
+              (_) async => staged.path,
+            );
+            addTearDown(
+              () => messenger.setMockMethodCallHandler(clipboard, null),
+            );
+            unawaited(
+              messenger.handlePlatformMessage(
+                share.name,
+                const StandardMethodCodec().encodeMethodCall(
+                  const MethodCall('confirmedAvailable'),
+                ),
+                (_) {},
+              ),
+            );
+            await waitForHome(tester, () => completed != null);
+            expect(completed, 'native-request');
+            expect(find.text('Choose device'), findsNothing);
+            if (!targetStillPaired) {
+              expect(node.attemptedPath, isNull);
+              expect(staged.existsSync(), isTrue);
+              await tester.pump();
+              await tester.tap(find.text('Send to Phone instead'));
+            }
+            await waitForSend(tester);
+            expect(node.sentPeer, fakes.peerId);
+            expect(node.sentText, 'shared photo');
+            expect(staged.existsSync(), isFalse);
+          },
+        );
+      },
+      skip: !(Platform.isMacOS || Platform.isAndroid),
+    );
+  }
+
   testWidgets('sending a folder deletes the temporary archive after success', (
     tester,
   ) async {

@@ -1,5 +1,8 @@
 <resources>
     <string name="send_with_vela">Send with Vela</string>
+    <string name="share_transfer_preparing">Preparing transfer…</string>
+    <string name="share_transfer_failed">Could not start the transfer. Share again to retry.</string>
+    <string name="too_many_shared_files">You can share up to 100 files at once.</string>
     <string name="notification_requests">Incoming requests</string>
     <string name="notification_progress">Transfer progress</string>
     <string name="notification_results">Transfer results</string>
