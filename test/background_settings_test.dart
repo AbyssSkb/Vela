@@ -85,6 +85,14 @@ void main() {
     const storage = MethodChannel('vela/storage');
     final messenger = tester.binding.defaultBinaryMessenger;
     var chosen = false;
+    String? opened;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'settings') {
+        opened = (call.arguments as Map)['section'] as String;
+        return null;
+      }
+      return {'active': true, 'notifications': opened != null};
+    });
     messenger.setMockMethodCallHandler(storage, (call) async {
       if (call.method == 'choose') {
         chosen = true;
@@ -93,7 +101,10 @@ void main() {
       if (!chosen) throw PlatformException(code: 'unavailable');
       return {'isDefault': false, 'displayPath': 'Shared files'};
     });
-    addTearDown(() => messenger.setMockMethodCallHandler(storage, null));
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(storage, null);
+      messenger.setMockMethodCallHandler(channel, null);
+    });
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
@@ -118,6 +129,17 @@ void main() {
       tester.getCenter(find.text('Language')).dy,
       tester.getCenter(find.text('English')).dy,
     );
+    final notifications = find.widgetWithText(ListTile, 'Notifications');
+    await tester.ensureVisible(notifications);
+    final status = find.descendant(
+      of: notifications,
+      matching: find.text('Off'),
+    );
+    expect(status, findsOneWidget);
+    await tester.tap(notifications);
+    await tester.pumpAndSettle();
+    expect(opened, 'notification_requests');
+    expect(status, findsNothing);
     final autoAccept = find.widgetWithText(SwitchListTile, 'Auto accept');
     expect(tester.widget<SwitchListTile>(autoAccept).subtitle, isNull);
     expect(
@@ -158,11 +180,7 @@ void main() {
         'batteryExempt': true,
       };
       expect(
-        android.statusText(t, true, notificationBlocked, autoAccept: false),
-        'Request notifications are off',
-      );
-      expect(
-        android.statusText(t, true, notificationBlocked, autoAccept: true),
+        android.statusText(t, true, notificationBlocked),
         'Service running',
       );
       const lowPowerStandby = {
@@ -171,18 +189,15 @@ void main() {
         'lowPowerStandbyExempt': false,
       };
       expect(
-        android.statusText(t, true, lowPowerStandby, autoAccept: true),
+        android.statusText(t, true, lowPowerStandby),
         'Low Power Standby restricts network access while locked',
       );
-      expect(
-        android.recoverySettings(lowPowerStandby, autoAccept: true),
-        isNull,
-      );
+      expect(android.recoverySettings(lowPowerStandby), isNull);
       expect(
         BackgroundReceiving.desktopTray.statusText(t, true, {
           'running': true,
           'trayAvailable': false,
-        }, autoAccept: false),
+        }),
         'Keep the window open',
       );
     },
@@ -258,8 +273,6 @@ void main() {
   }
 
   for (final (state, label, section) in [
-    ('app', 'Incoming request notifications', 'notification_app'),
-    ('requests', 'Incoming request notifications', 'notification_requests'),
     ('battery', 'Battery optimization', 'battery_exemption'),
     ('restricted', 'Battery optimization', 'battery'),
   ]) {
@@ -288,6 +301,7 @@ void main() {
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
       await showPage(tester, () async {});
       final action = find.widgetWithText(ListTile, label);
+      expect(find.text('Incoming request notifications'), findsNothing);
       expect(action.hitTestable(), findsOneWidget);
       await tester.tap(action);
       await tester.pump();
@@ -687,15 +701,7 @@ void main() {
     );
     expect(active, isTrue);
     expect(changes, 1);
-    final requests = find.widgetWithText(
-      ListTile,
-      'Incoming request notifications',
-    );
-    await tester.ensureVisible(requests);
-    await tester.pumpAndSettle();
-    await tester.tap(requests);
-    await tester.pumpAndSettle();
-    expect(opened, 'notification_requests');
+    expect(find.text('Incoming request notifications'), findsNothing);
     final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
     expect(tester.widget<SwitchListTile>(loginSwitch).onChanged, isNotNull);
     expect(tester.widget<SwitchListTile>(loginSwitch).subtitle, isNull);
@@ -785,7 +791,7 @@ void main() {
       await showPage(tester, () async {});
       expect(find.text('Low Power Standby exemption'), findsNothing);
       expect(find.text('Battery optimization').hitTestable(), findsOneWidget);
-      expect(find.text('Incoming request notifications'), findsOneWidget);
+      expect(find.text('Incoming request notifications'), findsNothing);
       expect(find.text('Low Power Standby exemption'), findsNothing);
       expect(find.text('Receiving service'), findsNothing);
       expect(find.text('Receiving node'), findsNothing);

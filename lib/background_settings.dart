@@ -41,14 +41,9 @@ enum BackgroundReceiving {
   Future<Map<Object?, Object?>> readStatus() async =>
       await channel.invokeMapMethod<Object?, Object?>(statusMethod) ?? {};
 
-  String? recoverySettings(
-    Map<Object?, Object?> status, {
-    required bool autoAccept,
-  }) {
+  String? recoverySettings(Map<Object?, Object?> status) {
     if (this != androidService) return null;
     return switch (status) {
-      {'allNotifications': false} when !autoAccept => 'notification_app',
-      {'notifications': false} when !autoAccept => 'notification_requests',
       {'restricted': true} => 'battery',
       {'running': false} || {'nodeReady': false} => null,
       {'batteryExempt': false} => 'battery_exemption',
@@ -60,15 +55,11 @@ enum BackgroundReceiving {
       status['lowPowerStandbyEnabled'] == true &&
       status['lowPowerStandbyExempt'] == false;
 
-  bool needsAttention(
-    bool? enabled,
-    Map<Object?, Object?> status, {
-    required bool autoAccept,
-  }) =>
+  bool needsAttention(bool? enabled, Map<Object?, Object?> status) =>
       enabled == true &&
       switch (this) {
         androidService =>
-          recoverySettings(status, autoAccept: autoAccept) != null ||
+          recoverySettings(status) != null ||
               status['running'] == false ||
               status['nodeReady'] == false ||
               _lowPowerStandbyRestricts(status),
@@ -79,9 +70,8 @@ enum BackgroundReceiving {
   String statusText(
     AppLocalizations t,
     bool? enabled,
-    Map<Object?, Object?> status, {
-    required bool autoAccept,
-  }) => switch ((this, enabled)) {
+    Map<Object?, Object?> status,
+  ) => switch ((this, enabled)) {
     (_, null) => t.unknown,
     (macKeepAwake, false) => t.backgroundMacMaySleep,
     (macKeepAwake, true) => switch (status['active']) {
@@ -95,12 +85,7 @@ enum BackgroundReceiving {
       true when status['running'] == true => t.backgroundTrayReady,
       _ => t.unknown,
     },
-    (androidService, true) => switch (recoverySettings(
-      status,
-      autoAccept: autoAccept,
-    )) {
-      'notification_app' => t.backgroundAppNotificationsOff,
-      'notification_requests' => t.backgroundAllowRequests,
+    (androidService, true) => switch (recoverySettings(status)) {
       'battery' => t.backgroundCheckBattery,
       'battery_exemption' => t.backgroundBatteryLimitsLockedReceiving,
       _ => switch (status) {
@@ -108,9 +93,7 @@ enum BackgroundReceiving {
         {'nodeReady': false} => t.backgroundServiceStopped,
         _ when _lowPowerStandbyRestricts(status) =>
           t.backgroundLowPowerStandbyRestricted,
-        {'running': true, 'nodeReady': true}
-            when status['notifications'] == true || autoAccept =>
-          t.backgroundServiceReady,
+        {'running': true, 'nodeReady': true} => t.backgroundServiceReady,
         _ => t.unknown,
       },
     },
@@ -152,7 +135,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
   static const channel = BackgroundReceiving.channel;
   Map<Object?, Object?> status = {};
   bool? enabled;
-  bool autoAccept = false, changing = false;
+  bool changing = false;
   BackgroundReceiving get setting =>
       BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase()) ??
       BackgroundReceiving.androidService;
@@ -189,7 +172,6 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     if (mounted) {
       setState(() {
         enabled = prefs == null ? null : setting.enabled(prefs, widget.profile);
-        autoAccept = prefs?.getBool('auto_accept_${widget.profile}') ?? false;
         status = current;
       });
     }
@@ -288,9 +270,6 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
   Future<void> _openSettings(String section) async {
     try {
       await channel.invokeMethod<void>('settings', {'section': section});
-      if (mounted && isMac && section == 'notification_requests') {
-        await _refresh();
-      }
     } catch (_) {
       if (mounted) {
         showNotice(
@@ -309,23 +288,13 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     final manufacturer = (status['manufacturer'] as String? ?? '')
         .toLowerCase();
     final isOplus = ['oneplus', 'oppo', 'realme'].contains(manufacturer);
-    final checkRequests = !autoAccept;
-    final summary = setting.statusText(
-      t,
-      enabled,
-      status,
-      autoAccept: autoAccept,
-    );
-    final recovery = setting.recoverySettings(status, autoAccept: autoAccept);
+    final summary = setting.statusText(t, enabled, status);
+    final recovery = setting.recoverySettings(status);
     final needsRetry =
         setting == BackgroundReceiving.androidService &&
         enabled == true &&
         (status['running'] == false || status['nodeReady'] == false);
-    final needsAttention = setting.needsAttention(
-      enabled,
-      status,
-      autoAccept: autoAccept,
-    );
+    final needsAttention = setting.needsAttention(enabled, status);
     final detail =
         enabled == null || (needsAttention && (recovery == null || needsRetry))
         ? summary
@@ -339,32 +308,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
         child: TextButton(onPressed: onPressed, child: Text(label)),
       ),
     );
-    Widget check(
-      String title,
-      bool? ok,
-      String section, {
-      String? whenAllowed,
-      String? whenBlocked,
-    }) => ListTile(
-      leading: Icon(
-        ok == true
-            ? Icons.check_circle_outline_rounded
-            : Icons.info_outline_rounded,
-        color: ok == true ? colors.primary : colors.onSurfaceVariant,
-      ),
-      title: SettingsRowTitle(
-        title,
-        value: Text(
-          ok == null
-              ? t.backgroundUnknown
-              : ok
-              ? (whenAllowed ?? t.backgroundAllowed)
-              : (whenBlocked ?? t.backgroundNeedsAttention),
-        ),
-      ),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => _openSettings(section),
-    );
+    final exempt = status['batteryExempt'] as bool?;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -431,43 +375,36 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                     ],
                   ),
                 ),
-                if (!usesTray && (!isMac || checkRequests)) ...[
+                if (!isMac && !usesTray) ...[
                   const SizedBox(height: 12),
                   Material(
                     color: colors.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(16),
                     clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        if (checkRequests)
-                          check(
-                            t.notificationRequests,
-                            status['allNotifications'] == false
-                                ? false
-                                : status['notifications'] as bool?,
-                            status['allNotifications'] == false
-                                ? 'notification_app'
-                                : 'notification_requests',
-                            whenBlocked: t.backgroundOff,
-                          ),
-                        if (!isMac) ...[
-                          if (checkRequests)
-                            const Divider(height: 1, indent: 16, endIndent: 16),
-                          check(
-                            t.backgroundBattery,
-                            restricted
-                                ? false
-                                : status['batteryExempt'] as bool?,
-                            !restricted && status['batteryExempt'] == false
-                                ? 'battery_exemption'
-                                : 'battery',
-                            whenAllowed: t.backgroundBatteryExempt,
-                            whenBlocked: restricted
-                                ? t.backgroundBatteryRestricted
-                                : t.backgroundBatteryOptimized,
-                          ),
-                        ],
-                      ],
+                    child: ListTile(
+                      leading: Icon(
+                        !restricted && exempt == true
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.info_outline_rounded,
+                        color: !restricted && exempt == true
+                            ? colors.primary
+                            : colors.onSurfaceVariant,
+                      ),
+                      title: SettingsRowTitle(
+                        t.backgroundBattery,
+                        value: Text(switch ((restricted, exempt)) {
+                          (true, _) => t.backgroundBatteryRestricted,
+                          (false, true) => t.backgroundBatteryExempt,
+                          (false, false) => t.backgroundBatteryOptimized,
+                          (false, null) => t.backgroundUnknown,
+                        }),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => _openSettings(
+                        !restricted && exempt == false
+                            ? 'battery_exemption'
+                            : 'battery',
+                      ),
                     ),
                   ),
                 ],

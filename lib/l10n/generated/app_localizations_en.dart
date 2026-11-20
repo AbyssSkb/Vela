@@ -814,12 +814,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundRestricted => 'System background restrictions';
 
   @override
-  String get backgroundAllowed => 'Allowed';
-
-  @override
-  String get backgroundNeedsAttention => 'Check settings';
-
-  @override
   String get backgroundBatteryHint =>
       'If the device frequently goes offline, allow unrestricted battery use in system settings.';
 
@@ -828,9 +822,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundOffer => 'A device is sending content';
-
-  @override
-  String get backgroundOff => 'Off';
 
   @override
   String get backgroundOn => 'On';

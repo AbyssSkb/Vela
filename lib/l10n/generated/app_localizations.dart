@@ -1490,18 +1490,6 @@ abstract class AppLocalizations {
   /// **'System background restrictions'**
   String get backgroundRestricted;
 
-  /// No description provided for @backgroundAllowed.
-  ///
-  /// In en, this message translates to:
-  /// **'Allowed'**
-  String get backgroundAllowed;
-
-  /// No description provided for @backgroundNeedsAttention.
-  ///
-  /// In en, this message translates to:
-  /// **'Check settings'**
-  String get backgroundNeedsAttention;
-
   /// No description provided for @backgroundBatteryHint.
   ///
   /// In en, this message translates to:
@@ -1519,12 +1507,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A device is sending content'**
   String get backgroundOffer;
-
-  /// No description provided for @backgroundOff.
-  ///
-  /// In en, this message translates to:
-  /// **'Off'**
-  String get backgroundOff;
 
   /// No description provided for @backgroundOn.
   ///

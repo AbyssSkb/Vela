@@ -37,6 +37,7 @@ void main() {
                   'running': true,
                   'nodeReady': true,
                   'notifications': permission,
+                  'requestNotifications': permission,
                 }
               : null,
         );
@@ -61,9 +62,9 @@ void main() {
         );
         expect(tester.getBottomLeft(notice).dy, 480);
         expect(find.text('Request notifications are off'), findsOneWidget);
-        await tester.tap(find.widgetWithText(TextButton, 'Settings'));
+        await tester.tap(find.widgetWithText(TextButton, 'Notifications'));
         await tester.pumpAndSettle();
-        expect(find.text('Allow background receiving'), findsOneWidget);
+        expect(find.text('Incoming request notifications'), findsOneWidget);
         permission = true;
         await tester.pageBack();
         await tester.pump();

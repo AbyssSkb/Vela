@@ -760,12 +760,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundRestricted => '系统后台限制';
 
   @override
-  String get backgroundAllowed => '已允许';
-
-  @override
-  String get backgroundNeedsAttention => '需要检查';
-
-  @override
   String get backgroundBatteryHint => '若后台经常离线，可在系统设置中允许不受限制的电池使用。';
 
   @override
@@ -773,9 +767,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundOffer => '有设备正在发送内容';
-
-  @override
-  String get backgroundOff => '未开启';
 
   @override
   String get backgroundOn => '已开启';
