@@ -29,9 +29,9 @@ If you upgrade from a build that used the previous pairing protocol, pair the de
 
 Start in Vela, choose Vela from the system share menu on Android or macOS, or drop files into the desktop app.
 
-On Android, choose **Send with Vela** from a file's **Open with** menu or from the actions shown for selected text. If a document provider offers an export format for a virtual file, Vela can send that export. Confirm the destination in Vela before sending. To send a folder, use **Folder** inside Vela.
+On Android, choose **Send with Vela** from a file's **Open with** menu or from the actions shown for selected text, then pick a device. If a document provider offers an export format for a virtual file, Vela can send that export. To send a folder, use **Folder** inside Vela.
 
-On Android 10 and later, the system share menu can suggest paired Vela devices. Choose a device there, then confirm the destination in Vela. The system decides which shortcuts to show. Choose Vela from the app list to see all paired devices.
+On Android 10 and later, the system share menu can suggest paired Vela devices. Choose a device shortcut to send from your current app and follow progress in Android notifications. Choose the Vela app entry to pick a device. If background sending is unavailable, Vela opens so you can continue.
 
 | What you want to send | Choose |
 | --- | --- |
@@ -43,7 +43,7 @@ On Android 10 and later, the system share menu can suggest paired Vela devices. 
 
 Check the destination before sending. If device names match, Vela adds a code to distinguish them. The recipient picker also shows the connection status and offers **Review content** for items such as a file batch or clipboard share.
 
-Vela handles one transfer at a time. Watch the progress or cancel from Vela. A successful send stays visible during the current session until you dismiss it or start another send. After a failure you can retry with the same content, choose another device, or discard the send.
+Vela handles one transfer at a time. In Vela, you can watch progress or cancel the transfer. The send result briefly appears at the bottom of the screen. After a failure you can retry with the same content, choose another device, or discard the send.
 
 ## Receive and find content
 
