@@ -497,7 +497,10 @@ void main() {
       expect(receiveNotice, findsNothing);
       await tester.enterText(find.byType(TextField), 'Reply from Vela');
       await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byKey(const ValueKey('peer-$peerId')));
       await waitForHome(
         tester,
         () =>

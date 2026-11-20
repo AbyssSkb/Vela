@@ -2162,17 +2162,11 @@ abstract class AppLocalizations {
   /// **'Add device and continue'**
   String get addDeviceAndContinue;
 
-  /// No description provided for @sendAction.
+  /// No description provided for @sendContentReady.
   ///
   /// In en, this message translates to:
-  /// **'Send'**
-  String get sendAction;
-
-  /// No description provided for @sendDeviceSelectAgain.
-  ///
-  /// In en, this message translates to:
-  /// **'This device is no longer paired. Choose another device.'**
-  String get sendDeviceSelectAgain;
+  /// **'Done'**
+  String get sendContentReady;
 
   /// No description provided for @waitingForRecipient.
   ///

@@ -145,10 +145,13 @@ Future<void> openHome(WidgetTester tester) async {
 }
 
 Future<void> choosePhone(WidgetTester tester) async {
-  await finishTransition(tester);
-  await tester.tap(
-    find.byKey(const ValueKey('send-recipient-${fakes.peerId}')),
+  await waitForHome(
+    tester,
+    () =>
+        find.byKey(const ValueKey('home-send-recipient')).evaluate().isNotEmpty,
   );
+  await finishTransition(tester);
+  await tester.tap(find.byKey(const ValueKey('peer-${fakes.peerId}')));
 }
 
 Future<void> finishTransition(WidgetTester tester) async {
@@ -207,10 +210,11 @@ void main() {
           await tester.pump(const Duration(milliseconds: 350));
           await tester.enterText(find.byType(TextField), 'Hello from Vela');
           await tester.pump();
-          final send = find.widgetWithText(FilledButton, 'Send to Phone');
+          final send = find.widgetWithText(FilledButton, 'Done');
           expect(send.hitTestable(), findsOneWidget);
           expect(node.attemptedPath, isNull);
           await tester.tap(send);
+          await choosePhone(tester);
           await waitForHome(tester, () => node.attemptedPath != null);
           await tester.pump();
           expect(find.text('Connecting to Phone'), findsOneWidget);
@@ -285,49 +289,37 @@ void main() {
     );
   });
 
-  testWidgets('going back from device selection keeps the draft for sending', (
-    tester,
-  ) async {
-    final node = RecordingNode();
-    await withHomeTestEnvironment(
-      tester,
-      devices: devices,
-      api: fakes.FakeRustApi(node),
-      run: (_) async {
-        await openHome(tester);
-        await tester.tap(find.byKey(const ValueKey('send-text')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.enterText(find.byType(TextField), 'Hello from Vela');
-        await tester.pump();
-        final recipient = find.byKey(const ValueKey('text-recipient'));
-        await tester.tap(recipient);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        final phone = find
-            .widgetWithText(DropdownMenuItem<String>, 'Phone')
-            .hitTestable();
-        expect(phone, findsOneWidget);
-        expect(find.byType(BottomSheet), findsNothing);
-        await tester.binding.handlePopRoute();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text('Hello from Vela'), findsOneWidget);
-        expect(node.sentText, isNull);
-        await tester.tap(recipient);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(phone);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
-        await waitForSend(tester);
-        expect(node.sentText, 'Hello from Vela');
-        expect(node.sentKind, 'typed_text');
-        expect(node.sentName, endsWith('.txt'));
-      },
-    );
-  });
+  testWidgets(
+    'a text draft sends only when its recipient is tapped on the home page',
+    (tester) async {
+      final node = RecordingNode();
+      await withHomeTestEnvironment(
+        tester,
+        devices: devices,
+        api: fakes.FakeRustApi(node),
+        run: (_) async {
+          await openHome(tester);
+          await tester.tap(find.byKey(const ValueKey('send-text')));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.enterText(find.byType(TextField), 'Hello from Vela');
+          await tester.pump();
+          expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+          await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+          await finishTransition(tester);
+          expect(find.byType(AlertDialog), findsNothing);
+          expect(find.text('Choose a device'), findsOneWidget);
+          expect(find.text('Hello from Vela'), findsOneWidget);
+          expect(node.attemptedPath, isNull);
+          await choosePhone(tester);
+          await waitForSend(tester);
+          expect(node.sentText, 'Hello from Vela');
+          expect(node.sentKind, 'typed_text');
+          expect(node.sentName, endsWith('.txt'));
+        },
+      );
+    },
+  );
 
   testWidgets('retry keeps the prepared send after another notice', (
     tester,
@@ -344,15 +336,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.enterText(find.byType(TextField), 'Original retry text');
         await tester.pump();
-        await tester.tap(find.byKey(const ValueKey('text-recipient')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(
-          find.widgetWithText(DropdownMenuItem<String>, 'Phone').hitTestable(),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await choosePhone(tester);
         final retry = find.text('Retry');
         await waitForHome(tester, () => retry.evaluate().isNotEmpty);
         final prepared = File(node.attemptedPath!);
@@ -390,7 +375,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.enterText(find.byType(TextField), 'Meeting notes');
         await tester.pump();
-        await tester.tap(find.widgetWithText(FilledButton, 'Send to Phone'));
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await choosePhone(tester);
         final rejected = find.text('Phone declined the transfer.');
         await waitForHome(tester, () => rejected.evaluate().isNotEmpty);
         expect(find.byKey(const ValueKey('retry-send')), findsNothing);
@@ -431,8 +417,11 @@ void main() {
           await tester.tap(find.byKey(const ValueKey('send-file')));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
-          expect(find.text('Ready to send: Report.txt'), findsOneWidget);
-          expect(find.text('Send to Phone'), findsOneWidget);
+          expect(find.text('Report.txt'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('peer-${fakes.peerId}')).hitTestable(),
+            findsOneWidget,
+          );
           expect(node.attemptedPath, isNull);
           await tester.binding.handlePopRoute();
           await tester.pump();
@@ -446,7 +435,7 @@ void main() {
     );
   });
 
-  testWidgets('large text keeps a named recipient in view before scrolling', (
+  testWidgets('large text can scroll to and distinguish recipients', (
     tester,
   ) async {
     final node = RecordingNode();
@@ -470,31 +459,23 @@ void main() {
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         await tester.pump();
         await tester.tap(find.byKey(const ValueKey('send-file')));
-        final firstDevice = find.byKey(
-          const ValueKey('send-recipient-${fakes.peerId}'),
-        );
+        final firstDevice = find.byKey(const ValueKey('peer-${fakes.peerId}'));
         await waitForHome(tester, () => firstDevice.evaluate().isNotEmpty);
         await finishTransition(tester);
+        await tester.ensureVisible(firstDevice);
+        await tester.pump();
         expect(firstDevice.hitTestable(), findsOneWidget);
         expect(find.textContaining('aaaaaaaa…aaaaaaaa'), findsOneWidget);
         expect(node.attemptedPath, isNull);
-        await tester.tap(find.text('Review content'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 250));
         expect(
           find.text('Trip itinerary and accommodation confirmations.pdf'),
           findsOneWidget,
         );
-        final secondCode = find.textContaining('cccccccc…cccccccc');
-        await tester.scrollUntilVisible(
-          secondCode,
-          160,
-          scrollable: find.descendant(
-            of: find.byType(BottomSheet),
-            matching: find.byType(Scrollable),
-          ),
+        await tester.ensureVisible(find.textContaining('cccccccc…cccccccc'));
+        expect(
+          find.textContaining('cccccccc…cccccccc').hitTestable(),
+          findsOneWidget,
         );
-        expect(secondCode, findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
@@ -524,13 +505,9 @@ void main() {
       run: (_) async {
         await openHome(tester);
         await tester.tap(find.byKey(const ValueKey('send-clipboard')));
-        final preview = find.text('Review content');
+        final preview = find.text('Original clipboard');
         await waitForHome(tester, () => preview.evaluate().isNotEmpty);
-        await tester.pump(const Duration(milliseconds: 380));
-        expect(find.text('Original clipboard'), findsNothing);
-        await tester.tap(preview);
-        await finishTransition(tester);
-        expect(find.text('Original clipboard'), findsOneWidget);
+        expect(preview, findsOneWidget);
         expect(node.attemptedPath, isNull);
         await choosePhone(tester);
         await waitForSend(tester);
@@ -623,7 +600,7 @@ void main() {
             ),
           );
           await finishTransition(tester);
-          expect(find.text('Ready to send: Report.txt'), findsOneWidget);
+          expect(find.text('Report.txt'), findsOneWidget);
           expect(node.attemptedPath, isNull);
           await tester.binding.handlePopRoute();
           await finishTransition(tester);
@@ -785,7 +762,7 @@ void main() {
           await tester.tap(find.byKey(const ValueKey('send-folder')));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
-          expect(find.text('Ready to send: source'), findsOneWidget);
+          expect(find.text('source'), findsOneWidget);
           await choosePhone(tester);
           await waitForSend(tester);
           expect(folderJob.source, source);
