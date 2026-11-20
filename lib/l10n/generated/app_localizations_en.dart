@@ -101,9 +101,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clipboard => 'Clipboard';
 
   @override
-  String get sendContentGroup => 'Send content';
-
-  @override
   String sendContentType(String kind) {
     return 'Send $kind';
   }

@@ -26,18 +26,12 @@ class HomeToolbar extends StatelessWidget {
     super.key,
     this.addDevice,
     required this.actions,
-    required this.menuActions,
-    this.viewMode,
-    this.received,
     this.onSettings,
     this.selection,
   });
 
   final HomeToolbarAction? addDevice;
   final List<HomeToolbarAction> actions;
-  final List<HomeToolbarAction> menuActions;
-  final HomeToolbarAction? viewMode;
-  final HomeToolbarAction? received;
   final VoidCallback? onSettings;
   final Widget? selection;
 
@@ -69,15 +63,8 @@ class HomeToolbar extends StatelessWidget {
           : 44.0;
       final buttonWidth = math.min(target, math.max(0.0, (width - 8) / 3));
       final titleWidth = MediaQuery.textScalerOf(context).scale(112);
-      final labelActions = width >= 620 && titleWidth <= 128;
-      final receivedBelow = !labelActions && received != null;
-      final viewBelow = !labelActions && width >= 300 && titleWidth <= 128;
-      final priority = [
-        ?addDevice,
-        if (!receivedBelow) ?received,
-        ...actions,
-        if (labelActions) ?viewMode,
-      ];
+      // Add gets the first available slot, at the right end of the toolbar.
+      final priority = [if (addDevice != null) addDevice!, ...actions];
       final slotCount = ((width - titleWidth - target) / target).floor().clamp(
         0,
         priority.length,
@@ -89,32 +76,9 @@ class HomeToolbar extends StatelessWidget {
         Icons.settings_outlined,
         onSettings,
       );
-      final menu = [
-        ...priority.skip(slotCount),
-        if (!labelActions && !viewBelow) ?viewMode,
-        ...menuActions,
-        if (onSettings != null) settings,
-      ];
-      final byId = {for (final action in menu) action.id: action};
-      Widget labeled(HomeToolbarAction action) {
-        final style = TextButton.styleFrom(minimumSize: const Size(48, 48));
-        if (width < 120) {
-          return TextButton(
-            key: action.key,
-            onPressed: action.onPressed,
-            style: style,
-            child: Text(action.label),
-          );
-        }
-        return TextButton.icon(
-          key: action.key,
-          onPressed: action.onPressed,
-          style: style,
-          icon: Icon(action.icon),
-          label: Text(action.label),
-        );
-      }
-
+      final byId = {
+        for (final action in [...priority, settings]) action.id: action,
+      };
       return IconButtonTheme(
         data: IconButtonThemeData(
           style: IconButton.styleFrom(
@@ -126,82 +90,59 @@ class HomeToolbar extends StatelessWidget {
         ),
         child:
             selection ??
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        t.devices,
-                        maxLines: titleWidth > 112 ? null : 1,
-                        overflow: titleWidth > 112
-                            ? null
-                            : TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    SizedBox(width: math.min(16, math.max(0, width - 16))),
-                    for (final action in actions)
-                      if (visible.contains(action)) _button(context, action),
-                    if (visible.contains(viewMode))
-                      if (width >= 760)
-                        labeled(viewMode!)
-                      else
-                        _button(context, viewMode!),
-                    if (visible.contains(received)) labeled(received!),
-                    if (visible.contains(addDevice))
-                      if (labelActions)
-                        labeled(addDevice!)
-                      else
-                        _button(context, addDevice!),
-                    if (menu.isNotEmpty)
-                      if (menu.length == 1 && menu.single == settings)
-                        IconButton(
-                          key: const ValueKey('home-settings'),
-                          tooltip: t.settings,
-                          onPressed: onSettings,
-                          icon: const Icon(Icons.settings_outlined),
-                        )
-                      else
-                        PopupMenuButton<String>(
-                          key: const ValueKey('home-more'),
-                          tooltip: MaterialLocalizations.of(context)
-                              .showMenuTooltip,
-                          icon: const Icon(Icons.more_vert_rounded),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          onSelected: (id) => byId[id]?.onPressed?.call(),
-                          itemBuilder: (_) => [
-                            for (final action in menu)
-                              PopupMenuItem(
-                                key: action == settings
-                                    ? const ValueKey('home-settings')
-                                    : action.key,
-                                value: action.id,
-                                enabled: action.onPressed != null,
-                                child: Row(
-                                  children: [
-                                    Icon(action.icon, size: 20),
-                                    const SizedBox(width: 12),
-                                    Flexible(child: Text(action.label)),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                  ],
-                ),
-                if (receivedBelow || (viewBelow && viewMode != null))
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      if (receivedBelow) labeled(received!),
-                      if (viewBelow && viewMode != null) labeled(viewMode!),
-                    ],
+                Expanded(
+                  child: Text(
+                    t.devices,
+                    maxLines: titleWidth > 112 ? null : 1,
+                    overflow: titleWidth > 112 ? null : TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
+                ),
+                SizedBox(width: math.min(16, math.max(0, width - 16))),
+                for (final action in actions)
+                  if (visible.contains(action)) _button(context, action),
+                if (visible.contains(addDevice)) _button(context, addDevice!),
+                if (onSettings != null)
+                  if (visible.length == priority.length)
+                    IconButton(
+                      key: const ValueKey('home-settings'),
+                      tooltip: t.settings,
+                      onPressed: onSettings,
+                      icon: const Icon(Icons.settings_outlined),
+                    )
+                  else
+                    PopupMenuButton<String>(
+                      key: const ValueKey('home-more'),
+                      tooltip: MaterialLocalizations.of(context)
+                          .showMenuTooltip,
+                      icon: const Icon(Icons.more_vert_rounded),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      onSelected: (id) => byId[id]?.onPressed?.call(),
+                      itemBuilder: (_) => [
+                        for (final action in [
+                          ...priority.skip(slotCount),
+                          settings,
+                        ])
+                          PopupMenuItem(
+                            key: action.key,
+                            value: action.id,
+                            enabled: action.onPressed != null,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(action.icon, size: 20),
+                                const SizedBox(width: 12),
+                                Flexible(child: Text(action.label)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
               ],
             ),
       );

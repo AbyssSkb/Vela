@@ -30,7 +30,6 @@
   "media": "相册",
   "mediaPickFailed": "无法打开相册，请重试",
   "clipboard": "剪贴板",
-  "sendContentGroup": "发送内容",
   "sendContentType": "发送{kind}",
   "@sendContentType": {
     "placeholders": {

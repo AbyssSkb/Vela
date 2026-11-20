@@ -100,9 +100,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clipboard => '剪贴板';
 
   @override
-  String get sendContentGroup => '发送内容';
-
-  @override
   String sendContentType(String kind) {
     return '发送$kind';
   }

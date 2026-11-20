@@ -345,7 +345,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final List<_DiagnosticEntry> diagnosticEvents = [];
   final Set<String> selectedPeers = {};
   bool selectingPeers = false;
-  String deviceView = 'list';
+  String? deviceView;
+  bool? automaticGraph;
   String deviceName = '设备';
   String systemDeviceName = '设备';
   String deviceType = 'other';
@@ -1098,7 +1099,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         deviceName = ready.deviceName;
         systemDeviceName = ready.systemDeviceName;
         deviceType = ready.deviceType;
-        deviceView = storedView == 'graph' ? 'graph' : 'list';
+        deviceView = storedView == 'graph' || storedView == 'list'
+            ? storedView
+            : null;
       });
       presenceController.attach(pairedDevices!);
       _recordDiagnostic('startup_complete_done');
@@ -3674,121 +3677,109 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     selectingPeers = false;
   });
 
-  Widget _buildHomeToolbar(
-    bool showingGraph,
-    String? status, {
-    required bool allowGraph,
-  }) => HomeToolbar(
-    selection: selectingPeers
-        ? Row(
-            children: [
-              IconButton(
-                tooltip: t.cancel,
-                onPressed: _clearDeviceSelection,
-                icon: const Icon(Icons.close_rounded),
+  Widget _buildHomeToolbar(bool showingGraph, {required bool allowGraph}) =>
+      HomeToolbar(
+        selection: selectingPeers
+            ? Row(
+                children: [
+                  IconButton(
+                    tooltip: t.cancel,
+                    onPressed: _clearDeviceSelection,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.selectedCount(selectedPeers.length),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: t.selectAll,
+                    onPressed: () =>
+                        setState(() => selectedPeers.addAll(peers.keys)),
+                    icon: const Icon(Icons.select_all_rounded),
+                  ),
+                  IconButton(
+                    tooltip: t.removeDevice,
+                    onPressed: _deviceActionsBlocked || selectedPeers.isEmpty
+                        ? null
+                        : _removeSelectedPeers,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                ],
+              )
+            : null,
+        addDevice: peers.isEmpty
+            ? null
+            : HomeToolbarAction(
+                'add',
+                t.addDevice,
+                Icons.add_rounded,
+                node == null || _deviceActionsBlocked ? null : _addDevice,
+                key: const ValueKey('add-device'),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  t.selectedCount(selectedPeers.length),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+        actions: [
+          if (peers.isNotEmpty) ...[
+            HomeToolbarAction(
+              'refresh',
+              checkingPeers ? t.checking : t.refreshDevices,
+              Icons.refresh_rounded,
+              checkingPeers
+                  ? null
+                  : () => presenceController.requestPeerProbes(
+                      userInitiated: true,
+                    ),
+              key: const ValueKey('refresh-devices'),
+              buttonIcon: checkingPeers
+                  ? const SizedBox(
+                      key: ValueKey('manual-refresh-progress'),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+            ),
+            if (allowGraph)
+              HomeToolbarAction(
+                'view',
+                showingGraph ? t.showList : t.showGraph,
+                showingGraph ? Icons.view_list_rounded : Icons.hub_outlined,
+                () => _toggleDeviceView(showingGraph),
+                key: const ValueKey('toggle-device-view'),
               ),
-              IconButton(
-                tooltip: t.selectAll,
-                onPressed: () =>
-                    setState(() => selectedPeers.addAll(peers.keys)),
-                icon: const Icon(Icons.select_all_rounded),
-              ),
-              IconButton(
-                tooltip: t.removeDevice,
-                onPressed: _deviceActionsBlocked || selectedPeers.isEmpty
-                    ? null
-                    : _removeSelectedPeers,
-                icon: const Icon(Icons.delete_outline_rounded),
-              ),
-            ],
-          )
-        : null,
-    addDevice: peers.isEmpty
-        ? null
-        : HomeToolbarAction(
-            'add',
-            t.addDevice,
-            Icons.add_rounded,
-            node == null || _deviceActionsBlocked ? null : _addDevice,
-            key: const ValueKey('add-device'),
-          ),
-    actions: [
-      if (peers.isNotEmpty) ...[
-        HomeToolbarAction(
-          'refresh',
-          checkingPeers ? t.checking : t.refreshDevices,
-          Icons.refresh_rounded,
-          checkingPeers
-              ? null
-              : () => presenceController.requestPeerProbes(userInitiated: true),
-          key: const ValueKey('refresh-devices'),
-          buttonIcon: checkingPeers
-              ? const SizedBox(
-                  key: ValueKey('manual-refresh-progress'),
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : null,
-        ),
-      ],
-    ],
-    viewMode: peers.isEmpty || !allowGraph
-        ? null
-        : HomeToolbarAction(
-            'view',
-            showingGraph ? t.showList : t.showGraph,
-            showingGraph ? Icons.view_list_rounded : Icons.hub_outlined,
-            () => _toggleDeviceView(showingGraph),
-            key: const ValueKey('toggle-device-view'),
-          ),
-    menuActions: [
-      if (status != null)
-        HomeToolbarAction(
-          'background',
-          '${t.localBackgroundReceiving}\n$status',
-          Icons.move_to_inbox_outlined,
-          _showBackgroundSettings,
-        ),
-      if (peers.isNotEmpty)
-        HomeToolbarAction(
-          'select',
-          t.selectDevices,
-          Icons.checklist_rounded,
-          _deviceActionsBlocked
-              ? null
-              : () => setState(() => selectingPeers = true),
-          key: const ValueKey('select-devices'),
-        ),
-      if (node != null && peers.isNotEmpty)
-        HomeToolbarAction(
-          'device',
-          t.showMyCode,
-          Icons.qr_code_rounded,
-          _showMyDeviceDialog,
-          key: const ValueKey('show-device-code'),
-        ),
-    ],
-    received: node == null
-        ? null
-        : HomeToolbarAction(
-            'history',
-            t.transferHistory,
-            Icons.history_rounded,
-            _showHistory,
-            key: const ValueKey('transfer-history'),
-          ),
-    onSettings: node == null ? null : _showSettings,
-  );
+          ],
+          if (peers.isNotEmpty)
+            HomeToolbarAction(
+              'select',
+              t.selectDevices,
+              Icons.checklist_rounded,
+              _deviceActionsBlocked
+                  ? null
+                  : () => setState(() => selectingPeers = true),
+              key: const ValueKey('select-devices'),
+            ),
+          if (node != null && peers.isNotEmpty)
+            HomeToolbarAction(
+              'device',
+              t.showMyCode,
+              Icons.qr_code_rounded,
+              _showMyDeviceDialog,
+              key: const ValueKey('show-device-code'),
+            ),
+          if (node != null)
+            HomeToolbarAction(
+              'history',
+              t.transferHistory,
+              Icons.history_rounded,
+              _showHistory,
+              key: const ValueKey('transfer-history'),
+            ),
+        ],
+        onSettings: node == null ? null : _showSettings,
+      );
 
   bool get _deviceActionsBlocked =>
       contentOperationActive || outgoingPairingUiActive;
@@ -3863,33 +3854,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DeviceGraph(
-                          availableHeight: height,
-                          minimumScale: .5,
-                          peers: peers.keys.toList(),
-                          selfName: deviceName,
-                          selfLabel: t.myDevice,
-                          selfIcon: _iconForType(deviceType),
-                          name: peerState.displayName,
-                          icon: _deviceIcon,
-                          presence: _presenceIcon,
-                          selected: selectedPeers,
-                          selecting: selectingPeers,
-                          onSelfTap: _showMyDeviceDialog,
-                          enabled: !_deviceActionsBlocked,
-                          onTap: _tapDevice,
-                          onLongPress: _togglePeerSelection,
-                        ),
-                        Text(
-                          t.graphPairedDevicesHint,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
+                    padding: const EdgeInsets.only(bottom: 32),
+                    child: Semantics(
+                      label: t.graphPairedDevicesHint,
+                      child: DeviceGraph(
+                        availableHeight: height,
+                        minimumScale: .5,
+                        peers: peers.keys.toList(),
+                        selfName: deviceName,
+                        selfLabel: t.myDevice,
+                        selfIcon: _iconForType(deviceType),
+                        name: peerState.displayName,
+                        icon: _deviceIcon,
+                        presence: _presenceIcon,
+                        selected: selectedPeers,
+                        selecting: selectingPeers,
+                        onSelfTap: _showMyDeviceDialog,
+                        enabled: !_deviceActionsBlocked,
+                        onTap: _tapDevice,
+                        onLongPress: _togglePeerSelection,
+                      ),
                     ),
                   ),
                 ),
@@ -3975,7 +3959,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ? 4.0
         : 24.0;
     final headerBottom = compactHeader ? 4.0 : 12.0;
-    final showingGraph = deviceView == 'graph' && !largeText;
+    final deviceHeight = viewport.maxHeight - headerTop - 48 - headerBottom;
+    if (node != null && automaticGraph == null) {
+      automaticGraph = viewport.maxWidth >= 640 && deviceHeight >= 360;
+    }
+    final showingGraph =
+        !largeText &&
+        (deviceView == 'graph' ||
+            (deviceView == null && automaticGraph == true));
     final background = _backgroundSetting;
     final availability = _backgroundAvailability;
     final backgroundStatus =
@@ -3983,7 +3974,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             availability != null &&
             node != null &&
             error == null &&
-            peers.isNotEmpty
+            peers.isNotEmpty &&
+            background.needsAttention(
+              availability.enabled,
+              availability.status,
+              autoAccept: availability.autoAccept,
+            )
         ? background.statusText(
             t,
             availability.enabled,
@@ -3991,16 +3987,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             autoAccept: availability.autoAccept,
           )
         : null;
-    final backgroundNeedsAttention =
-        background != null &&
-        availability != null &&
-        background.needsAttention(
-          availability.enabled,
-          availability.status,
-          autoAccept: availability.autoAccept,
-        );
-    final showBackgroundStatus =
-        viewport.maxHeight >= 500 || backgroundNeedsAttention;
 
     final actions = _sendButtons();
     final minimumActionWidth = largeText
@@ -4012,14 +3998,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         SliverPadding(
           padding: EdgeInsets.fromLTRB(24, headerTop, 24, headerBottom),
           sliver: SliverToBoxAdapter(
-            child: _buildHomeToolbar(
-              showingGraph,
-              showBackgroundStatus ? null : backgroundStatus,
-              allowGraph: !largeText,
-            ),
+            child: _buildHomeToolbar(showingGraph, allowGraph: !largeText),
           ),
         ),
-        if (showBackgroundStatus && backgroundStatus != null)
+        if (backgroundStatus != null)
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
             sliver: SliverToBoxAdapter(
@@ -4029,18 +4011,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                tileColor: backgroundNeedsAttention
-                    ? colors.errorContainer
-                    : colors.surfaceContainerLow,
-                textColor: backgroundNeedsAttention
-                    ? colors.onErrorContainer
-                    : null,
-                leading: backgroundNeedsAttention
-                    ? Icon(
-                        Icons.error_outline_rounded,
-                        color: colors.onErrorContainer,
-                      )
-                    : null,
+                tileColor: colors.errorContainer,
+                textColor: colors.onErrorContainer,
+                leading: Icon(
+                  Icons.error_outline_rounded,
+                  color: colors.onErrorContainer,
+                ),
                 title: Text(t.localBackgroundReceiving),
                 subtitle: Semantics(
                   liveRegion: true,
@@ -4048,24 +4024,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: _showBackgroundSettings,
-              ),
-            ),
-          ),
-        if (node != null &&
-            error == null &&
-            peers.isNotEmpty &&
-            pendingShare == null &&
-            !showingGraph &&
-            viewport.maxHeight >= 520)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            sliver: SliverToBoxAdapter(
-              child: Semantics(
-                header: true,
-                child: Text(
-                  t.sendContentGroup,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
               ),
             ),
           ),
@@ -4137,7 +4095,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     wide: wide,
                     largeText: largeText,
                     minimumActionWidth: minimumActionWidth,
-                    centerActions: showingGraph,
                     actions: actions,
                     devices: CustomScrollView(
                       key: const ValueKey('home-devices'),

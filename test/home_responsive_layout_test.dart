@@ -72,13 +72,6 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
         expect(availability, findsNothing);
-        await tester.tap(find.byKey(const ValueKey('home-more')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 350));
-        expect(
-          find.textContaining('Receiving service is running.'),
-          findsOneWidget,
-        );
       },
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
@@ -597,10 +590,12 @@ void main() {
         await waitForHome(tester, () => device.evaluate().isNotEmpty);
         expect(file, findsOneWidget);
         expect(find.byKey(const ValueKey('home-more')), findsOneWidget);
+        expect(find.byKey(const ValueKey('transfer-history')), findsNothing);
         expect(
-          find.byKey(const ValueKey('transfer-history')).hitTestable(),
-          findsOneWidget,
+          find.byKey(const ValueKey('local-background-availability')),
+          findsNothing,
         );
+        expect(find.text('Send content'), findsNothing);
         expect(find.byKey(const ValueKey('select-devices')), findsNothing);
         expect(
           tester.getRect(find.byKey(const ValueKey('refresh-devices'))).left -
@@ -623,7 +618,7 @@ void main() {
         await resize(const Size(320, 844));
         expect(find.byKey(const ValueKey('select-devices')), findsNothing);
         expect(find.byKey(const ValueKey('toggle-device-view')), findsNothing);
-        expect(find.byKey(const ValueKey('transfer-history')), findsOneWidget);
+        expect(find.byKey(const ValueKey('transfer-history')), findsNothing);
         await tester.tap(find.byKey(const ValueKey('home-more')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
@@ -634,25 +629,16 @@ void main() {
         await tester.tap(find.byTooltip('Cancel').first);
         await tester.pump();
         await resize(const Size(500, 844));
-        expect(find.byKey(const ValueKey('home-more')), findsOneWidget);
-        expect(find.byKey(const ValueKey('select-devices')), findsNothing);
-        expect(
-          find.byKey(const ValueKey('toggle-device-view')),
-          findsOneWidget,
-        );
-        final received = find.widgetWithText(TextButton, 'Received');
-        final graphToggle = find.widgetWithText(TextButton, 'Show graph');
+        final received = find.byKey(const ValueKey('transfer-history'));
+        final graphToggle = find.byKey(const ValueKey('toggle-device-view'));
+        expect(find.byKey(const ValueKey('home-settings')), findsOneWidget);
         expect(received.hitTestable(), findsOneWidget);
         expect(graphToggle.hitTestable(), findsOneWidget);
+        expect(tester.getCenter(graphToggle).dy, tester.getCenter(received).dy);
         expect(
           tester.getTopLeft(received).dy,
           lessThan(tester.getTopLeft(file).dy),
         );
-        expect(
-          tester.getTopLeft(graphToggle).dx,
-          greaterThan(tester.getTopLeft(received).dx),
-        );
-        expect(tester.takeException(), isNull);
         await resize(const Size(303, 844));
         await tester.pumpWidget(home(animations: true));
         await tester.pump();
@@ -691,9 +677,11 @@ void main() {
         }
 
         await resize(const Size(844, 390));
-        expect(find.widgetWithText(TextButton, 'Received'), findsOneWidget);
-        expect(find.widgetWithText(TextButton, 'Add device'), findsOneWidget);
-        expect(tester.getTopLeft(file).dy, tester.getTopLeft(device).dy);
+        expect(received.hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('add-device')).hitTestable(),
+          findsOneWidget,
+        );
         expect(
           tester.getRect(file).right,
           lessThanOrEqualTo(tester.getRect(device).left),
@@ -737,9 +725,6 @@ void main() {
         );
         await resize(const Size(844, 390));
 
-        await tester.tap(find.byKey(const ValueKey('home-more')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(find.byKey(const ValueKey('select-devices')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
@@ -903,8 +888,10 @@ void main() {
         }
         await tester.pumpWidget(home(scale: 2));
         await resize(const Size(320, 640));
-        expect(received.hitTestable(), findsOneWidget);
-        expect(find.text('Send content'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('home-more')).hitTestable(),
+          findsOneWidget,
+        );
         for (final text in [
           'Devices',
           'Files',
@@ -1041,8 +1028,8 @@ void main() {
     },
   );
 
-  for (final savedView in [null, 'graph']) {
-    testWidgets('wide home opens with ${savedView ?? 'the default list'}', (
+  for (final savedView in [null, 'list', 'graph']) {
+    testWidgets('wide home opens with ${savedView ?? 'the default graph'}', (
       tester,
     ) async {
       await withHomeTestEnvironment(
@@ -1067,7 +1054,7 @@ void main() {
           final toggle = find.byKey(const ValueKey('toggle-device-view'));
           await waitForHome(tester, () => toggle.evaluate().isNotEmpty);
           final graph = find.byType(DeviceGraph);
-          expect(graph, savedView == null ? findsNothing : findsOneWidget);
+          expect(graph, savedView == 'list' ? findsNothing : findsOneWidget);
           if (savedView == 'graph') {
             tester.platformDispatcher.textScaleFactorTestValue = 2;
             addTearDown(
@@ -1083,11 +1070,11 @@ void main() {
           }
           await tester.tap(toggle);
           await tester.pump();
-          expect(graph, savedView == null ? findsOneWidget : findsNothing);
+          expect(graph, savedView == 'list' ? findsOneWidget : findsNothing);
           final prefs = await SharedPreferences.getInstance();
           expect(
             prefs.getString('device_view_test'),
-            savedView == null ? 'graph' : 'list',
+            savedView == 'list' ? 'graph' : 'list',
           );
         },
       );
