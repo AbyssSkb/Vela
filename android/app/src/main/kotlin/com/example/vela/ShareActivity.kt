@@ -15,11 +15,13 @@ import android.os.Bundle
 import android.provider.DocumentsContract
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.Window
+import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.ListView
-import android.widget.Toast
+import android.widget.TextView
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
@@ -127,8 +129,7 @@ class ShareActivity : Activity() {
             return
         }
         if (uris.size > 100) {
-            Toast.makeText(this, R.string.too_many_shared_files, Toast.LENGTH_LONG).show()
-            finish()
+            showShareLimitNotice()
             return
         }
         fun shareIntent(destination: Class<*>) =
@@ -191,6 +192,26 @@ class ShareActivity : Activity() {
             devices.isEmpty() || debugging -> openVela()
             else -> chooseShareDevice(devices, ::send)
         }
+    }
+
+    private fun showShareLimitNotice() {
+        val dialog = Dialog(this, R.style.SharePickerTheme)
+        devicePicker = dialog
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.share_device_picker)
+        dialog.setTitle(R.string.too_many_shared_files)
+        dialog.findViewById<TextView>(R.id.share_picker_title).setText(R.string.too_many_shared_files)
+        dialog.findViewById<View>(R.id.share_devices).visibility = View.GONE
+        dialog.findViewById<View>(R.id.close_device_picker).setOnClickListener { dialog.cancel() }
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.setOnCancelListener { finish() }
+        dialog.window?.apply {
+            setBackgroundDrawableResource(R.drawable.share_notice_background)
+            setGravity(Gravity.BOTTOM)
+            clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        }
+        dialog.show()
+        dialog.window?.setLayout(MATCH_PARENT, WRAP_CONTENT)
     }
 
     private fun chooseShareDevice(devices: List<ShareDevice>, send: (ShareDevice) -> Unit) {

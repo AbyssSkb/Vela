@@ -1,7 +1,7 @@
 {
   "@@locale": "zh",
   "deviceRemoved": "已移除设备",
-  "legacyPairingsNotice": "检测到旧版设备数据，请重新配对设备。接收的文件和历史记录不受影响。",
+  "legacyPairingsNotice": "请重新配对设备。",
   "devices": "设备",
   "showList": "切换为列表",
   "showGraph": "切换为关系图",
@@ -359,7 +359,6 @@
   "dropFilesOnly": "暂不支持拖入文件夹",
   "tooManyFiles": "一次最多发送 100 个文件",
   "backgroundReceiving": "后台接收",
-  "localBackgroundReceiving": "本机后台接收",
   "enableBackgroundReceiving": "允许后台接收",
   "notificationBackgroundBlocked": "通知已关闭。请打开 Vela 确认接收请求。",
   "notificationAutoAcceptMuted": "通知已关闭，自动接收运行中。",

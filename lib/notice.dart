@@ -14,18 +14,22 @@ EdgeInsets _noticeVerticalPadding(double bottomInset) => bottomInset > 0
     : const EdgeInsets.symmetric(vertical: 12);
 
 class ActivityNotice extends StatelessWidget {
-  const ActivityNotice({super.key, required this.child});
+  const ActivityNotice({super.key, required this.child, this.error = false});
   final Widget child;
+  final bool error;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final foreground = error
+        ? colors.onErrorContainer
+        : colors.onSecondaryContainer;
     final verticalPadding = _noticeVerticalPadding(
       MediaQuery.paddingOf(context).bottom,
     );
     return Material(
       key: const ValueKey('activity-notice'),
-      color: colors.secondaryContainer,
+      color: error ? colors.errorContainer : colors.secondaryContainer,
       shape: _noticeShape,
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
@@ -33,10 +37,10 @@ class ActivityNotice extends StatelessWidget {
         child: Padding(
           padding: _noticeHorizontalPadding + verticalPadding,
           child: IconTheme.merge(
-            data: IconThemeData(color: colors.onSecondaryContainer),
+            data: IconThemeData(color: foreground),
             child: DefaultTextStyle.merge(
               style: TextStyle(
-                color: colors.onSecondaryContainer,
+                color: foreground,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -47,6 +51,69 @@ class ActivityNotice extends StatelessWidget {
       ),
     );
   }
+}
+
+DialogRoute<T> bottomNoticeRoute<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+}) => DialogRoute<T>(
+  context: context,
+  barrierColor: Colors.transparent,
+  barrierDismissible: false,
+  useSafeArea: false,
+  builder: (context) => MediaQuery.viewInsetsOf(context).bottom > 0
+      ? const SizedBox.shrink()
+      : Dialog(
+          alignment: Alignment.bottomCenter,
+          insetPadding: EdgeInsets.zero,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: SizedBox(
+            width: double.infinity,
+            child: ActivityNotice(child: Builder(builder: builder)),
+          ),
+        ),
+);
+
+class NoticePrompt extends StatelessWidget {
+  const NoticePrompt({
+    super.key,
+    required this.title,
+    this.content,
+    required this.actions,
+  });
+
+  final String title;
+  final Widget? content;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Flexible(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (content != null) content!,
+            ],
+          ),
+        ),
+      ),
+      OverflowBar(alignment: MainAxisAlignment.end, children: actions),
+    ],
+  );
 }
 
 ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(

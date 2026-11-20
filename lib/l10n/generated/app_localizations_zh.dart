@@ -13,7 +13,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceRemoved => '已移除设备';
 
   @override
-  String get legacyPairingsNotice => '检测到旧版设备数据，请重新配对设备。接收的文件和历史记录不受影响。';
+  String get legacyPairingsNotice => '请重新配对设备。';
 
   @override
   String get devices => '设备';
@@ -653,9 +653,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundReceiving => '后台接收';
-
-  @override
-  String get localBackgroundReceiving => '本机后台接收';
 
   @override
   String get enableBackgroundReceiving => '允许后台接收';

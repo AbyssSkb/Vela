@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
   "deviceRemoved": "Device removed",
-  "legacyPairingsNotice": "Existing device pairings need to be set up again. Your files and history are unchanged.",
+  "legacyPairingsNotice": "Pair your devices again.",
   "devices": "Devices",
   "showList": "Show list",
   "showGraph": "Show graph",
@@ -369,7 +369,6 @@
   "dropFilesOnly": "Folders are not supported yet",
   "tooManyFiles": "You can send up to 100 files at once",
   "backgroundReceiving": "Background receiving",
-  "localBackgroundReceiving": "Background receiving on this device",
   "enableBackgroundReceiving": "Allow background receiving",
   "notificationBackgroundBlocked": "Notifications are off. Open Vela to accept requests.",
   "notificationAutoAcceptMuted": "Notifications off. Auto-accept active.",

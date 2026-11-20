@@ -107,7 +107,7 @@ abstract class AppLocalizations {
   /// No description provided for @legacyPairingsNotice.
   ///
   /// In en, this message translates to:
-  /// **'Existing device pairings need to be set up again. Your files and history are unchanged.'**
+  /// **'Pair your devices again.'**
   String get legacyPairingsNotice;
 
   /// No description provided for @devices.
@@ -1279,12 +1279,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Background receiving'**
   String get backgroundReceiving;
-
-  /// No description provided for @localBackgroundReceiving.
-  ///
-  /// In en, this message translates to:
-  /// **'Background receiving on this device'**
-  String get localBackgroundReceiving;
 
   /// No description provided for @enableBackgroundReceiving.
   ///

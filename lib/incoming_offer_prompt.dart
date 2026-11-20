@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'l10n/generated/app_localizations.dart';
+import 'notice.dart';
 import 'peer_confirmation.dart';
 import 'src/rust/api/node.dart';
 
@@ -100,30 +101,16 @@ class IncomingOfferPrompt {
       context,
       peerClosed: offer.waitForConnectionClose(),
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          constraints: const BoxConstraints(maxWidth: 420),
-          scrollable: true,
-          title: Text(
-            t.shareFrom(senderName()),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+        builder: (context, setDialogState) => NoticePrompt(
+          title: t.shareFrom(senderName()),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                contentName,
-                maxLines: 3,
+                '$contentName · $size',
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                size,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
               ),
               if (updatesClipboard) ...[
                 const SizedBox(height: 8),

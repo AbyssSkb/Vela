@@ -13,8 +13,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceRemoved => 'Device removed';
 
   @override
-  String get legacyPairingsNotice =>
-      'Existing device pairings need to be set up again. Your files and history are unchanged.';
+  String get legacyPairingsNotice => 'Pair your devices again.';
 
   @override
   String get devices => 'Devices';
@@ -705,9 +704,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundReceiving => 'Background receiving';
-
-  @override
-  String get localBackgroundReceiving => 'Background receiving on this device';
 
   @override
   String get enableBackgroundReceiving => 'Allow background receiving';
