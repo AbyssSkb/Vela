@@ -19,6 +19,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 internal const val ACTION_VIEW_RECEIVED_BATCH = "com.example.vela.VIEW_RECEIVED_BATCH"
+private const val COMPLETION_TIMEOUT_MS = 30_000L
 
 class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
     private val context = context.applicationContext
@@ -231,6 +232,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         .setShowWhen(false)
                         .setAutoCancel(true)
                         .setOnlyAlertOnce(true)
+                        .setTimeoutAfter(if (completed) COMPLETION_TIMEOUT_MS else 0L)
                 if (batchId != null) {
                     builder.addAction(0, call.argument<String>("open") ?: "View batch", pending)
                 }
@@ -317,7 +319,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                 try {
                     NotificationManagerCompat.from(context)
                         .notify(CompletionExpiryReceiver.TAG, notificationId, builder.build())
-                    if (promote) {
+                    if (completed && Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
                         val expiry =
                             Intent(context, CompletionExpiryReceiver::class.java)
                                 .setData(Uri.parse("vela://result/$notificationId"))
@@ -327,27 +329,13 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                                 context,
                                 notificationId,
                                 expiry,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
                             )
-                        try {
-                            context
-                                .getSystemService(AlarmManager::class.java)
-                                .set(
-                                    AlarmManager.ELAPSED_REALTIME,
-                                    SystemClock.elapsedRealtime() + 30_000,
-                                    alarm,
-                                )
-                        } catch (_: Exception) {
-                            NotificationManagerCompat.from(context)
-                                .notify(
-                                    CompletionExpiryReceiver.TAG,
-                                    notificationId,
-                                    builder
-                                        .setOngoing(false)
-                                        .setRequestPromotedOngoing(false)
-                                        .build(),
-                                )
-                        }
+                        context.getSystemService(AlarmManager::class.java).setExact(
+                            AlarmManager.ELAPSED_REALTIME,
+                            SystemClock.elapsedRealtime() + COMPLETION_TIMEOUT_MS,
+                            alarm,
+                        )
                     }
                 } catch (_: SecurityException) {}
                 result.success(null)

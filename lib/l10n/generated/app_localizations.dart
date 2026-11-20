@@ -1385,7 +1385,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundReady.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for devices'**
+  /// **'Receiving service started'**
   String get backgroundReady;
 
   /// No description provided for @backgroundStartHint.

@@ -386,7 +386,7 @@
   "notificationLiveUnsupported": "Uses standard notifications",
   "notificationCompleted": "Transfer complete",
   "notificationCompletedShort": "Done",
-  "backgroundReady": "Waiting for devices",
+  "backgroundReady": "Receiving service started",
   "backgroundStartHint": "Off",
   "backgroundMacMaySleep": "Receives while awake",
   "backgroundMacInactive": "Idle sleep is still allowed",

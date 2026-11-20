@@ -706,7 +706,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationCompletedShort => '已完成';
 
   @override
-  String get backgroundReady => '正在等待设备发送';
+  String get backgroundReady => '接收服务已启动';
 
   @override
   String get backgroundStartHint => '未开启';

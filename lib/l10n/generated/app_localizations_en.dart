@@ -762,7 +762,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationCompletedShort => 'Done';
 
   @override
-  String get backgroundReady => 'Waiting for devices';
+  String get backgroundReady => 'Receiving service started';
 
   @override
   String get backgroundStartHint => 'Off';
