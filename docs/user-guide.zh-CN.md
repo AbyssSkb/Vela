@@ -66,6 +66,8 @@ Vela 一次处理一项传输。在 Vela 内可以查看进度或取消。发送
 
 **ColorOS** 在 Vela 的应用详情中查看「耗电管理」，开启后台运行和自启动。**澎湃 OS** 检查 Vela 的「后台自启动」和应用省电设置里的「无限制」。**One UI** 检查「从不自动休眠的应用」列表。菜单名称和位置随系统版本变化。 [ColorOS 设置示例](https://consumer.huawei.com/cn/support/content/zh-cn15848664/) · [澎湃 OS 自启动](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [澎湃 OS 电池设置](https://www.mi.com/global/support/faq/details/KA-538010/) · [三星应用管理](https://developer.samsung.com/mobile/app-management.html)
 
+「后台状态检查」里的「自启动」显示本次开机是否恢复了接收服务。验证时重启并解锁，先从已配对设备发一个文件，再打开 Vela 查看结果。
+
 支持实时更新的 Android 系统可能在状态栏胶囊中显示传输进度。保持后台可用会增加耗电。强制停止 Vela 后，重新打开应用以恢复接收。 [Android 后台接收细节](background-execution-research.zh-CN.md)
 
 桌面端通过菜单栏或托盘图标显示传输中和传输完成。需要手动确认时，可点图标或接收请求通知打开 Vela。要在内容保存后自动打开窗口，可以开启「设置 → 接收 → 接收完成后显示窗口」，默认关闭。

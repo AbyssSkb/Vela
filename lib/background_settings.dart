@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'settings_row_title.dart';
 
 enum BackgroundReceiving {
   androidService('status'),
@@ -299,6 +300,12 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     final manufacturer = (status['manufacturer'] as String? ?? '')
         .toLowerCase();
     final isOplus = ['oneplus', 'oppo', 'realme'].contains(manufacturer);
+    final bootRecovery = status['bootRecovery'];
+    final bootStatus = switch (bootRecovery) {
+      'restored' => t.backgroundAutoStartRestored,
+      'broadcast' => t.backgroundAutoStartBroadcast,
+      _ => t.backgroundAutoStartUnverified,
+    };
     final summary = setting.statusText(
       t,
       enabled,
@@ -538,12 +545,17 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                           ),
                         ListTile(
                           leading: const Icon(Icons.open_in_new_rounded),
-                          title: Text(t.backgroundAutoStart),
-                          subtitle: Text(
-                            isOplus
-                                ? t.backgroundAutoStartOplusHint
-                                : t.backgroundAutoStartHint,
+                          title: SettingsRowTitle(
+                            t.backgroundAutoStart,
+                            value: Text(bootStatus),
                           ),
+                          subtitle: bootRecovery == 'restored'
+                              ? null
+                              : Text(
+                                  isOplus
+                                      ? t.backgroundAutoStartOplusHint
+                                      : t.backgroundAutoStartHint,
+                                ),
                           onTap: () =>
                               _openSettings(isOplus ? 'battery' : 'autostart'),
                         ),

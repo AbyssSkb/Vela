@@ -66,6 +66,8 @@ Open **Settings → Receiving** to check whether this device is ready and to fin
 
 On **ColorOS**, open Vela's app info and check its battery settings for **Allow background activity** and **Auto launch**. On **HyperOS**, check **Background autostart** and **No restrictions** for Vela. On **One UI**, check Samsung's **Never sleeping apps** list. The names and location can vary by build. [ColorOS settings example](https://consumer.huawei.com/cn/support/content/zh-cn15848664/) · [HyperOS autostart](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [HyperOS battery settings](https://www.mi.com/global/support/faq/details/KA-538010/) · [Samsung app management](https://developer.samsung.com/mobile/app-management.html)
 
+Under **Background checks**, **Auto-start** reports whether Vela restored the receiving service on this boot. To verify, restart and unlock the phone, then send a file to it before opening Vela.
+
 On supported Android systems, transfer progress may appear in a status-bar capsule. Keeping a device available in the background can increase power use. If you force-stop Vela, reopen it to resume receiving. [Android background receiving details](background-execution-research.md)
 
 On desktop, the menu bar or tray icon shows when a transfer is in progress or has finished. Open Vela from the icon or an incoming request notification to approve a transfer manually. Turn on **Settings → Receiving → Show window after receiving** to bring Vela forward after content has been saved. This setting starts off.

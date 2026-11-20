@@ -1062,8 +1062,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundAutoStart => 'Auto-start';
 
   @override
+  String get backgroundAutoStartRestored => 'Restored this boot';
+
+  @override
+  String get backgroundAutoStartBroadcast => 'Boot signal received';
+
+  @override
+  String get backgroundAutoStartUnverified => 'Unverified';
+
+  @override
   String get backgroundAutoStartHint =>
-      'Status cannot be checked automatically. Search system settings for auto-start and enable Vela if available.';
+      'Check auto-start in system settings, if available.';
 
   @override
   String get backgroundAutoStartOplusHint =>

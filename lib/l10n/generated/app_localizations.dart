@@ -1952,10 +1952,28 @@ abstract class AppLocalizations {
   /// **'Auto-start'**
   String get backgroundAutoStart;
 
+  /// No description provided for @backgroundAutoStartRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored this boot'**
+  String get backgroundAutoStartRestored;
+
+  /// No description provided for @backgroundAutoStartBroadcast.
+  ///
+  /// In en, this message translates to:
+  /// **'Boot signal received'**
+  String get backgroundAutoStartBroadcast;
+
+  /// No description provided for @backgroundAutoStartUnverified.
+  ///
+  /// In en, this message translates to:
+  /// **'Unverified'**
+  String get backgroundAutoStartUnverified;
+
   /// No description provided for @backgroundAutoStartHint.
   ///
   /// In en, this message translates to:
-  /// **'Status cannot be checked automatically. Search system settings for auto-start and enable Vela if available.'**
+  /// **'Check auto-start in system settings, if available.'**
   String get backgroundAutoStartHint;
 
   /// No description provided for @backgroundAutoStartOplusHint.
