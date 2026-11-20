@@ -119,9 +119,16 @@ void main() {
 
           await mount(tester, dir, language);
           final notice = language == 'en'
-              ? 'Existing device pairings need to be set up again. Your files and history are unchanged.'
-              : '检测到旧版设备数据，请重新配对设备。接收的文件和历史记录不受影响。';
+              ? 'Pair your devices again.'
+              : '请重新配对设备。';
           await waitFor(tester, () => find.text(notice).evaluate().isNotEmpty);
+          expect(
+            find.ancestor(
+              of: find.text(notice),
+              matching: find.byKey(const ValueKey('activity-notice')),
+            ),
+            findsOneWidget,
+          );
           expect(api.starts, 2);
           expect(
             (await SharedPreferences.getInstance()).getBool(
@@ -164,12 +171,7 @@ void main() {
       final dynamic home = tester.state(find.byType(HomePage));
       await waitFor(tester, () => home.node != null);
       await tester.pump();
-      expect(
-        find.text(
-          'Existing device pairings need to be set up again. Your files and history are unchanged.',
-        ),
-        findsNothing,
-      );
+      expect(find.text('Pair your devices again.'), findsNothing);
       expect(
         (await SharedPreferences.getInstance()).getBool(
           'legacy_pairing_notice_test',

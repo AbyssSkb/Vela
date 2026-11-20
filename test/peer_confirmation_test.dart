@@ -35,6 +35,13 @@ void main() {
     expect(notice.left, 0);
     expect(notice.right, screen.width);
     expect(notice.bottom, screen.height);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    expect(find.byType(ActivityNotice), findsNothing);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(find.byType(ActivityNotice), findsOneWidget);
     peerClosed.complete();
     await tester.pumpAndSettle();
     expect(find.text('Pair request'), findsNothing);
