@@ -364,8 +364,8 @@ class PresenceController extends ChangeNotifier {
       if (_values[id] != next) changes[id] = next;
       resolved.add(id);
       if (_visibleChecks.contains(id) &&
-          (!_checkingPeers ||
-              (_snapshotChecks.contains(id) && !_probes.containsKey(id)))) {
+          !_probes.containsKey(id) &&
+          (!_checkingPeers || _snapshotChecks.contains(id))) {
         checked.add(id);
       }
       if (live &&
@@ -524,6 +524,63 @@ class PresenceController extends ChangeNotifier {
     });
   }
 
+  Future<void> requestPeerProbe(String id) async {
+    final source = _node;
+    if (source == null) return;
+    await _monitoringTail;
+    if (!_current(source) ||
+        !_monitoringRequested ||
+        !identical(_monitoringNode, source) ||
+        !_monitoringEnabled ||
+        _pendingSystemWakes > 0 ||
+        !_peerState.containsDevice(id) ||
+        _trustPending.contains(id) ||
+        pairingActive(id) ||
+        _probes.containsKey(id)) {
+      return;
+    }
+    recordDiagnostic('manualRefresh', id);
+    final task = _startPeerProbe(source, id);
+    _change(() => _visibleChecks.add(id));
+    await task;
+  }
+
+  Future<void> _startPeerProbe(VelaNode source, String id) {
+    final pairingRevision = _devices!.pairingRevisionFor(id);
+    final generation = (_generations[id] ?? 0) + 1;
+    _generations[id] = generation;
+    bool current() =>
+        _current(source) &&
+        _peerState.containsDevice(id) &&
+        _devices!.isCurrentPairingRevision(id, pairingRevision) &&
+        _generations[id] == generation;
+    late final Future<void> task;
+    task =
+        (() async {
+          try {
+            await source.checkPeerFresh(peerId: id);
+          } catch (_) {
+          } finally {
+            if (current()) await _readCurrentSnapshot(source);
+          }
+        })().whenComplete(() {
+          if (!identical(_probes[id], task)) return;
+          _probes.remove(id);
+          if (current() &&
+              _visibleChecks.contains(id) &&
+              !_snapshotChecks.contains(id) &&
+              !_trustPending.contains(id) &&
+              _pendingSystemWakes == 0) {
+            _change(() {
+              _visibleChecks.remove(id);
+              if (_visibleChecks.isEmpty) _checkingPeers = false;
+            });
+          }
+        });
+    _probes[id] = task;
+    return task;
+  }
+
   Future<void> requestPeerProbes({bool userInitiated = false}) async {
     final activeNode = _node;
     if (!_alive ||
@@ -544,32 +601,6 @@ class PresenceController extends ChangeNotifier {
         _visibleChecks.addAll(_peerState.deviceIds);
       });
       return;
-    }
-
-    Future<void> probe(String id) async {
-      final pairingRevision = _devices!.pairingRevisionFor(id);
-      final generation = (_generations[id] ?? 0) + 1;
-      _generations[id] = generation;
-      bool current() =>
-          _alive &&
-          identical(_node, activeNode) &&
-          _peerState.containsDevice(id) &&
-          _devices!.isCurrentPairingRevision(id, pairingRevision) &&
-          _generations[id] == generation;
-      try {
-        await activeNode.checkPeerFresh(peerId: id);
-      } catch (_) {
-      } finally {
-        if (current()) await _readCurrentSnapshot(activeNode);
-        if (current() &&
-            _visibleChecks.contains(id) &&
-            !_snapshotChecks.contains(id)) {
-          _change(() {
-            _visibleChecks.remove(id);
-            if (_visibleChecks.isEmpty) _checkingPeers = false;
-          });
-        }
-      }
     }
 
     _change(() {
@@ -593,24 +624,7 @@ class PresenceController extends ChangeNotifier {
         return;
       }
       if (interrupt.isCompleted) return;
-      final task = probe(id);
-      _probes[id] = task;
-      unawaited(
-        task.whenComplete(() {
-          if (!identical(_probes[id], task)) return;
-          _probes.remove(id);
-          if (_alive &&
-              _visibleChecks.contains(id) &&
-              !_snapshotChecks.contains(id) &&
-              !_trustPending.contains(id) &&
-              _pendingSystemWakes == 0) {
-            _change(() {
-              _visibleChecks.remove(id);
-              if (_visibleChecks.isEmpty) _checkingPeers = false;
-            });
-          }
-        }),
-      );
+      final task = _startPeerProbe(activeNode, id);
       await Future.any([task, interrupt.future]);
     }
 
@@ -642,7 +656,8 @@ class PresenceController extends ChangeNotifier {
                   (id) =>
                       !_trustPending.contains(id) &&
                       !deferred.contains(id) &&
-                      !_snapshotChecks.contains(id),
+                      !_snapshotChecks.contains(id) &&
+                      !_probes.containsKey(id),
                 );
                 if (_visibleChecks.isEmpty) _checkingPeers = false;
               } else if (_visibleChecks.isEmpty) {

@@ -285,6 +285,7 @@
     }
   },
   "refreshDevices": "Refresh device status",
+  "refreshThisDevice": "Refresh this device",
   "transferCancelled": "Transfer cancelled",
   "cancelling": "Cancelling",
   "directConnection": "Direct",

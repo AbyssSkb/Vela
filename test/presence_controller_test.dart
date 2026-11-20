@@ -9,6 +9,16 @@ import 'package:vela/src/rust/frb_generated.dart';
 
 import 'support/fakes.dart';
 
+class _RecordingNode extends FakeNode {
+  final checkedPeers = <String>[];
+
+  @override
+  Future<DeviceInfo> checkPeerFresh({required String peerId}) {
+    checkedPeers.add(peerId);
+    return super.checkPeerFresh(peerId: peerId);
+  }
+}
+
 Future<void> _flush() async {
   for (var i = 0; i < 20; i++) {
     await Future<void>.value();
@@ -20,18 +30,19 @@ void main() {
   late PresenceController controller;
   late PairedDevices devices;
 
-  PairedDevices trustedDevices(FakeNode node) => PairedDevices(
-    node: node,
-    store: MemoryPeerStore(),
-    initialState: PeerState(
-      peers: {peerId: 'Phone'},
-      types: {peerId: 'mobile'},
-    ),
-    onMembershipChanging: (_, changed) =>
-        controller.membershipChanging(changed),
-    onStateChanged: controller.membershipPublished,
-    onMembershipWriteFinished: controller.membershipWriteFinished,
-  );
+  PairedDevices trustedDevices(FakeNode node, {String? otherPeer}) =>
+      PairedDevices(
+        node: node,
+        store: MemoryPeerStore(),
+        initialState: PeerState(
+          peers: {peerId: 'Phone', if (otherPeer != null) otherPeer: 'Laptop'},
+          types: {peerId: 'mobile'},
+        ),
+        onMembershipChanging: (_, changed) =>
+            controller.membershipChanging(changed),
+        onStateChanged: controller.membershipPublished,
+        onMembershipWriteFinished: controller.membershipWriteFinished,
+      );
 
   setUp(() {
     node = FakeNode();
@@ -67,6 +78,36 @@ void main() {
 
     expect(controller.checkingPeers, isFalse);
     expect(controller.values[peerId], PeerPresence.unavailable);
+  });
+
+  test('refreshing one device probes only that device', () async {
+    await devices.close();
+    final old = node;
+    final recording = _RecordingNode();
+    node = recording;
+    final otherPeer = 'b' * 64;
+    devices = trustedDevices(node, otherPeer: otherPeer);
+    controller.attach(devices);
+    await old.close();
+    await controller.syncMonitoring(enabled: true);
+    const info = DeviceInfo(name: 'Phone', deviceType: 'mobile');
+    final initial = controller.requestPeerProbes();
+    await _flush();
+    for (final call in recording.freshCalls) {
+      call.complete(info);
+    }
+    await initial;
+    recording.checkedPeers.clear();
+
+    final refresh = controller.requestPeerProbe(peerId);
+    await _flush();
+    await controller.requestPeerProbe(peerId);
+    expect(recording.checkedPeers, [peerId]);
+    expect(controller.visibleChecks, contains(peerId));
+    expect(controller.checkingPeers, isFalse);
+    recording.freshCalls.last.complete(info);
+    await refresh;
+    expect(controller.visibleChecks, isNot(contains(peerId)));
   });
 
   test('reset discards a delayed snapshot from the old node', () async {
