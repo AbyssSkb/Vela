@@ -124,7 +124,7 @@ void main() {
       find.byTooltip(
         'Automatically accept incoming transfers from paired devices.',
       ),
-      findsOneWidget,
+      findsNothing,
     );
     final choose = find.text('Save location');
     await tester.ensureVisible(choose);
@@ -228,7 +228,11 @@ void main() {
       statusUnavailable = false;
       await tester.tap(find.text('Background receiving'));
       await tester.pumpAndSettle();
-      expect(find.text('Service running'), findsOneWidget);
+      final service = tester.widget<SwitchListTile>(
+        find.byType(SwitchListTile).first,
+      );
+      expect(service.value, isTrue);
+      expect(service.subtitle, isNull);
       await tester.tap(find.byType(SwitchListTile).first);
       await tester.pumpAndSettle();
       await tester.pageBack();
@@ -254,10 +258,10 @@ void main() {
   }
 
   for (final (state, label, section) in [
-    ('app', 'System notification settings', 'notification_app'),
-    ('requests', 'Open incoming request settings', 'notification_requests'),
-    ('battery', 'Battery optimization settings', 'battery_exemption'),
-    ('restricted', 'Open app settings', 'battery'),
+    ('app', 'Incoming requests', 'notification_app'),
+    ('requests', 'Incoming requests', 'notification_requests'),
+    ('battery', 'Battery optimization', 'battery_exemption'),
+    ('restricted', 'Battery optimization', 'battery'),
   ]) {
     testWidgets('blocked Android receiving opens the $state settings', (
       tester,
@@ -283,7 +287,7 @@ void main() {
       });
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
       await showPage(tester, () async {});
-      final action = find.widgetWithText(TextButton, label);
+      final action = find.widgetWithText(ListTile, label);
       expect(action.hitTestable(), findsOneWidget);
       await tester.tap(action);
       await tester.pump();
@@ -346,58 +350,36 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
-  testWidgets(
-    'auto-start reports unknown status and gives OnePlus directions',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      String? section;
-      String? bootRecovery;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-        call,
-      ) async {
-        if (call.method == 'status') {
-          return {'manufacturer': 'OnePlus', 'bootRecovery': bootRecovery};
-        }
-        if (call.method == 'settings') {
-          section = (call.arguments as Map)['section'] as String?;
-        }
-        return null;
-      });
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          channel,
-          null,
-        ),
-      );
-      await showPage(tester, () async {});
-      expect(find.text('Auto-start'), findsNothing);
-      await tester.tap(find.text('Background checks'));
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('Auto-start'), 150);
-      await tester.pumpAndSettle();
-      expect(find.text('Unverified'), findsOneWidget);
-      expect(
-        find.textContaining('allow background activity and auto launch'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Auto-start'));
-      await tester.pump();
-      expect(section, 'battery');
-
-      for (final (nativeValue, label) in [
-        ('broadcast', 'Boot signal received'),
-        ('restored', 'Restored this boot'),
-      ]) {
-        bootRecovery = nativeValue;
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-        tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.resumed,
-        );
-        await tester.pumpAndSettle();
-        expect(find.text(label), findsOneWidget);
+  testWidgets('auto-start opens OnePlus settings without a status check', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    String? section;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      if (call.method == 'status') {
+        return {'manufacturer': 'OnePlus', 'bootRecovery': 'broadcast'};
       }
-    },
-  );
+      if (call.method == 'settings') {
+        section = (call.arguments as Map)['section'] as String?;
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await showPage(tester, () async {});
+    expect(find.text('Auto-start').hitTestable(), findsOneWidget);
+    expect(find.text('Boot signal received'), findsNothing);
+    expect(find.text('Unverified'), findsNothing);
+    await tester.tap(find.text('Auto-start'));
+    await tester.pump();
+    expect(section, 'battery');
+  });
 
   testWidgets(
     'notifies the active app immediately after enabling and disabling background receive',
@@ -705,9 +687,6 @@ void main() {
     );
     expect(active, isTrue);
     expect(changes, 1);
-    await tester.tap(find.text('Background checks'));
-    await tester.pumpAndSettle();
-    expect(find.text('Request notifications are off'), findsOneWidget);
     final requests = find.widgetWithText(ListTile, 'Incoming requests');
     await tester.ensureVisible(requests);
     await tester.pumpAndSettle();
@@ -767,7 +746,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
-    'Android unknown low power exemption is not reported as allowed',
+    'Android lists actionable permissions instead of internal service checks',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
@@ -789,16 +768,11 @@ void main() {
       );
       await showPage(tester, () async {});
       expect(find.text('Low Power Standby exemption'), findsNothing);
-      await tester.tap(find.text('Background checks'));
-      await tester.pumpAndSettle();
-      final tile = find.ancestor(
-        of: find.text('Low Power Standby exemption'),
-        matching: find.byType(ListTile),
-      );
-      expect(
-        find.descendant(of: tile, matching: find.text('Unknown')),
-        findsOneWidget,
-      );
+      expect(find.text('Battery optimization').hitTestable(), findsOneWidget);
+      expect(find.text('Incoming requests'), findsOneWidget);
+      expect(find.text('Low Power Standby exemption'), findsNothing);
+      expect(find.text('Receiving service'), findsNothing);
+      expect(find.text('Receiving node'), findsNothing);
     },
   );
 }

@@ -755,7 +755,7 @@ abstract class AppLocalizations {
   /// No description provided for @diagnosticsStartupHelp.
   ///
   /// In en, this message translates to:
-  /// **'Vela must finish starting before it can send or receive.'**
+  /// **'Vela isn’t ready yet.'**
   String get diagnosticsStartupHelp;
 
   /// No description provided for @diagnosticsDeviceHelp.
@@ -793,12 +793,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear diagnostic events?'**
   String get diagnosticsClearQuestion;
-
-  /// No description provided for @diagnosticsClearDetail.
-  ///
-  /// In en, this message translates to:
-  /// **'This clears the recent diagnostic events on this device.'**
-  String get diagnosticsClearDetail;
 
   /// No description provided for @diagnosticsUpdated.
   ///
@@ -877,12 +871,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Original device name'**
   String get systemDeviceName;
-
-  /// No description provided for @nameVisible.
-  ///
-  /// In en, this message translates to:
-  /// **'Your other devices will see this name.'**
-  String get nameVisible;
 
   /// No description provided for @deviceAliasHint.
   ///
@@ -1295,13 +1283,13 @@ abstract class AppLocalizations {
   /// No description provided for @notificationBackgroundBlocked.
   ///
   /// In en, this message translates to:
-  /// **'Notifications are off. Open Vela to accept requests.'**
+  /// **'Notifications off. Open Vela to accept requests.'**
   String get notificationBackgroundBlocked;
 
   /// No description provided for @notificationAutoAcceptMuted.
   ///
   /// In en, this message translates to:
-  /// **'Notifications off. Auto-accept active.'**
+  /// **'Notifications off. Auto-accept still works.'**
   String get notificationAutoAcceptMuted;
 
   /// No description provided for @notificationAutoAcceptStopped.
@@ -1351,24 +1339,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Live updates'**
   String get notificationLive;
-
-  /// No description provided for @notificationLiveAllowed.
-  ///
-  /// In en, this message translates to:
-  /// **'Allowed; presentation is decided by the system'**
-  String get notificationLiveAllowed;
-
-  /// No description provided for @notificationLiveDisabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Off in system settings'**
-  String get notificationLiveDisabled;
-
-  /// No description provided for @notificationLiveUnsupported.
-  ///
-  /// In en, this message translates to:
-  /// **'Uses standard notifications'**
-  String get notificationLiveUnsupported;
 
   /// No description provided for @notificationCompleted.
   ///
@@ -1442,23 +1412,11 @@ abstract class AppLocalizations {
   /// **'Vela notifications are off'**
   String get backgroundAppNotificationsOff;
 
-  /// No description provided for @backgroundOpenRequestSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Open incoming request settings'**
-  String get backgroundOpenRequestSettings;
-
   /// No description provided for @backgroundOpenBatterySettings.
   ///
   /// In en, this message translates to:
   /// **'Open app settings'**
   String get backgroundOpenBatterySettings;
-
-  /// No description provided for @backgroundOpenBatteryOptimizationSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Battery optimization settings'**
-  String get backgroundOpenBatteryOptimizationSettings;
 
   /// No description provided for @backgroundBatteryLimitsLockedReceiving.
   ///
@@ -1502,12 +1460,6 @@ abstract class AppLocalizations {
   /// **'Could not change background receiving. Check system settings.'**
   String get backgroundUnavailable;
 
-  /// No description provided for @backgroundDiagnostic.
-  ///
-  /// In en, this message translates to:
-  /// **'Background checks'**
-  String get backgroundDiagnostic;
-
   /// No description provided for @backgroundNotification.
   ///
   /// In en, this message translates to:
@@ -1523,13 +1475,19 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundBatteryExempt.
   ///
   /// In en, this message translates to:
-  /// **'Vela is exempt from battery optimization'**
+  /// **'Exempt'**
   String get backgroundBatteryExempt;
+
+  /// No description provided for @backgroundBatteryRestricted.
+  ///
+  /// In en, this message translates to:
+  /// **'Restricted'**
+  String get backgroundBatteryRestricted;
 
   /// No description provided for @backgroundBatteryOptimized.
   ///
   /// In en, this message translates to:
-  /// **'Battery optimization is on for Vela'**
+  /// **'Optimized'**
   String get backgroundBatteryOptimized;
 
   /// No description provided for @backgroundRestricted.
@@ -1537,18 +1495,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'System background restrictions'**
   String get backgroundRestricted;
-
-  /// No description provided for @backgroundRestrictedDetail.
-  ///
-  /// In en, this message translates to:
-  /// **'Android restricts Vela in the background'**
-  String get backgroundRestrictedDetail;
-
-  /// No description provided for @backgroundRunning.
-  ///
-  /// In en, this message translates to:
-  /// **'Receiving service'**
-  String get backgroundRunning;
 
   /// No description provided for @backgroundAllowed.
   ///
@@ -1571,7 +1517,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundVendorGuide.
   ///
   /// In en, this message translates to:
-  /// **'View manufacturer guidance'**
+  /// **'Background receiving guide'**
   String get backgroundVendorGuide;
 
   /// No description provided for @backgroundOffer.
@@ -1639,12 +1585,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Auto accept'**
   String get autoAccept;
-
-  /// No description provided for @autoAcceptHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Automatically accept incoming transfers from paired devices.'**
-  String get autoAcceptHint;
 
   /// No description provided for @retry.
   ///
@@ -1754,12 +1694,6 @@ abstract class AppLocalizations {
   /// **'Relay servers'**
   String get relaySettings;
 
-  /// No description provided for @relayPurpose.
-  ///
-  /// In en, this message translates to:
-  /// **'Vela may use a relay when a direct connection is unavailable. The default public relays are already configured.'**
-  String get relayPurpose;
-
   /// No description provided for @relayEnabled.
   ///
   /// In en, this message translates to:
@@ -1769,20 +1703,8 @@ abstract class AppLocalizations {
   /// No description provided for @relayEnabledDetail.
   ///
   /// In en, this message translates to:
-  /// **'Uses public relays when no custom relay is configured'**
+  /// **'Using public relays until you add one.'**
   String get relayEnabledDetail;
-
-  /// No description provided for @relayCustomActive.
-  ///
-  /// In en, this message translates to:
-  /// **'Currently using custom relays'**
-  String get relayCustomActive;
-
-  /// No description provided for @relayPublicActive.
-  ///
-  /// In en, this message translates to:
-  /// **'Currently using Iroh public relays'**
-  String get relayPublicActive;
 
   /// No description provided for @relayToggleFailed.
   ///
@@ -1799,7 +1721,7 @@ abstract class AppLocalizations {
   /// No description provided for @relayCustomOnly.
   ///
   /// In en, this message translates to:
-  /// **'Only custom relays are used. Configure the same relay list on your other devices.'**
+  /// **'Use the same relays on your other devices.'**
   String get relayCustomOnly;
 
   /// No description provided for @relayShowToken.
@@ -1928,18 +1850,6 @@ abstract class AppLocalizations {
   /// **'Unknown'**
   String get backgroundUnknown;
 
-  /// No description provided for @backgroundNode.
-  ///
-  /// In en, this message translates to:
-  /// **'Receiving node'**
-  String get backgroundNode;
-
-  /// No description provided for @backgroundLowPowerStandby.
-  ///
-  /// In en, this message translates to:
-  /// **'Low Power Standby exemption'**
-  String get backgroundLowPowerStandby;
-
   /// No description provided for @backgroundLowPowerStandbyRestricted.
   ///
   /// In en, this message translates to:
@@ -1952,53 +1862,11 @@ abstract class AppLocalizations {
   /// **'Auto-start'**
   String get backgroundAutoStart;
 
-  /// No description provided for @backgroundAutoStartRestored.
-  ///
-  /// In en, this message translates to:
-  /// **'Restored this boot'**
-  String get backgroundAutoStartRestored;
-
-  /// No description provided for @backgroundAutoStartBroadcast.
-  ///
-  /// In en, this message translates to:
-  /// **'Boot signal received'**
-  String get backgroundAutoStartBroadcast;
-
-  /// No description provided for @backgroundAutoStartUnverified.
-  ///
-  /// In en, this message translates to:
-  /// **'Unverified'**
-  String get backgroundAutoStartUnverified;
-
-  /// No description provided for @backgroundAutoStartHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Check auto-start in system settings, if available.'**
-  String get backgroundAutoStartHint;
-
-  /// No description provided for @backgroundAutoStartOplusHint.
-  ///
-  /// In en, this message translates to:
-  /// **'In Vela’s battery settings, allow background activity and auto launch.'**
-  String get backgroundAutoStartOplusHint;
-
   /// No description provided for @macKeepAwake.
   ///
   /// In en, this message translates to:
-  /// **'Keep available in background'**
+  /// **'Prevent idle sleep'**
   String get macKeepAwake;
-
-  /// No description provided for @macKeepAwakeHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Prevent idle sleep while Vela runs'**
-  String get macKeepAwakeHint;
-
-  /// No description provided for @macKeepAwakeActive.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep-awake activity'**
-  String get macKeepAwakeActive;
 
   /// No description provided for @backgroundLogin.
   ///
@@ -2035,18 +1903,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not change the login item. Check System Settings.'**
   String get backgroundLoginFailed;
-
-  /// No description provided for @backgroundNodeInitialized.
-  ///
-  /// In en, this message translates to:
-  /// **'Initialized'**
-  String get backgroundNodeInitialized;
-
-  /// No description provided for @backgroundNodeNotInitialized.
-  ///
-  /// In en, this message translates to:
-  /// **'Not initialized'**
-  String get backgroundNodeNotInitialized;
 
   /// No description provided for @sendText.
   ///

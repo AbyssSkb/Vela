@@ -158,6 +158,8 @@ void main() {
         find.byType(SelectableText).evaluate().length,
         lessThan(events.length),
       );
+      await tester.tap(find.byKey(const ValueKey('diagnostics-actions')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('diagnostics-copy')));
       await tester.pump();
       expect(copied, contains('event-0'));
@@ -223,6 +225,7 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Diagnostics'), findsOneWidget);
+    expect(find.text('Copy report'), findsNothing);
     expect(find.text('1 / 2'), findsOneWidget);
     expect(find.text('— / 1'), findsOneWidget);
     expect(find.text(events.first), findsOneWidget);
@@ -241,6 +244,8 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Refresh failed'), findsNothing);
     expect(find.textContaining('Updated at '), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('diagnostics-actions')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('diagnostics-copy')));
     await tester.pump();
     expect(copied, contains('Reachable devices: 1 / 2'));

@@ -130,7 +130,7 @@ void main() {
           .value,
       isFalse,
     );
-    expect(find.text('Currently using Iroh public relays'), findsOneWidget);
+    expect(find.text('Using public relays until you add one.'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('relay-enabled')));
     await tester.pumpAndSettle();
     expect(changes, [false, true]);
@@ -168,11 +168,8 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Currently using custom relays'), findsOneWidget);
     expect(
-      find.text(
-        'Only custom relays are used. Configure the same relay list on your other devices.',
-      ),
+      find.text('Use the same relays on your other devices.'),
       findsOneWidget,
     );
     await tester.tap(
@@ -285,7 +282,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(added, 'https://example.com');
     expect(secret, 'test-token');
-    expect(find.text('Currently using custom relays'), findsOneWidget);
+    expect(
+      find.text('Use the same relays on your other devices.'),
+      findsOneWidget,
+    );
     await tester.tap(find.text('example.com'));
     await tester.pumpAndSettle();
     expect(find.text('Edit relay'), findsOneWidget);
@@ -312,7 +312,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(removed, 'https://relay.example.com/');
     expect(find.text('relay.example.com'), findsNothing);
-    expect(find.text('Currently using Iroh public relays'), findsOneWidget);
+    expect(find.text('Using public relays until you add one.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

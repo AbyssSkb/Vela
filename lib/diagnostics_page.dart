@@ -189,7 +189,6 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
       builder: (context) => AlertDialog(
         scrollable: true,
         title: Text(t.diagnosticsClearQuestion),
-        content: Text(t.diagnosticsClearDetail),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -375,28 +374,23 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                             Expanded(
                               child: Text(t.diagnostics, style: titleStyle),
                             ),
-                          ],
-                        ),
-                        Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            TextButton.icon(
-                              key: const ValueKey('diagnostics-copy'),
-                              onPressed: current == null ? null : _copy,
-                              icon: const Icon(Icons.copy_rounded),
-                              label: Text(text('复制报告', 'Copy report')),
-                            ),
-                            if (current != null && current.events.isNotEmpty)
+                            if (current != null)
                               PopupMenuButton<void>(
                                 key: const ValueKey('diagnostics-actions'),
-                                enabled: !clearing,
                                 tooltip: t.moreOptions,
                                 itemBuilder: (_) => [
                                   PopupMenuItem<void>(
-                                    key: const ValueKey('diagnostics-clear'),
-                                    onTap: _clear,
-                                    child: Text(t.diagnosticsClearEvents),
+                                    key: const ValueKey('diagnostics-copy'),
+                                    onTap: _copy,
+                                    child: Text(text('复制报告', 'Copy report')),
                                   ),
+                                  if (current.events.isNotEmpty)
+                                    PopupMenuItem<void>(
+                                      key: const ValueKey('diagnostics-clear'),
+                                      enabled: !clearing,
+                                      onTap: _clear,
+                                      child: Text(t.diagnosticsClearEvents),
+                                    ),
                                 ],
                               ),
                           ],
@@ -464,12 +458,6 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            subtitle: Text(
-                              text(
-                                '记录连接与状态事件',
-                                'Record connection and status events',
-                              ),
-                            ),
                             value: enabled,
                             onChanged: changingEnabled ? null : _setEnabled,
                           ),
@@ -523,7 +511,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                             child: Column(
                               children: [
                                 status(
-                                  text('节点', 'Node'),
+                                  text('连接服务', 'Connection service'),
                                   current.nodeReady
                                       ? text('就绪', 'Ready')
                                       : text('未就绪', 'Not ready'),

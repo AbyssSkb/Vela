@@ -177,20 +177,6 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: Text(
-                    customActive ? t.relayCustomActive : t.relayPublicActive,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                  child: Text(
-                    t.relayPurpose,
-                    style: TextStyle(color: colors.onSurfaceVariant),
-                  ),
-                ),
                 Material(
                   color: colors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(18),

@@ -517,11 +517,11 @@ void main() {
       expect(find.text('1.0.0-beta.5'), findsOneWidget);
       expect(
         find.byTooltip('Updates are unavailable in this build'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.byType(TextButton), findsNothing);
       expect(
-        tester.getCenter(find.text('App updates')).dy,
+        tester.getCenter(find.text('Version')).dy,
         tester.getCenter(find.text('1.0.0-beta.5')).dy,
       );
     });
@@ -563,10 +563,7 @@ void main() {
         calls.where((call) => call.method == 'installDownloaded'),
         isEmpty,
       );
-      expect(
-        find.text('Finish the current transfer or pairing first'),
-        findsWidgets,
-      );
+      expect(find.text('Finish the current operation first'), findsWidgets);
       expect(
         tester
             .widget<FilledButton>(find.byKey(const ValueKey('install-update')))
