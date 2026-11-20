@@ -28,12 +28,15 @@ void _registerDebugDriver() {
         return 'started';
       }
       if (data['action'] == 'notification-preview-test' && Platform.isAndroid) {
+        final progress = data['progress'];
         await _HomePageState.backgroundChannel.invokeMethod<void>('transfer', {
-          'title': notificationTitle(data['title'] as String),
-          'text': data['text'],
-          'channel': 'Transfers',
-          'progress': data['progress'],
-          'shortText': data['shortText'],
+          'title': progress == null
+              ? state.t.connectingShort
+              : state.t.notificationTransferring,
+          'progress': progress,
+          'shortText': progress == null
+              ? state.t.connectingShort
+              : state.t.notificationTransferringShort,
           'id': 'preview',
           'cancel': '取消',
           'sourceType': 'desktop',
@@ -77,13 +80,12 @@ void _registerDebugDriver() {
           'finishTransfer',
           {
             'text': '已接收 vela-notification-test.txt',
-            'channel': 'Transfers',
             'path': file.path,
             'name': 'vela-notification-test.txt',
             'open': '打开',
-            'received': true,
-            'title': '接收完成',
-            'shortText': '已接收',
+            'completed': true,
+            'title': state.t.notificationCompleted,
+            'shortText': state.t.notificationCompletedShort,
             'test': true,
           },
         );

@@ -46,12 +46,13 @@ internal class ShareTransferService : Service() {
             try {
                 startForeground(
                     NotificationChannels.TRANSFER_ID,
-                    notification(NotificationChannels.PROGRESS, R.string.share_transfer_preparing)
+                    notification(NotificationChannels.PROGRESS)
+                        .setContentTitle(getString(R.string.share_transfer_connecting))
                         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                         .setOngoing(true)
                         .setOnlyAlertOnce(true)
                         .setRequestPromotedOngoing(true)
-                        .setShortCriticalText(getString(R.string.share_transfer_preparing))
+                        .setShortCriticalText(getString(R.string.share_transfer_connecting))
                         .setProgress(100, 0, true)
                         .build(),
                 )
@@ -90,11 +91,10 @@ internal class ShareTransferService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun notification(channel: String, message: Int) =
+    private fun notification(channel: String) =
         NotificationCompat.Builder(this, channel)
             .setSmallIcon(R.drawable.ic_stat_vela)
-            .setContentTitle("Vela")
-            .setContentText(getString(message))
+            .setShowWhen(false)
             .setContentIntent(
                 PendingIntent.getActivity(
                     this, 2, Intent(this, MainActivity::class.java)
@@ -108,7 +108,9 @@ internal class ShareTransferService : Service() {
             NotificationManagerCompat.from(this).notify(
                 "share",
                 NotificationChannels.TRANSFER_ID,
-                notification(NotificationChannels.RESULTS, R.string.share_transfer_failed)
+                notification(NotificationChannels.RESULTS)
+                    .setContentTitle("Vela")
+                    .setContentText(getString(R.string.share_transfer_failed))
                     .setAutoCancel(true)
                     .build(),
             )

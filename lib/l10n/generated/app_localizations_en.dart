@@ -500,7 +500,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get notificationSending => 'Sending';
+  String get notificationTransferring => 'Transferring';
+
+  @override
+  String get notificationTransferringShort => 'Moving';
 
   @override
   String sendingTo(String name) {
@@ -620,9 +623,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get incomingShort => 'Incoming';
-
-  @override
-  String get transferNotificationTitle => 'Transfer';
 
   @override
   String get noTransferHistory => 'No received items yet';
@@ -752,7 +752,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationProgressHint =>
-      'Shows progress and speed; uses live updates when supported';
+      'Shows transfer progress and live updates';
 
   @override
   String get notificationResults => 'Transfer results';
@@ -781,10 +781,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Adjust banners, sound, vibration and lock-screen display in system settings';
 
   @override
-  String get notificationReceivedTitle => 'Received';
+  String get notificationCompleted => 'Transfer complete';
 
   @override
-  String get notificationReceivedShort => 'Received';
+  String get notificationCompletedShort => 'Done';
 
   @override
   String get backgroundDescription =>

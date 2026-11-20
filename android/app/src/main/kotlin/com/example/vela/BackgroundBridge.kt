@@ -123,7 +123,6 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         .setSmallIcon(R.drawable.ic_stat_vela)
                         .setColor(Color.rgb(91, 91, 198))
                         .setContentTitle(call.argument<String>("title") ?: "Vela")
-                        .setContentText(call.argument<String>("text") ?: "")
                         .setContentIntent(pending)
                         .setShowWhen(false)
                         .setCategory(NotificationCompat.CATEGORY_PROGRESS)
@@ -174,9 +173,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                     }
                     if (progress != null) style.setProgress(progress.coerceIn(0, 100))
                     builder.setStyle(style)
-                    builder.setShortCriticalText(
-                        if (progress != null) "$progress%" else call.argument<String>("shortText")
-                    )
+                    builder.setShortCriticalText(call.argument<String>("shortText"))
                 } else builder.setProgress(100, progress ?: 0, progress == null)
                 try {
                     NotificationManagerCompat.from(context)
@@ -218,8 +215,9 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                 val message = call.argument<String>("text") ?: ""
+                val completed = call.argument<Boolean>("completed") == true
                 val promote =
-                    call.argument<Boolean>("received") == true &&
+                    completed &&
                         Build.VERSION.SDK_INT >= 36 &&
                         NotificationManagerCompat.from(context).canPostPromotedNotifications()
                 val builder =
@@ -227,7 +225,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         .setSmallIcon(R.drawable.ic_stat_vela)
                         .setColor(Color.rgb(91, 91, 198))
                         .setContentTitle(call.argument<String>("title") ?: "Vela")
-                        .setContentText(message)
+                        .setContentText(if (completed) null else message)
                         .setStyle(NotificationCompat.BigTextStyle().bigText(message))
                         .setContentIntent(pending)
                         .setShowWhen(false)

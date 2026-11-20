@@ -1,7 +1,7 @@
 package com.example.vela
 
 import android.app.Activity
-import android.app.AlertDialog
+import android.app.Dialog
 import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ComponentName
@@ -13,6 +13,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.DocumentsContract
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.Window
+import android.widget.ArrayAdapter
+import android.widget.ListView
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -82,6 +88,12 @@ internal fun Intent.withExternalFileViewer(context: Context): Intent {
 
 class ShareActivity : Activity() {
     private var directSend: (() -> Unit)? = null
+    private var devicePicker: Dialog? = null
+
+    override fun onDestroy() {
+        devicePicker?.dismiss()
+        super.onDestroy()
+    }
 
     override fun onPostResume() {
         super.onPostResume()
@@ -177,13 +189,34 @@ class ShareActivity : Activity() {
         when {
             selected != null -> directSend = { send(selected) }
             devices.isEmpty() || debugging -> openVela()
-            else -> AlertDialog.Builder(this)
-                .setTitle(R.string.send_with_vela)
-                .setItems(devices.map { it.name }.toTypedArray()) { _, index -> send(devices[index]) }
-                .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }
-                .setOnCancelListener { finish() }
-                .show()
+            else -> chooseShareDevice(devices, ::send)
         }
+    }
+
+    private fun chooseShareDevice(devices: List<ShareDevice>, send: (ShareDevice) -> Unit) {
+        val dialog = Dialog(this, R.style.SharePickerTheme)
+        devicePicker = dialog
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.share_device_picker)
+        dialog.setTitle(R.string.share_choose_device)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.setOnCancelListener { finish() }
+        dialog.findViewById<View>(R.id.close_device_picker).setOnClickListener { dialog.cancel() }
+        dialog.findViewById<ListView>(R.id.share_devices).apply {
+            adapter = ArrayAdapter(dialog.context, R.layout.share_device_row, devices.map { it.name })
+            setOnItemClickListener { _, _, index, _ ->
+                send(devices[index])
+                dialog.dismiss()
+            }
+        }
+        dialog.window?.apply {
+            setBackgroundDrawableResource(R.drawable.share_dialog_background)
+            setGravity(Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+            setDimAmount(0.28f)
+        }
+        dialog.show()
+        val width = minOf(resources.configuration.screenWidthDp, 440)
+        dialog.window?.setLayout((width * resources.displayMetrics.density).toInt(), WRAP_CONTENT)
     }
 
     private fun canShowShareProgress(): Boolean {
