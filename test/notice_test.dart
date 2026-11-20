@@ -55,8 +55,8 @@ void main() {
     tester.view.viewPadding = sidesOnly;
     tester.view.padding = sidesOnly;
     await tester.pump();
-    expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 8);
-    expect(tester.getRect(button).bottom, 632);
+    expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 12);
+    expect(tester.getRect(button).bottom, 628);
     await tester.tap(find.byIcon(Icons.close));
     expect(cancelled, isTrue);
     expect(tester.takeException(), isNull);
@@ -153,7 +153,7 @@ void main() {
     for (final (inset, top, bottom) in [
       (24.0, 24.0, 24.0),
       (40.0, 40.0, 40.0),
-      (0.0, 8.0, 8.0),
+      (0.0, 12.0, 12.0),
     ]) {
       tester.view.viewPadding = FakeViewPadding(bottom: inset);
       tester.view.padding = FakeViewPadding(bottom: inset);

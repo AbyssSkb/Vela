@@ -11,7 +11,7 @@ const _noticeHorizontalPadding = EdgeInsets.symmetric(horizontal: 16);
 
 EdgeInsets _noticeVerticalPadding(double bottomInset) => bottomInset > 0
     ? EdgeInsets.only(top: bottomInset)
-    : const EdgeInsets.symmetric(vertical: 8);
+    : const EdgeInsets.symmetric(vertical: 12);
 
 class ActivityNotice extends StatelessWidget {
   const ActivityNotice({super.key, required this.child});
