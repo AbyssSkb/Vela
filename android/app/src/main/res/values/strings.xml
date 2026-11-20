@@ -1,4 +1,5 @@
 <resources>
+    <string name="send_with_vela">Send with Vela</string>
     <string name="notification_requests">Incoming requests</string>
     <string name="notification_progress">Transfer progress</string>
     <string name="notification_results">Transfer results</string>

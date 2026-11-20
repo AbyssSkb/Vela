@@ -390,7 +390,7 @@ class MainActivity : FlutterActivity() {
                     Intent(Intent.ACTION_VIEW)
                         .setDataAndType(uri, type)
                         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                startActivity(intent)
+                startActivity(intent.withExternalFileViewer(this))
                 result.success(null)
             } catch (e: android.content.ActivityNotFoundException) {
                 result.error("no_app", e.message, null)
@@ -502,6 +502,7 @@ class MainActivity : FlutterActivity() {
                                         .MIME_TYPE_DIR,
                                 )
                                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                .withExternalFileViewer(this)
                         }
                     startActivity(intent)
                     result.success(null)

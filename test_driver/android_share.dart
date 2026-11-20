@@ -114,7 +114,7 @@ Future<void> main(List<String> args) async {
 
     const pixels =
         'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGP4z8DAAMIM/4EAAB/uBfsL2WiLAAAAAElFTkSuQmCC';
-    const shareActivity = 'com.example.vela/.ShareActivity';
+    const openTarget = 'com.example.vela/.SendWithVela';
     for (final type in ['image/*', null]) {
       final image = type != null
           ? 'shared-view-test.png'
@@ -143,11 +143,11 @@ Future<void> main(List<String> args) async {
           '--components',
           ...viewImage,
         ]);
-        if (!handlers.contains(shareActivity)) {
+        if (!handlers.contains(openTarget)) {
           throw StateError('Vela is missing from the image open chooser');
         }
       }
-      await shell(['am', 'start', ...viewImage, '-n', shareActivity]);
+      await shell(['am', 'start', ...viewImage, '-n', openTarget]);
       await acceptShare();
       await mac.waitFor(find.text('已接收 $image'));
     }

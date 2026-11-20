@@ -2,10 +2,14 @@ package com.example.vela
 
 import android.app.Activity
 import android.content.ClipData
+import android.content.ComponentName
+import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import androidx.core.content.IntentCompat
 
 internal val shareDeviceId = Regex("[0-9a-f]{64}")
@@ -53,21 +57,37 @@ internal fun Intent.sharedDevice(): String? =
     runCatching { getStringExtra(Intent.EXTRA_SHORTCUT_ID) }.getOrNull()
         ?.takeIf(shareDeviceId::matches)
 
+internal fun Intent.withExternalFileViewer(context: Context): Intent {
+    if (resolveActivity(context.packageManager)?.packageName != context.packageName) return this
+
+    val target = ComponentName(context.packageName, "com.example.vela.SendWithVela")
+    return Intent.createChooser(this, null)
+        .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(target))
+        .addFlags(flags and Intent.FLAG_ACTIVITY_NEW_TASK)
+}
+
 class ShareActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val isShare = intent.isShare()
-        val image = intent.data?.takeIf {
+        val document = intent.data?.takeIf {
             intent.action == Intent.ACTION_VIEW && it.scheme == "content"
         }
-        val type = if (image == null) intent.type else
+        val type = if (document == null) intent.type else
             runCatching { intent.resolveType(contentResolver) }.getOrNull()
         val uris = when {
             isShare -> intent.sharedUris()
-            image != null && type?.startsWith("image/") == true -> listOf(image)
+            document != null && !type.isDirectoryMimeType() -> listOf(document)
             else -> emptyList()
         }
-        if (!isShare && uris.isEmpty()) {
+        val text = if (uris.isNotEmpty()) null else when {
+            isShare -> intent.sharedText()
+            intent.action == Intent.ACTION_PROCESS_TEXT ->
+                runCatching { intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString() }
+                    .getOrNull()?.takeIf { it.isNotEmpty() }
+            else -> null
+        }
+        if (uris.isEmpty() && text == null) {
             finish()
             return
         }
@@ -93,7 +113,7 @@ class ShareActivity : Activity() {
             }
             forward.addFlags(intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } else {
-            forward.putExtra(Intent.EXTRA_TEXT, intent.sharedText())
+            forward.putExtra(Intent.EXTRA_TEXT, text)
         }
         try {
             startActivity(forward)
@@ -106,3 +126,7 @@ class ShareActivity : Activity() {
         }
     }
 }
+
+private fun String?.isDirectoryMimeType(): Boolean =
+    this == DocumentsContract.Document.MIME_TYPE_DIR ||
+        this?.startsWith(ContentResolver.CURSOR_DIR_BASE_TYPE + "/") == true

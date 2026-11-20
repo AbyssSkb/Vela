@@ -1,4 +1,5 @@
 <resources>
+    <string name="send_with_vela">用 Vela 发送</string>
     <string name="notification_requests">接收请求</string>
     <string name="notification_progress">传输进度</string>
     <string name="notification_results">传输结果</string>
