@@ -51,7 +51,7 @@ jobs:
         env:
           DEVICE_ID: ${{ steps.ipad.outputs.id }}
         run: |
-          flutter drive --no-pub --debug -d "$DEVICE_ID" \
+          flutter drive --no-pub --debug --verbose -d "$DEVICE_ID" \
             --driver=test_driver/integration_test.dart \
             --target=integration_test/ios_startup_test.dart \
             --dart-define=VELA_SIMULATOR_DEVICE=tablet
