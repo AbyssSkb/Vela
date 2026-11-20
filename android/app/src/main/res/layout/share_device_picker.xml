@@ -4,13 +4,13 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:paddingTop="4dp"
-    android:paddingBottom="8dp">
+    android:paddingBottom="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:paddingStart="20dp"
+        android:paddingStart="24dp"
         android:paddingEnd="8dp">
 
         <TextView
@@ -35,5 +35,9 @@
         android:id="@+id/share_devices"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:divider="@null" />
+        android:divider="@android:color/transparent"
+        android:dividerHeight="6dp"
+        android:drawSelectorOnTop="true"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp" />
 </LinearLayout>
