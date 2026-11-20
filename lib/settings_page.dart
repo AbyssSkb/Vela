@@ -137,9 +137,7 @@ class _SettingsPageState extends State<SettingsPage>
         });
       }
     });
-    if (Platform.isAndroid ||
-        Platform.isMacOS ||
-        DesktopPlatform.isWindowsOrLinux) {
+    if (receivedStorage.supportsReceiveLocation) {
       unawaited(_loadSaveLocation());
     }
   }
@@ -518,9 +516,7 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
               divider(),
             ],
-            if (Platform.isAndroid ||
-                Platform.isMacOS ||
-                DesktopPlatform.isWindowsOrLinux) ...[
+            if (receivedStorage.supportsReceiveLocation) ...[
               row(
                 Icons.folder_outlined,
                 t.saveLocation,

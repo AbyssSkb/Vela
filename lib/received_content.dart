@@ -50,7 +50,7 @@ receiveAcceptedContent({
   final staged = kind == TransferKind.batch
       ? await offer.receiveFiles(directory: destination.path, job: job)
       : [await offer.receiveFile(directory: destination.path, job: job)];
-  final publish = Platform.isAndroid && kind.isFile;
+  final publish = destination.publishFromStaging;
   onTransportComplete(publish);
   final saved = await storage.finishReceive(
     staged,
