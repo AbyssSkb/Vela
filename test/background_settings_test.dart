@@ -338,10 +338,13 @@ void main() {
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       String? section;
+      String? bootRecovery;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
         call,
       ) async {
-        if (call.method == 'status') return {'manufacturer': 'OnePlus'};
+        if (call.method == 'status') {
+          return {'manufacturer': 'OnePlus', 'bootRecovery': bootRecovery};
+        }
         if (call.method == 'settings') {
           section = (call.arguments as Map)['section'] as String?;
         }
@@ -359,6 +362,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.text('Auto-start'), 150);
       await tester.pumpAndSettle();
+      expect(find.text('Unverified'), findsOneWidget);
       expect(
         find.textContaining('allow background activity and auto launch'),
         findsOneWidget,
@@ -366,6 +370,19 @@ void main() {
       await tester.tap(find.text('Auto-start'));
       await tester.pump();
       expect(section, 'battery');
+
+      for (final (nativeValue, label) in [
+        ('broadcast', 'Boot signal received'),
+        ('restored', 'Restored this boot'),
+      ]) {
+        bootRecovery = nativeValue;
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(label), findsOneWidget);
+      }
     },
   );
 

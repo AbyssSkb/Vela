@@ -991,8 +991,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundAutoStart => '自启动';
 
   @override
-  String get backgroundAutoStartHint =>
-      '状态无法自动检测。打开系统设置，搜索“自启动”，找到 Vela 并开启（如系统提供）。';
+  String get backgroundAutoStartRestored => '本次已恢复';
+
+  @override
+  String get backgroundAutoStartBroadcast => '已收到开机广播';
+
+  @override
+  String get backgroundAutoStartUnverified => '未验证';
+
+  @override
+  String get backgroundAutoStartHint => '在系统设置中搜索「自启动」。';
 
   @override
   String get backgroundAutoStartOplusHint => '在 Vela 的耗电管理中允许后台运行和自启动。';
