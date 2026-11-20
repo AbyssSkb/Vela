@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="share_picker_outline">#7B88B9</color>
+    <color name="share_device_surface">#E4E9FF</color>
+    <color name="share_device_outline">#7582B2</color>
+</resources>
