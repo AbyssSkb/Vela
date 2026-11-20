@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'content_kind.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'page_layout.dart';
 import 'received_storage.dart';
 import 'desktop_platform.dart';
 
@@ -579,319 +580,263 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            body: SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: Column(
-                    children: [
-                      ValueListenableBuilder<List<TransferRecord>>(
-                        valueListenable: widget.records,
-                        builder: (context, records, _) =>
-                            _buildToolbar(context, records),
-                      ),
-                      Expanded(
-                        child: ValueListenableBuilder<List<TransferRecord>>(
-                          valueListenable: widget.records,
-                          builder: (context, allItems, _) {
-                            final received = allItems.where(_inScope).toList();
-                            if (received.isEmpty) {
-                              return Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Text(
-                                    widget.batchId == null
-                                        ? t.noTransferHistory
-                                        : t.receivedBatchUnavailable,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                            final items = received.where(_matches).toList();
-                            if (items.isEmpty) {
-                              return Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        t.noHistoryMatches,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: colors.onSurfaceVariant,
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: _clearSearch,
-                                        child: Text(t.clearSearch),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }
-                            return ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                              itemCount: items.length,
-                              itemBuilder: (context, index) {
-                                final item = items[index];
-                                final date = item.time.toLocal();
-                                final firstOfDay =
-                                    index == 0 ||
-                                    !sameDay(
-                                      date,
-                                      items[index - 1].time.toLocal(),
-                                    );
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (firstOfDay)
-                                      Padding(
-                                        padding: EdgeInsets.fromLTRB(
-                                          12,
-                                          index == 0 ? 8 : 24,
-                                          12,
-                                          8,
-                                        ),
-                                        child: Text(
-                                          dateLabel(date),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelLarge
-                                              ?.copyWith(
-                                                color: colors.onSurfaceVariant,
-                                              ),
-                                        ),
-                                      ),
-                                    Material(
-                                      color: selected.contains(item)
-                                          ? colors.secondaryContainer
-                                                .withValues(alpha: .5)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(12),
-                                        onLongPress: () =>
-                                            _toggleSelection(item),
-                                        onTap: selecting
-                                            ? () => _toggleSelection(item)
-                                            : item.fileReference == null
-                                            ? null
-                                            : () => widget.open(item),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 10,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 42,
-                                                height: 42,
-                                                decoration: BoxDecoration(
-                                                  color: colors
-                                                      .secondaryContainer
-                                                      .withValues(alpha: 0.55),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: Icon(
-                                                  _icon(item),
-                                                  size: 21,
-                                                  color: colors
-                                                      .onSecondaryContainer,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 14),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      item.preview?.isNotEmpty ==
-                                                              true
-                                                          ? item.preview!
-                                                          : item.name,
-                                                      maxLines: 2,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodyLarge
-                                                          ?.copyWith(
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                          ),
-                                                    ),
-                                                    const SizedBox(height: 3),
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Text(
-                                                            item.peer,
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                Theme.of(
-                                                                      context,
-                                                                    )
-                                                                    .textTheme
-                                                                    .bodySmall
-                                                                    ?.copyWith(
-                                                                      color: colors
-                                                                          .onSurfaceVariant,
-                                                                    ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        Text(
-                                                          DateFormat.Hm(locale)
-                                                              .format(date),
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodySmall
-                                                                  ?.copyWith(
-                                                                    color: colors
-                                                                        .onSurfaceVariant,
-                                                                  ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              if (selecting)
-                                                Semantics(
-                                                  label: item.name,
-                                                  child: Checkbox(
-                                                    value: selected.contains(
-                                                      item,
-                                                    ),
-                                                    onChanged: (_) =>
-                                                        _toggleSelection(item),
-                                                  ),
-                                                )
-                                              else
-                                                PopupMenuButton<String>(
-                                                  tooltip: t.moreOptions,
-                                                  icon: Icon(
-                                                    Icons.more_vert_rounded,
-                                                    color:
-                                                        colors.onSurfaceVariant,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          14,
-                                                        ),
-                                                  ),
-                                                  onSelected: (action) async {
-                                                    try {
-                                                      if (action == 'export') {
-                                                        await widget.export(
-                                                          item,
-                                                        );
-                                                      } else if (action ==
-                                                          'copy') {
-                                                        await _copyFiles([
-                                                          item,
-                                                        ]);
-                                                      } else if (action ==
-                                                          'reveal') {
-                                                        await widget.reveal(
-                                                          item,
-                                                        );
-                                                      } else if (action ==
-                                                          'details') {
-                                                        _showDetails(item);
-                                                      } else {
-                                                        await _confirmRemove([
-                                                          item,
-                                                        ]);
-                                                      }
-                                                    } catch (e) {
-                                                      if (context.mounted) {
-                                                        showNotice(
-                                                          context,
-                                                          e is StateError
-                                                              ? e.message
-                                                                    .toString()
-                                                              : t.storageFailed,
-                                                          kind:
-                                                              NoticeKind.error,
-                                                        );
-                                                      }
-                                                    }
-                                                  },
-                                                  itemBuilder: (_) => [
-                                                    if (_canCopy(item))
-                                                      _recordAction(
-                                                        'copy',
-                                                        Icons.copy_rounded,
-                                                        t.historyCopyFiles,
-                                                      ),
-                                                    if (item.fileReference !=
-                                                            null &&
-                                                        item.kind.isFile &&
-                                                        (Platform.isAndroid ||
-                                                            DesktopPlatform
-                                                                .isDesktop))
-                                                      _recordAction(
-                                                        'reveal',
-                                                        Icons.folder_outlined,
-                                                        Platform.isMacOS
-                                                            ? t.revealInFinder
-                                                            : t.showInFolder,
-                                                      ),
-                                                    _recordAction(
-                                                      'details',
-                                                      Icons
-                                                          .info_outline_rounded,
-                                                      t.recordDetails,
-                                                    ),
-                                                    if (item.fileReference !=
-                                                            null &&
-                                                        !item.kind.isText &&
-                                                        Platform.isAndroid)
-                                                      _recordAction(
-                                                        'export',
-                                                        Icons.save_alt_rounded,
-                                                        t.saveAs,
-                                                      ),
-                                                    _recordAction(
-                                                      'remove',
-                                                      Icons
-                                                          .playlist_remove_rounded,
-                                                      t.removeRecord,
-                                                    ),
-                                                  ],
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          },
+            body: PageLayout(
+              maxWidth: 640,
+              header: ValueListenableBuilder<List<TransferRecord>>(
+                valueListenable: widget.records,
+                builder: (context, records, _) =>
+                    _buildToolbar(context, records),
+              ),
+              body: ValueListenableBuilder<List<TransferRecord>>(
+                valueListenable: widget.records,
+                builder: (context, allItems, _) {
+                  final received = allItems.where(_inScope).toList();
+                  if (received.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          widget.batchId == null
+                              ? t.noTransferHistory
+                              : t.receivedBatchUnavailable,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: colors.onSurfaceVariant),
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    );
+                  }
+                  final items = received.where(_matches).toList();
+                  if (items.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              t.noHistoryMatches,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: colors.onSurfaceVariant),
+                            ),
+                            TextButton(
+                              onPressed: _clearSearch,
+                              child: Text(t.clearSearch),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      final date = item.time.toLocal();
+                      final firstOfDay =
+                          index == 0 ||
+                          !sameDay(date, items[index - 1].time.toLocal());
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (firstOfDay)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                12,
+                                index == 0 ? 8 : 24,
+                                12,
+                                8,
+                              ),
+                              child: Text(
+                                dateLabel(date),
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
+                            ),
+                          Material(
+                            color: selected.contains(item)
+                                ? colors.secondaryContainer.withValues(
+                                    alpha: .5,
+                                  )
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onLongPress: () => _toggleSelection(item),
+                              onTap: selecting
+                                  ? () => _toggleSelection(item)
+                                  : item.fileReference == null
+                                  ? null
+                                  : () => widget.open(item),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        color: colors.secondaryContainer
+                                            .withValues(alpha: 0.55),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        _icon(item),
+                                        size: 21,
+                                        color: colors.onSecondaryContainer,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.preview?.isNotEmpty == true
+                                                ? item.preview!
+                                                : item.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyLarge
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  item.peer,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: colors
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                DateFormat.Hm(locale)
+                                                    .format(date),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: colors
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (selecting)
+                                      Semantics(
+                                        label: item.name,
+                                        child: Checkbox(
+                                          value: selected.contains(item),
+                                          onChanged: (_) =>
+                                              _toggleSelection(item),
+                                        ),
+                                      )
+                                    else
+                                      PopupMenuButton<String>(
+                                        tooltip: t.moreOptions,
+                                        icon: Icon(
+                                          Icons.more_vert_rounded,
+                                          color: colors.onSurfaceVariant,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        onSelected: (action) async {
+                                          try {
+                                            if (action == 'export') {
+                                              await widget.export(item);
+                                            } else if (action == 'copy') {
+                                              await _copyFiles([item]);
+                                            } else if (action == 'reveal') {
+                                              await widget.reveal(item);
+                                            } else if (action == 'details') {
+                                              _showDetails(item);
+                                            } else {
+                                              await _confirmRemove([item]);
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              showNotice(
+                                                context,
+                                                e is StateError
+                                                    ? e.message.toString()
+                                                    : t.storageFailed,
+                                                kind: NoticeKind.error,
+                                              );
+                                            }
+                                          }
+                                        },
+                                        itemBuilder: (_) => [
+                                          if (_canCopy(item))
+                                            _recordAction(
+                                              'copy',
+                                              Icons.copy_rounded,
+                                              t.historyCopyFiles,
+                                            ),
+                                          if (item.fileReference != null &&
+                                              item.kind.isFile &&
+                                              (Platform.isAndroid ||
+                                                  DesktopPlatform.isDesktop))
+                                            _recordAction(
+                                              'reveal',
+                                              Icons.folder_outlined,
+                                              Platform.isMacOS
+                                                  ? t.revealInFinder
+                                                  : t.showInFolder,
+                                            ),
+                                          _recordAction(
+                                            'details',
+                                            Icons.info_outline_rounded,
+                                            t.recordDetails,
+                                          ),
+                                          if (item.fileReference != null &&
+                                              !item.kind.isText &&
+                                              Platform.isAndroid)
+                                            _recordAction(
+                                              'export',
+                                              Icons.save_alt_rounded,
+                                              t.saveAs,
+                                            ),
+                                          _recordAction(
+                                            'remove',
+                                            Icons.playlist_remove_rounded,
+                                            t.removeRecord,
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ),

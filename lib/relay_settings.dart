@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'page_layout.dart';
 
 class RelayBusyException implements Exception {}
 
@@ -145,137 +146,127 @@ class _RelaySettingsPageState extends State<RelaySettingsPage> {
       color: colors.outlineVariant.withValues(alpha: .45),
     );
     return Scaffold(
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                Platform.isMacOS ? 38 : 8,
-                20,
-                24,
+      body: PageLayout(
+        header: Padding(
+          padding: EdgeInsets.fromLTRB(20, Platform.isMacOS ? 38 : 8, 20, 16),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                icon: const Icon(Icons.arrow_back_rounded),
               ),
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      tooltip: MaterialLocalizations.of(context)
-                          .backButtonTooltip,
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        t.relaySettings,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  t.relaySettings,
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          children: [
+            Material(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
+              child: SwitchListTile(
+                key: const ValueKey('relay-enabled'),
+                value: enabled,
+                onChanged: changingEnabled ? null : _setEnabled,
+                title: Text(
+                  t.relayEnabled,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: customActive
+                    ? Text(t.relayCustomOnly)
+                    : enabled
+                    ? Text(t.relayEnabledDetail)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Material(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (final url in relays) ...[
+                    if (url != relays.first) divider(),
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 6,
                       ),
+                      leading: Icon(
+                        Icons.dns_outlined,
+                        size: 22,
+                        color: colors.primary,
+                      ),
+                      title: Text(
+                        Uri.tryParse(url)?.authority ?? url,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: switch (testResults[url]) {
+                        final result? => Semantics(
+                          liveRegion: true,
+                          child: Text(_relayTestMessage(t, result)),
+                        ),
+                        null => null,
+                      },
+                      trailing: TextButton(
+                        key: ValueKey('test-relay-$url'),
+                        onPressed: testingRelay == null && !changingEnabled
+                            ? () => _testRelay(url)
+                            : null,
+                        child: testingRelay == url
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(t.relayTestShort),
+                      ),
+                      onTap: changingEnabled || testingRelay == url
+                          ? null
+                          : () => _edit(url),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                Material(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(18),
-                  clipBehavior: Clip.antiAlias,
-                  child: SwitchListTile(
-                    key: const ValueKey('relay-enabled'),
-                    value: enabled,
-                    onChanged: changingEnabled ? null : _setEnabled,
-                    title: Text(
-                      t.relayEnabled,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                  if (relays.isNotEmpty) divider(),
+                  ListTile(
+                    key: const ValueKey('add-relay'),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
                     ),
-                    subtitle: customActive
-                        ? Text(t.relayCustomOnly)
-                        : enabled
-                        ? Text(t.relayEnabledDetail)
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Material(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(18),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      for (final url in relays) ...[
-                        if (url != relays.first) divider(),
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 6,
-                          ),
-                          leading: Icon(
-                            Icons.dns_outlined,
-                            size: 22,
-                            color: colors.primary,
-                          ),
-                          title: Text(
-                            Uri.tryParse(url)?.authority ?? url,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: switch (testResults[url]) {
-                            final result? => Semantics(
-                              liveRegion: true,
-                              child: Text(_relayTestMessage(t, result)),
-                            ),
-                            null => null,
-                          },
-                          trailing: TextButton(
-                            key: ValueKey('test-relay-$url'),
-                            onPressed: testingRelay == null && !changingEnabled
-                                ? () => _testRelay(url)
-                                : null,
-                            child: testingRelay == url
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(t.relayTestShort),
-                          ),
-                          onTap: changingEnabled || testingRelay == url
-                              ? null
-                              : () => _edit(url),
-                        ),
-                      ],
-                      if (relays.isNotEmpty) divider(),
-                      ListTile(
-                        key: const ValueKey('add-relay'),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 6,
-                        ),
-                        leading: Icon(
-                          Icons.add_rounded,
-                          size: 22,
-                          color: colors.primary,
-                        ),
-                        title: Text(
-                          t.addRelay,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: colors.primary,
-                          ),
-                        ),
-                        onTap: changingEnabled ? null : _add,
+                    leading: Icon(
+                      Icons.add_rounded,
+                      size: 22,
+                      color: colors.primary,
+                    ),
+                    title: Text(
+                      t.addRelay,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: colors.primary,
                       ),
-                    ],
+                    ),
+                    onTap: changingEnabled ? null : _add,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

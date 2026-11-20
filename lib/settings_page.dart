@@ -9,6 +9,7 @@ import 'background_settings.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
 import 'notification_settings.dart';
+import 'page_layout.dart';
 import 'received_storage.dart';
 import 'settings_row_title.dart';
 import 'app_update.dart';
@@ -517,68 +518,48 @@ class _SettingsPageState extends State<SettingsPage>
       ),
     );
     return Scaffold(
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    Platform.isMacOS ? 38 : 8,
-                    20,
-                    8,
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox.square(
-                        dimension: 48,
-                        child: IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          tooltip: MaterialLocalizations.of(context)
-                              .backButtonTooltip,
-                          icon: const Icon(Icons.arrow_back_rounded),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Semantics(
-                          header: true,
-                          child: Text(
-                            t.settings,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+      body: PageLayout(
+        header: Padding(
+          padding: EdgeInsets.fromLTRB(20, Platform.isMacOS ? 38 : 8, 20, 8),
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: 48,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  icon: const Icon(Icons.arrow_back_rounded),
                 ),
-                Expanded(
-                  child: ListTileTheme(
-                    data: ListTileThemeData(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                      ),
-                      minLeadingWidth: 24,
-                      horizontalTitleGap: 12,
-                      minVerticalPadding: 6,
-                      minTileHeight: 52,
-                      visualDensity: VisualDensity.standard,
-                      iconColor: colors.onSurfaceVariant,
-                      titleTextStyle: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    t.settings,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                    child: content,
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+        body: ListTileTheme(
+          data: ListTileThemeData(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            minLeadingWidth: 24,
+            horizontalTitleGap: 12,
+            minVerticalPadding: 6,
+            minTileHeight: 52,
+            visualDensity: VisualDensity.standard,
+            iconColor: colors.onSurfaceVariant,
+            titleTextStyle: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
+          child: content,
         ),
       ),
     );

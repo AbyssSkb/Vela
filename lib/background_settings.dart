@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
+import 'page_layout.dart';
 import 'settings_row_title.dart';
 
 enum BackgroundReceiving {
@@ -310,131 +311,126 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     );
     final exempt = status['batteryExempt'] as bool?;
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(20, isMac ? 38 : 8, 20, 24),
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      tooltip: MaterialLocalizations.of(context)
-                          .backButtonTooltip,
+      body: PageLayout(
+        header: Padding(
+          padding: EdgeInsets.fromLTRB(20, isMac ? 38 : 8, 20, 16),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  t.backgroundReceiving,
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          children: [
+            Material(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: Text(
+                      isMac ? t.macKeepAwake : t.enableBackgroundReceiving,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        t.backgroundReceiving,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
+                    subtitle: detail == null
+                        ? null
+                        : Text(
+                            detail,
+                            style: needsAttention
+                                ? TextStyle(color: colors.error)
+                                : null,
+                          ),
+                    value: enabled ?? false,
+                    onChanged: changing || enabled == null ? null : _toggle,
+                  ),
+                  if (needsRetry)
+                    recoveryButton(
+                      t.retry,
+                      changing ? null : () => _toggle(true),
+                    ),
+                  if ((isMac || usesTray) &&
+                      status['loginSupported'] == true) ...[
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      title: Text(t.backgroundLogin),
+                      value: login == 'enabled' || login == 'requiresApproval',
+                      onChanged: changing ? null : _toggleLogin,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (!isMac && !usesTray) ...[
+              const SizedBox(height: 12),
+              Material(
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  leading: Icon(
+                    !restricted && exempt == true
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.info_outline_rounded,
+                    color: !restricted && exempt == true
+                        ? colors.primary
+                        : colors.onSurfaceVariant,
+                  ),
+                  title: SettingsRowTitle(
+                    t.backgroundBattery,
+                    value: Text(switch ((restricted, exempt)) {
+                      (true, _) => t.backgroundBatteryRestricted,
+                      (false, true) => t.backgroundBatteryExempt,
+                      (false, false) => t.backgroundBatteryOptimized,
+                      (false, null) => t.backgroundUnknown,
+                    }),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _openSettings(
+                    !restricted && exempt == false
+                        ? 'battery_exemption'
+                        : 'battery',
+                  ),
+                ),
+              ),
+            ],
+            if (!isMac && !usesTray) ...[
+              const SizedBox(height: 12),
+              Material(
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    ListTile(
+                      title: Text(t.backgroundAutoStart),
+                      trailing: const Icon(Icons.open_in_new_rounded),
+                      onTap: () =>
+                          _openSettings(isOplus ? 'battery' : 'autostart'),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      title: Text(t.backgroundVendorGuide),
+                      trailing: const Icon(Icons.open_in_new_rounded),
+                      onTap: () => _openSettings('guide'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Material(
-                  color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      SwitchListTile(
-                        title: Text(
-                          isMac ? t.macKeepAwake : t.enableBackgroundReceiving,
-                        ),
-                        subtitle: detail == null
-                            ? null
-                            : Text(
-                                detail,
-                                style: needsAttention
-                                    ? TextStyle(color: colors.error)
-                                    : null,
-                              ),
-                        value: enabled ?? false,
-                        onChanged: changing || enabled == null ? null : _toggle,
-                      ),
-                      if (needsRetry)
-                        recoveryButton(
-                          t.retry,
-                          changing ? null : () => _toggle(true),
-                        ),
-                      if ((isMac || usesTray) &&
-                          status['loginSupported'] == true) ...[
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                        SwitchListTile(
-                          title: Text(t.backgroundLogin),
-                          value:
-                              login == 'enabled' || login == 'requiresApproval',
-                          onChanged: changing ? null : _toggleLogin,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (!isMac && !usesTray) ...[
-                  const SizedBox(height: 12),
-                  Material(
-                    color: colors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      leading: Icon(
-                        !restricted && exempt == true
-                            ? Icons.check_circle_outline_rounded
-                            : Icons.info_outline_rounded,
-                        color: !restricted && exempt == true
-                            ? colors.primary
-                            : colors.onSurfaceVariant,
-                      ),
-                      title: SettingsRowTitle(
-                        t.backgroundBattery,
-                        value: Text(switch ((restricted, exempt)) {
-                          (true, _) => t.backgroundBatteryRestricted,
-                          (false, true) => t.backgroundBatteryExempt,
-                          (false, false) => t.backgroundBatteryOptimized,
-                          (false, null) => t.backgroundUnknown,
-                        }),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => _openSettings(
-                        !restricted && exempt == false
-                            ? 'battery_exemption'
-                            : 'battery',
-                      ),
-                    ),
-                  ),
-                ],
-                if (!isMac && !usesTray) ...[
-                  const SizedBox(height: 12),
-                  Material(
-                    color: colors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        ListTile(
-                          title: Text(t.backgroundAutoStart),
-                          trailing: const Icon(Icons.open_in_new_rounded),
-                          onTap: () =>
-                              _openSettings(isOplus ? 'battery' : 'autostart'),
-                        ),
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                        ListTile(
-                          title: Text(t.backgroundVendorGuide),
-                          trailing: const Icon(Icons.open_in_new_rounded),
-                          onTap: () => _openSettings('guide'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+              ),
+            ],
+          ],
         ),
       ),
     );
