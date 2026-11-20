@@ -466,7 +466,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                     icon: const Icon(Icons.copy_rounded),
                     onPressed: () => _copyFiles(visibleRecords),
                   )
-                else
+                else if (theme.platform != TargetPlatform.iOS)
                   IconButton(
                     tooltip: t.openReceiveFolder,
                     icon: const Icon(Icons.folder_open_rounded),
@@ -498,7 +498,9 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                       value: 'select',
                       child: Text(t.selectRecords),
                     ),
-                    if (copyBatch && !searching)
+                    if (copyBatch &&
+                        !searching &&
+                        theme.platform != TargetPlatform.iOS)
                       PopupMenuItem(
                         value: 'folder',
                         child: Text(t.openReceiveFolder),

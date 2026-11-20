@@ -107,7 +107,7 @@ class ReceivedStorage {
     String profile,
     TransferKind kind,
   ) async {
-    final base = Platform.isAndroid
+    final base = Platform.isAndroid || (Platform.isIOS && !kind.isFile)
         ? await getApplicationSupportDirectory()
         : await getApplicationDocumentsDirectory();
     final privateDir = await Directory('${base.path}/Vela/$profile')

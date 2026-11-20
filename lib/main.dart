@@ -2163,7 +2163,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     bool media = false,
   }) async {
     if (_sendUnavailable || activeSendOperations != 0) return;
-    if (media) {
+    if (media && !Platform.isIOS) {
       try {
         final uris =
             await _duringSendSelection(
@@ -2192,7 +2192,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } else {
       await _prepareAndSend(
-        clipboard ? _prepareClipboard : _pickFiles,
+        clipboard ? _prepareClipboard : () => _pickFiles(media: media),
         clipboard: clipboard,
       );
     }
@@ -3166,8 +3166,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<PreparedTransfer?> _pickFiles() async {
-    final picked = await FilePicker.pickFiles();
+  Future<PreparedTransfer?> _pickFiles({bool media = false}) async {
+    final picked = await FilePicker.pickFiles(
+      type: media ? FileType.media : FileType.any,
+    );
     if (picked.any((file) => file.path == null)) {
       throw StateError(t.fileUnavailable);
     }
@@ -4020,13 +4022,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         icon: Icons.insert_drive_file_outlined,
         onPressed: enabled ? () => _chooseAndSend() : null,
       ),
-      HomeSendButton(
-        key: const ValueKey('send-folder'),
-        label: t.folder,
-        icon: Icons.folder_outlined,
-        onPressed: enabled ? _chooseAndSendFolder : null,
-      ),
-      if (Platform.isAndroid)
+      if (!Platform.isIOS)
+        HomeSendButton(
+          key: const ValueKey('send-folder'),
+          label: t.folder,
+          icon: Icons.folder_outlined,
+          onPressed: enabled ? _chooseAndSendFolder : null,
+        ),
+      if (Platform.isAndroid || Platform.isIOS)
         HomeSendButton(
           key: const ValueKey('send-media'),
           label: t.media,
