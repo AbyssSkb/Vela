@@ -580,9 +580,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noTransferHistory => '暂无接收记录';
 
   @override
-  String get transferHistoryEmptyHint => '收到的文件、文字和链接会显示在这里。';
-
-  @override
   String get manageRecords => '管理记录';
 
   @override
