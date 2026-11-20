@@ -406,6 +406,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _sharePresentationScheduled = false;
   final _shareItemNames = Expando<Future<List<String>>>();
   Future<void> _shareReads = Future.value();
+  bool _confirmedShareAvailable = Platform.isAndroid;
+  bool _confirmedShareActive = false;
   bool _composingText = false;
   ({
     String peer,
@@ -415,7 +417,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     SendRetry retry,
   })?
   _failedSend;
-  final _queuedDrops = Queue<PendingShare>();
+  final _queuedLocalShares = Queue<PendingShare>();
+  final _stagedShares = <PendingShare, PreparedTransfer>{};
   final _dropResources =
       <PendingShare, ({List<Uint8List> bookmarks, List<String> files})>{};
   final _dropTargets = <String, GlobalKey>{};
@@ -592,6 +595,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (call.method == 'available') {
           if (Platform.isAndroid) await _showPendingReceipt();
           await _takePendingShare();
+        } else if (call.method == 'confirmedAvailable') {
+          _confirmedShareAvailable = true;
+          unawaited(_sendNextConfirmedShare());
         }
       });
       if (Platform.isAndroid) unawaited(_showPendingReceipt());
@@ -599,6 +605,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     progressTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
       if (!updates.installing) unawaited(updates.setBusy(_updateBusy));
+      if (_confirmedShareAvailable) unawaited(_sendNextConfirmedShare());
       final job = activeTransfer;
       if (!mounted ||
           !contentOperationActive ||
@@ -950,7 +957,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         preferredPeer: recipient,
       );
       _dropResources[share] = (bookmarks: bookmarks, files: files);
-      _queuedDrops.addLast(share);
+      _queuedLocalShares.addLast(share);
       await _takePendingShare();
     } catch (e) {
       debugPrint('Could not receive dropped files: $e');
@@ -1003,8 +1010,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted || disposed || shuttingDown || pendingShare != null) return;
     Map<String, dynamic>? payload;
     try {
-      if (_queuedDrops.isNotEmpty) {
-        setState(() => pendingShare = _queuedDrops.removeFirst());
+      if (_queuedLocalShares.isNotEmpty) {
+        setState(() => pendingShare = _queuedLocalShares.removeFirst());
       } else if (Platform.isAndroid || Platform.isMacOS) {
         payload = await shareChannel.invokeMapMethod<String, dynamic>('take');
         if (mounted && payload != null) {
@@ -1019,6 +1026,91 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     }
   });
+
+  Future<void> _sendNextConfirmedShare() async {
+    if (!mounted ||
+        !_confirmedShareAvailable ||
+        _confirmedShareActive ||
+        !_canResumeSend ||
+        activeSendOperations != 0 ||
+        _composingText ||
+        incomingOffersPending != 0) {
+      return;
+    }
+    _confirmedShareAvailable = false;
+    _confirmedShareActive = true;
+    try {
+      await _duringSendSelection(() async {
+        String? request;
+        try {
+          final payload = await shareChannel.invokeMapMethod<String, dynamic>(
+            'takeConfirmed',
+          );
+          if (payload == null) return;
+          _confirmedShareAvailable = true;
+          request = payload['serviceRequest'] as String?;
+          if (mounted) await _sendConfirmedShare(PendingShare.fromMap(payload));
+        } catch (e) {
+          debugPrint('Could not send content from another app: $e');
+          if (mounted) {
+            final message = sendErrorMessage(
+              e,
+              transferStarted: false,
+              clipboard: false,
+              shared: true,
+              translations: t,
+            );
+            _finishSystemTransfer(message);
+            _message(message, kind: NoticeKind.error);
+          }
+        } finally {
+          if (request != null) {
+            try {
+              await shareChannel.invokeMethod<void>(
+                'completeConfirmed',
+                request,
+              );
+            } catch (e) {
+              debugPrint('Could not finish external transfer service: $e');
+            }
+          }
+        }
+      });
+    } finally {
+      _confirmedShareActive = false;
+    }
+  }
+
+  Future<void> _sendConfirmedShare(PendingShare share) async {
+    final recipient = share.preferredPeer;
+    if (recipient == null) throw const FormatException('Missing share device');
+    final revision = pairedDevices?.pairingRevisionFor(recipient);
+    final prepared = await _prepareShare(share);
+    if (!mounted) {
+      await _cleanupPrepared(prepared);
+      return;
+    }
+    if (!_canSendTo(recipient, revision)) {
+      final draft = share.hasFiles
+          ? PendingShare(paths: prepared.paths, preferredPeer: recipient)
+          : share;
+      if (share.hasFiles) {
+        _stagedShares[draft] = prepared;
+      } else {
+        await _cleanupPrepared(prepared);
+      }
+      _queuedLocalShares.addLast(draft);
+      await _takePendingShare();
+      if (mounted) _finishSystemTransfer(t.originalSendDeviceUnavailable);
+      return;
+    }
+    await _send(
+      recipient,
+      _sendDeviceName(recipient),
+      _createSendSession(prepared),
+      confirmedShare: true,
+    );
+  }
 
   bool get _canPresentShare =>
       !_sendUnavailable &&
@@ -1439,7 +1531,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     bool currentNode() => mounted && !disposed && identical(node, source);
     try {
-      while (contentOperationActive && currentNode()) {
+      while ((contentOperationActive || _confirmedShareActive) &&
+          currentNode()) {
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
       if (!currentNode()) return;
@@ -3280,6 +3373,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (_dropResources.remove(share) case final drop?) {
       await _releaseDrop(drop.bookmarks, drop.files);
     }
+    if (_stagedShares.remove(share) case final staged?) {
+      await _cleanupPrepared(staged);
+    }
     if (Platform.isMacOS && share.stage != null) {
       try {
         await shareChannel.invokeMethod<void>('cleanup', {
@@ -3346,9 +3442,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final failed = _failedSend;
     if (failed == null || !_canResumeSend) return;
     final target = chooseDevice
-        ? await _choosePeer(
-            _preparedContentName(failed.content),
-            prepared: failed.content,
+        ? await _duringSendSelection(
+            () => _choosePeer(
+              _preparedContentName(failed.content),
+              prepared: failed.content,
+            ),
           )
         : replacement ?? failed.peer;
     if (target == null ||
@@ -3367,7 +3465,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     await _send(target, _sendDeviceName(target), session);
   }
 
-  Future<void> _send(String id, String name, SendSession session) async {
+  Future<void> _send(
+    String id,
+    String name,
+    SendSession session, {
+    bool confirmedShare = false,
+  }) async {
     final content = session.content;
     final share = content.share;
     final revision = pairedDevices?.pairingRevisionFor(id);
@@ -3381,14 +3484,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     activeSendOperations++;
     try {
       if (!mounted) return;
-      if (_sendUnavailable) {
+      if (!_canResumeSend || (!confirmedShare && _failedSend != null)) {
         throw StateError(t.transferBusy);
       }
       if (!_canSendTo(id, revision)) throw StateError(t.sendDeviceChanged);
       final path = content.paths.first;
       if (!await File(path).exists()) throw StateError(t.fileUnavailable);
       if (!mounted) return;
-      if (_sendUnavailable) {
+      if (!_canResumeSend || (!confirmedShare && _failedSend != null)) {
         throw StateError(t.transferBusy);
       }
       if (!_canSendTo(id, revision)) throw StateError(t.sendDeviceChanged);
@@ -3460,6 +3563,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         } else if (!cancelled &&
             transferStarted &&
             !sendCompleted &&
+            _failedSend == null &&
             !shuttingDown) {
           retry = session.allowRetry();
         }
@@ -3489,6 +3593,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               );
             }
           });
+        }
+        if (transferStarted || confirmedShare) {
           _finishSystemTransfer(resultMessage);
         }
         if (resultMessage != null) {
@@ -3746,7 +3852,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       unawaited(_releaseDrop(drop.bookmarks, drop.files));
     }
     _dropResources.clear();
-    _queuedDrops.clear();
+    for (final staged in _stagedShares.values) {
+      unawaited(_cleanupPrepared(staged));
+    }
+    _stagedShares.clear();
+    _queuedLocalShares.clear();
     WidgetsBinding.instance.removeObserver(this);
     if (Platform.isAndroid || Platform.isMacOS) {
       shareChannel.setMethodCallHandler(null);

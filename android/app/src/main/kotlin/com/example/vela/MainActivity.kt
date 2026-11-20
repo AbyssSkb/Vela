@@ -605,15 +605,19 @@ class MainActivity : FlutterActivity() {
     private fun enqueueShare() {
         val sharedIntent = intent ?: return
         if (!sharedIntent.isShare()) return
-        val uris = sharedIntent.sharedUris()
-        val text = sharedIntent.sharedText()
+        val payload = sharedIntent.sharePayload()
         sharedIntent.action = null
-        if (uris.isEmpty() && text == null) return
-        pendingShares.addLast(buildMap {
-            if (uris.isNotEmpty()) put("uris", uris.map(Uri::toString))
-            else if (text != null) put("text", text)
-            sharedIntent.sharedDevice()?.let { put("preferredPeer", it) }
-        })
+        if (payload == null) return
+        val shortcut = sharedIntent.shareShortcut()
+        val device = shareDevices(this).firstOrNull { it.shortcut == shortcut }
+        if (device != null) {
+            app.channels.enqueueConfirmedShare(payload + ("preferredPeer" to device.peer))
+        } else {
+            val legacy = shortcut?.takeIf(shareDeviceId::matches)
+            pendingShares.addLast(
+                if (legacy == null) payload else payload + ("preferredPeer" to legacy)
+            )
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

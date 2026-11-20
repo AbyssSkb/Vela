@@ -1,6 +1,8 @@
 package com.example.vela
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ComponentName
 import android.content.ContentResolver
@@ -8,8 +10,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.DocumentsContract
+import android.widget.Toast
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 
 internal val shareDeviceId = Regex("[0-9a-f]{64}")
@@ -53,9 +59,17 @@ internal fun Intent.sharedText(): String? {
         }
 }
 
-internal fun Intent.sharedDevice(): String? =
+internal fun Intent.shareShortcut(): String? =
     runCatching { getStringExtra(Intent.EXTRA_SHORTCUT_ID) }.getOrNull()
-        ?.takeIf(shareDeviceId::matches)
+        ?.takeIf { it.length in 1..64 }
+
+internal fun Intent.sharePayload(): Map<String, Any>? {
+    if (!isShare()) return null
+    val uris = sharedUris()
+    if (uris.size > 100) return null
+    if (uris.isNotEmpty()) return mapOf("uris" to uris.map(Uri::toString))
+    return sharedText()?.let { mapOf("text" to it) }
+}
 
 internal fun Intent.withExternalFileViewer(context: Context): Intent {
     if (resolveActivity(context.packageManager)?.packageName != context.packageName) return this
@@ -67,6 +81,15 @@ internal fun Intent.withExternalFileViewer(context: Context): Intent {
 }
 
 class ShareActivity : Activity() {
+    private var directSend: (() -> Unit)? = null
+
+    override fun onPostResume() {
+        super.onPostResume()
+        val send = directSend
+        directSend = null
+        send?.invoke()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val isShare = intent.isShare()
@@ -91,39 +114,84 @@ class ShareActivity : Activity() {
             finish()
             return
         }
-        val forward =
+        if (uris.size > 100) {
+            Toast.makeText(this, R.string.too_many_shared_files, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        fun shareIntent(destination: Class<*>) =
             Intent(if (isShare) intent.action else Intent.ACTION_SEND)
-                .setClass(this, MainActivity::class.java)
+                .setClass(this, destination)
                 .setType(type)
-                .putExtra(Intent.EXTRA_SHORTCUT_ID, if (isShare) intent.sharedDevice() else null)
-                .setFlags(
+                .apply {
+                    if (uris.isNotEmpty()) {
+                        clipData = ClipData.newRawUri("Vela", uris.first()).apply {
+                            uris.drop(1).forEach { addItem(ClipData.Item(it)) }
+                        }
+                        addFlags(intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    } else {
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                }
+        val shortcut = if (isShare) intent.shareShortcut() else null
+        val devices = shareDevices(this)
+        val debugging =
+            applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
+                runCatching { intent.getBooleanExtra("driver-test", false) }.getOrDefault(false)
+        fun openVela(device: ShareDevice? = null) {
+            val forward = shareIntent(MainActivity::class.java)
+                .putExtra(Intent.EXTRA_SHORTCUT_ID, device?.shortcut ?: shortcut)
+                .putExtra("driver-test", debugging)
+                .addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP
                 )
-        if (isShare && applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            forward.putExtra(
-                "driver-test",
-                runCatching { intent.getBooleanExtra("driver-test", false) }.getOrDefault(false),
-            )
-        }
-        if (uris.isNotEmpty()) {
-            forward.clipData = ClipData.newRawUri("Vela", uris.first()).apply {
-                uris.drop(1).forEach { addItem(ClipData.Item(it)) }
+            try {
+                startActivity(forward)
+            } catch (_: SecurityException) {
+                // Some providers reject an explicit grant even when the URI is otherwise readable.
+                forward.setFlags(forward.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION.inv())
+                startActivity(forward)
+            } finally {
+                finish()
             }
-            forward.addFlags(intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } else {
-            forward.putExtra(Intent.EXTRA_TEXT, text)
         }
-        try {
-            startActivity(forward)
-        } catch (_: SecurityException) {
-            // Some senders mark URIs as grantable even when their provider disallows grants.
-            forward.setFlags(forward.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION.inv())
-            startActivity(forward)
-        } finally {
-            finish()
+        fun send(device: ShareDevice) {
+            if (canShowShareProgress()) {
+                val request = shareIntent(ShareTransferService::class.java)
+                    .putExtra(ShareTransferService.EXTRA_PEER, device.peer)
+                try {
+                    ContextCompat.startForegroundService(this, request)
+                    finish()
+                    return
+                } catch (_: SecurityException) {
+                    // The foreground flow can use a readable URI without a transferable grant.
+                } catch (_: IllegalStateException) {
+                    // Some devices restrict foreground service starts even from a visible share.
+                }
+            }
+            openVela(device)
         }
+        val selected = devices.firstOrNull { it.shortcut == shortcut }
+        when {
+            selected != null -> directSend = { send(selected) }
+            devices.isEmpty() || debugging -> openVela()
+            else -> AlertDialog.Builder(this)
+                .setTitle(R.string.send_with_vela)
+                .setItems(devices.map { it.name }.toTypedArray()) { _, index -> send(devices[index]) }
+                .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }
+                .setOnCancelListener { finish() }
+                .show()
+        }
+    }
+
+    private fun canShowShareProgress(): Boolean {
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            getSystemService(NotificationManager::class.java)
+                .getNotificationChannel(NotificationChannels.PROGRESS)?.importance !=
+                NotificationManager.IMPORTANCE_NONE
     }
 }
 

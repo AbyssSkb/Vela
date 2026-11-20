@@ -39,6 +39,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
             "nodeFailed" -> {
                 (context as VelaApplication).nodeReady = false
                 ReceivingService.markFailed()
+                ShareTransferService.failPending()
                 result.success(null)
             }
             "offer" -> {
@@ -178,12 +179,13 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                     )
                 } else builder.setProgress(100, progress ?: 0, progress == null)
                 try {
-                    NotificationManagerCompat.from(context).notify(33, builder.build())
+                    NotificationManagerCompat.from(context)
+                        .notify(NotificationChannels.TRANSFER_ID, builder.build())
                 } catch (_: SecurityException) {}
                 result.success(null)
             }
             "clearTransfer" -> {
-                NotificationManagerCompat.from(context).cancel(33)
+                NotificationManagerCompat.from(context).cancel(NotificationChannels.TRANSFER_ID)
                 result.success(null)
             }
             "finishTransfer" -> {
@@ -191,7 +193,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                     context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
                         call.argument<Boolean>("test") == true
                 if (isVisible() && !testNotification) {
-                    NotificationManagerCompat.from(context).cancel(33)
+                    NotificationManagerCompat.from(context).cancel(NotificationChannels.TRANSFER_ID)
                     result.success(null)
                     return true
                 }
@@ -313,7 +315,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         android.util.Log.w("Vela", "Cannot create open action", e)
                     }
                 }
-                NotificationManagerCompat.from(context).cancel(33)
+                NotificationManagerCompat.from(context).cancel(NotificationChannels.TRANSFER_ID)
                 try {
                     NotificationManagerCompat.from(context)
                         .notify(CompletionExpiryReceiver.TAG, notificationId, builder.build())

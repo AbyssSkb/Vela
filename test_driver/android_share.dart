@@ -69,6 +69,9 @@ Future<void> main(List<String> args) async {
       'first text,second text',
       '-n',
       'com.example.vela/.ShareActivity',
+      '--ez',
+      'driver-test',
+      'true',
     ]);
     await acceptShare();
     final combined = await mac.requestData(
@@ -147,7 +150,16 @@ Future<void> main(List<String> args) async {
           throw StateError('Vela is missing from the image open chooser');
         }
       }
-      await shell(['am', 'start', ...viewImage, '-n', openTarget]);
+      await shell([
+        'am',
+        'start',
+        ...viewImage,
+        '-n',
+        openTarget,
+        '--ez',
+        'driver-test',
+        'true',
+      ]);
       await acceptShare();
       await mac.waitFor(find.text('已接收 $image'));
     }

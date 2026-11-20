@@ -7,6 +7,7 @@ import android.os.Build
 
 object NotificationChannels {
     const val PROGRESS = "transfers"
+    const val TRANSFER_ID = 33
     const val RESULTS = "transfer_results"
 
     fun ensure(context: Context) {

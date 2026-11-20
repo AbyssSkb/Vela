@@ -39,6 +39,7 @@ class AppChannels(private val context: VelaApplication) {
         context.currentActivity?.let { it.hasWindowFocus() && !it.isFinishing } == true
     }
     private var shareChannel: MethodChannel? = null
+    private val confirmedShares = ArrayDeque<Map<String, Any>>()
     private val folderCancelled = AtomicBoolean(false)
     private var folderBusy = false
     private val updates = UpdateBridge(context)
@@ -125,6 +126,15 @@ class AppChannels(private val context: VelaApplication) {
 
     fun shareAvailable() {
         shareChannel?.invokeMethod("available", null)
+    }
+
+    fun enqueueConfirmedShare(payload: Map<String, Any>) {
+        confirmedShares.addLast(payload)
+        shareChannel?.invokeMethod("confirmedAvailable", null)
+    }
+
+    fun discardConfirmedShares(ids: Set<String>) {
+        confirmedShares.removeAll { (it["serviceRequest"] as? String) in ids }
     }
 
     private fun withActivity(result: MethodChannel.Result, action: (MainActivity) -> Unit) {
@@ -483,7 +493,12 @@ class AppChannels(private val context: VelaApplication) {
         MethodChannel(messenger, "vela/clipboard").setMethodCallHandler(::handleClipboard)
         shareChannel = MethodChannel(messenger, "vela/share").also { channel ->
             channel.setMethodCallHandler { call, result ->
-                if (call.method == "setTargets") {
+                if (call.method == "takeConfirmed") {
+                    result.success(confirmedShares.removeFirstOrNull())
+                } else if (call.method == "completeConfirmed") {
+                    call.arguments<String>()?.let { ShareTransferService.complete(it) }
+                    result.success(null)
+                } else if (call.method == "setTargets") {
                     try {
                         publishShareShortcuts(context, call.arguments<Map<String, String>>().orEmpty())
                         result.success(null)
