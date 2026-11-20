@@ -1958,37 +1958,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  String _presenceLabel(String id) => visiblePresenceChecks.contains(id)
-      ? t.checking
-      : switch (presence[id]) {
-          PeerPresence.reachable => t.reachable,
-          PeerPresence.unavailable => t.unreachable,
-          null => t.unknown,
-        };
-
   Widget _presenceIcon(String id) {
     final checking = visiblePresenceChecks.contains(id);
     final value = checking ? null : presence[id];
-    final label = _presenceLabel(id);
-    final colors = Theme.of(context).colorScheme;
+    final label = switch (value) {
+      PeerPresence.reachable => t.reachable,
+      PeerPresence.unavailable => t.unreachable,
+      null => checking ? t.checking : t.unknown,
+    };
     return Tooltip(
       message: label,
       excludeFromSemantics: true,
       child: Semantics(
         label: label,
-        child: Icon(
-          switch (value) {
-            PeerPresence.reachable => Icons.check_circle_rounded,
-            PeerPresence.unavailable => Icons.error_outline_rounded,
-            null => Icons.circle_outlined,
-          },
+        child: SizedBox.square(
+          dimension: 12,
           key: checking ? const ValueKey('device-presence-check') : null,
-          size: 12,
-          color: switch (value) {
-            PeerPresence.reachable => Colors.green,
-            PeerPresence.unavailable => colors.error,
-            null => colors.onSurfaceVariant,
-          },
+          child: value == null
+              ? null
+              : Icon(
+                  Icons.circle,
+                  size: 10,
+                  color: value == PeerPresence.reachable
+                      ? Colors.green.shade700
+                      : Colors.red.shade600,
+                ),
         ),
       ),
     );
@@ -2469,35 +2463,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ListTile(
                   leading: Icon(_deviceIcon(id)),
                   title: Text(peerState.displayName(id)),
-                  subtitle: Semantics(
-                    liveRegion: true,
-                    child: Text(_presenceLabel(id)),
-                  ),
-                  trailing: SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: Center(child: _presenceIcon(id)),
-                  ),
-                ),
-                if (peers.containsKey(id) &&
-                    presence[id] != PeerPresence.reachable &&
-                    !visiblePresenceChecks.contains(id))
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(t.deviceRecheckHint),
-                        TextButton.icon(
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (peers.containsKey(id) &&
+                          presence[id] != PeerPresence.reachable &&
+                          !visiblePresenceChecks.contains(id))
+                        IconButton(
+                          tooltip: t.refreshDevices,
                           onPressed: () => presenceController.requestPeerProbes(
                             userInitiated: true,
                           ),
                           icon: const Icon(Icons.refresh_rounded),
-                          label: Text(t.refreshDevices),
                         ),
-                      ],
-                    ),
+                      Semantics(liveRegion: true, child: _presenceIcon(id)),
+                    ],
                   ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.fingerprint_rounded),
                   title: Text(t.deviceCode),

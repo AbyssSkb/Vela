@@ -2204,12 +2204,6 @@ abstract class AppLocalizations {
   /// **'Lines show paired devices. Switch to the list for connection status.'**
   String get graphPairedDevicesHint;
 
-  /// No description provided for @deviceRecheckHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Open Vela on the other device, then check its status again.'**
-  String get deviceRecheckHint;
-
   /// No description provided for @addDeviceAndContinue.
   ///
   /// In en, this message translates to:
