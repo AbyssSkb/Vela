@@ -73,14 +73,12 @@ class ReceivedStorage {
   const ReceivedStorage({this.platform});
 
   final TargetPlatform? platform;
-  TargetPlatform get _platform => platform ?? defaultTargetPlatform;
-  bool get _storesLocationInDart =>
-      _platform == TargetPlatform.windows || _platform == TargetPlatform.linux;
-  bool get _isDesktop =>
-      _storesLocationInDart || _platform == TargetPlatform.macOS;
+  String get _os => platform?.name.toLowerCase() ?? Platform.operatingSystem;
+  bool get _storesLocationInDart => _os == 'windows' || _os == 'linux';
+  bool get _isDesktop => _storesLocationInDart || _os == 'macos';
 
   bool get supportsReceiveLocation => _isDesktop || supportsSaveAs;
-  bool get supportsSaveAs => _platform == TargetPlatform.android;
+  bool get supportsSaveAs => _os == 'android';
   static const _storage = MethodChannel('vela/storage');
   static const _files = MethodChannel('vela/files');
   static const _directoryKey = 'desktop_receive_directory';
@@ -109,8 +107,7 @@ class ReceivedStorage {
 
   Future<({String path, bool privateFallback, bool publishFromStaging})>
   receiveDirectory(String profile, TransferKind kind) async {
-    final base =
-        supportsSaveAs || (_platform == TargetPlatform.iOS && !kind.isFile)
+    final base = supportsSaveAs || (_os == 'ios' && !kind.isFile)
         ? await getApplicationSupportDirectory()
         : await getApplicationDocumentsDirectory();
     final privateDir = await Directory('${base.path}/Vela/$profile')
@@ -259,7 +256,7 @@ class ReceivedStorage {
   }
 
   Future<void> open(String reference) async {
-    if (supportsSaveAs || _platform == TargetPlatform.windows) {
+    if (supportsSaveAs || _os == 'windows') {
       await _files.invokeMethod<void>('openPath', {'path': reference});
       return;
     }

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages
@@ -69,6 +71,15 @@ void main() {
     messenger.setMockMethodCallHandler(files, null);
     messenger.setMockMethodCallHandler(nativeStorage, null);
     await temporary.delete(recursive: true);
+  });
+
+  test('a Flutter platform override does not change native storage', () {
+    final previous = debugDefaultTargetPlatformOverride;
+    addTearDown(() => debugDefaultTargetPlatformOverride = previous);
+    debugDefaultTargetPlatformOverride = Platform.isAndroid
+        ? TargetPlatform.macOS
+        : TargetPlatform.android;
+    expect(const ReceivedStorage().supportsSaveAs, Platform.isAndroid);
   });
 
   test('receive storage selects the destination and publication together', () async {
