@@ -125,25 +125,18 @@ void _registerDebugDriver() {
       if (data['action'] == 'set-clipboard') {
         final kind = data['kind'] as String;
         if (kind == 'text') {
-          await Clipboard.setData(
-            ClipboardData(text: data['content'] as String),
-          );
+          await _HomePageState.clipboard.writeText(data['content'] as String);
         } else if (kind == 'image') {
-          await Pasteboard.writeImage(base64Decode(data['content'] as String));
+          await _HomePageState.clipboard.writeImage(
+            base64Decode(data['content'] as String),
+          );
         } else if (kind == 'file') {
           final base = await getApplicationSupportDirectory();
           final file = File(
             '${base.path}/clip-test-${DateTime.now().microsecondsSinceEpoch}.txt',
           );
           await file.writeAsString(data['content'] as String, flush: true);
-          if (Platform.isAndroid) {
-            await _HomePageState.clipboardChannel.invokeMethod<void>(
-              'writeFile',
-              {'path': file.path},
-            );
-          } else if (!await Pasteboard.writeFiles([file.path])) {
-            throw StateError('clipboard write failed');
-          }
+          await _HomePageState.clipboard.writeFiles([file.path]);
         }
         return 'set';
       }
@@ -155,12 +148,7 @@ void _registerDebugDriver() {
         if (kind == 'image') {
           return (await Pasteboard.image)?.isNotEmpty == true ? 'image' : '';
         }
-        final files = Platform.isAndroid
-            ? await _HomePageState.clipboardChannel.invokeListMethod<String>(
-                    'files',
-                  ) ??
-                  <String>[]
-            : await Pasteboard.files();
+        final files = await _HomePageState.clipboard.readFiles();
         if (files.isEmpty) return '';
         final path = Platform.isAndroid
             ? await _HomePageState.clipboardChannel.invokeMethod<String>(

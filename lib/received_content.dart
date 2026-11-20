@@ -1,12 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:pasteboard/pasteboard.dart';
 
 import 'clipboard_content.dart';
 import 'content_kind.dart';
-import 'desktop_platform.dart';
 import 'received_storage.dart';
 import 'src/rust/api/node.dart';
 import 'transfer_history.dart';
@@ -83,7 +80,7 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
   required String? batchId,
   required TransferHistoryStore history,
 }) async {
-  const clipboardChannel = MethodChannel('vela/clipboard');
+  const clipboard = PlatformClipboard();
   String? text;
   String? preview;
   String? link;
@@ -118,17 +115,13 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
   var clipboardFailed = false;
   try {
     if (kind == TransferKind.text) {
-      if (Platform.isAndroid) {
-        await clipboardChannel.invokeMethod<void>('writeText', {'text': text});
-      } else {
-        await Clipboard.setData(ClipboardData(text: text!));
-      }
+      await clipboard.writeText(text!);
     } else if (kind == TransferKind.image) {
-      await DesktopPlatform.writeClipboardImage(
+      await clipboard.writeImage(
         await File(files.first.reference).readAsBytes(),
       );
     } else if (kind == TransferKind.clipboardFile) {
-      await copyReceivedFiles(files.map((file) => file.reference).toList());
+      await clipboard.writeFiles(files.map((file) => file.reference).toList());
     }
   } catch (error) {
     clipboardFailed = true;
@@ -141,13 +134,4 @@ Future<ReceivedContent> copyAndRecordReceivedContent({
     clipboardFailed: clipboardFailed,
     historySaved: historySaved,
   );
-}
-
-Future<void> copyReceivedFiles(List<String> references) async {
-  if (Platform.isAndroid) {
-    await const MethodChannel('vela/clipboard')
-        .invokeMethod<void>('writeFiles', {'paths': references});
-  } else if (!await Pasteboard.writeFiles(references)) {
-    throw StateError('Clipboard rejected received files');
-  }
 }

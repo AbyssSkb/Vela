@@ -287,7 +287,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   );
   static const storage = AppRuntime.secureStorage;
   static const receivedStorage = ReceivedStorage();
-  static const clipboardChannel = MethodChannel('vela/clipboard');
+  static const clipboard = PlatformClipboard();
+  static const clipboardChannel = PlatformClipboard.channel;
   static const shareChannel = MethodChannel('vela/share');
   static const backgroundChannel = MethodChannel('vela/background');
   ({bool enabled, bool autoAccept, Map<Object?, Object?> status})?
@@ -3283,16 +3284,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<PreparedTransfer> _prepareClipboard() async {
-    final image = Platform.isAndroid ? await Pasteboard.image : null;
-    final files = image == null
-        ? (Platform.isAndroid
-              ? await clipboardChannel.invokeListMethod<String>('files') ??
-                    <String>[]
-              : await Pasteboard.files())
-        : <String>[];
+    final (:files, :image, :text) = await clipboard.read();
     if (files.isNotEmpty) {
       if (files.length != 1) throw StateError(t.singleClipboardFile);
-      if (Platform.isAndroid && files.single.startsWith('content:')) {
+      if (files.single.startsWith('content:')) {
         return _materializeUris(
           files,
           kind: TransferKind.clipboardFile,
@@ -3305,15 +3300,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         fromClipboard: true,
       );
     }
-    final clipboardImage = Platform.isAndroid ? image : await Pasteboard.image;
-    if (clipboardImage != null) {
-      return _writeTemporaryContent(
-        clipboardImage,
-        TransferKind.image,
-        clipboard: true,
-      );
+    if (image != null) {
+      return _writeTemporaryContent(image, TransferKind.image, clipboard: true);
     }
-    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
     if (text == null || text.isEmpty) throw StateError(t.emptyClipboard);
     return _writeTemporaryContent(
       utf8.encode(text),
@@ -3806,7 +3795,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               references.add(reference);
             }
             try {
-              await copyReceivedFiles(references);
+              await clipboard.writeFiles(references);
             } catch (_) {
               throw StateError(t.historyCopyFailed);
             }
