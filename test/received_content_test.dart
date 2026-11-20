@@ -442,7 +442,7 @@ void main() {
       await tester.pump();
       final receiveNotice = find.byKey(const ValueKey('message-notice'));
       final sendNotice = find.byKey(const ValueKey('send-receipt'));
-      expect(tester.getBottomLeft(receiveNotice), const Offset(0, 640));
+      expect(tester.getBottomLeft(receiveNotice), const Offset(0, 616));
       expect(
         tester.getBottomLeft(find.byKey(const ValueKey('notice-action'))).dy,
         lessThanOrEqualTo(616),
@@ -470,7 +470,7 @@ void main() {
       expect(tester.getBottomLeft(sendNotice).dy, lessThan(616));
       expect(
         tester.getBottomRight(find.byKey(const ValueKey('activity-notice'))),
-        const Offset(320, 640),
+        const Offset(320, 616),
       );
       expect(tester.takeException(), isNull);
     },

@@ -9,31 +9,44 @@ const _noticeShape = RoundedRectangleBorder(
 );
 const _noticePadding = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
 
+Widget _noticeSurface(Key key, Color color, Widget child) => Material(
+  key: key,
+  color: color,
+  shape: _noticeShape,
+  clipBehavior: Clip.antiAlias,
+  child: Padding(padding: _noticePadding, child: child),
+);
+
 class ActivityNotice extends StatelessWidget {
   const ActivityNotice({super.key, required this.child});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      key: const ValueKey('activity-notice'),
-      color: colors.secondaryContainer,
-      shape: _noticeShape,
-      clipBehavior: Clip.antiAlias,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return ColoredBox(
+      color: theme.scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: _noticePadding,
-          child: IconTheme.merge(
-            data: IconThemeData(color: colors.onSecondaryContainer),
-            child: DefaultTextStyle.merge(
-              style: TextStyle(
-                color: colors.onSecondaryContainer,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+        left: false,
+        right: false,
+        child: _noticeSurface(
+          const ValueKey('activity-notice'),
+          colors.secondaryContainer,
+          SafeArea(
+            top: false,
+            bottom: false,
+            child: IconTheme.merge(
+              data: IconThemeData(color: colors.onSecondaryContainer),
+              child: DefaultTextStyle.merge(
+                style: TextStyle(
+                  color: colors.onSecondaryContainer,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                child: child,
               ),
-              child: child,
             ),
           ),
         ),
@@ -144,12 +157,10 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
   messenger.clearSnackBars();
   final controller = messenger.showSnackBar(
     SnackBar(
-      key: const ValueKey('message-notice'),
       behavior: SnackBarBehavior.fixed,
-      backgroundColor: background,
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      padding: _noticePadding,
-      shape: _noticeShape,
+      padding: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       hitTestBehavior: HitTestBehavior.deferToChild,
       duration: onAction == null
@@ -166,25 +177,31 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
             return const SizedBox.shrink();
           }
           final scale = MediaQuery.textScalerOf(context).scale(1);
-          if (actions.isNotEmpty &&
-              (constraints.maxWidth < 320 || scale > 1.3)) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                details,
-                OverflowBar(
-                  alignment: MainAxisAlignment.end,
-                  children: actions,
-                ),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: details),
-              ...actions,
-            ],
+          final stackActions =
+              actions.isNotEmpty &&
+              (constraints.maxWidth - _noticePadding.horizontal < 320 ||
+                  scale > 1.3);
+          return _noticeSurface(
+            const ValueKey('message-notice'),
+            background,
+            stackActions
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      details,
+                      OverflowBar(
+                        alignment: MainAxisAlignment.end,
+                        children: actions,
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: details),
+                      ...actions,
+                    ],
+                  ),
           );
         },
       ),

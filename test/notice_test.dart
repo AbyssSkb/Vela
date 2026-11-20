@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('activity notice reaches the window edges around safe actions', (
+  testWidgets('activity notice ends above gestures and protects side insets', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -36,8 +36,9 @@ void main() {
       ),
     );
     final panel = find.byKey(const ValueKey('activity-notice'));
-    expect(tester.getBottomLeft(panel), const Offset(0, 640));
-    expect(tester.getBottomRight(panel), const Offset(320, 640));
+    final bounds = tester.getRect(panel);
+    expect(bounds.bottomLeft, const Offset(0, 616));
+    expect(bounds.bottomRight, const Offset(320, 616));
     final material = tester.widget<Material>(panel);
     expect(material.elevation, 0);
     expect(
@@ -47,7 +48,8 @@ void main() {
       ),
     );
     final action = tester.getRect(find.byType(IconButton));
-    expect(action.bottom, lessThanOrEqualTo(616));
+    expect(action.top - bounds.top, 8);
+    expect(bounds.bottom - action.bottom, 8);
     expect(action.right, lessThanOrEqualTo(302));
     await tester.tap(find.byIcon(Icons.close));
     expect(cancelled, isTrue);
@@ -82,13 +84,13 @@ void main() {
       expect(snack.behavior, SnackBarBehavior.fixed);
       expect(snack.width, isNull);
       expect(snack.elevation, 0);
+      final panel = find.byKey(const ValueKey('message-notice'));
       expect(
-        snack.shape,
+        tester.widget<Material>(panel).shape,
         const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
         ),
       );
-      final panel = find.byKey(const ValueKey('message-notice'));
       expect(tester.getBottomLeft(panel), const Offset(0, 640));
       expect(tester.getBottomRight(panel), const Offset(320, 640));
       expect(find.text('Example'), findsOneWidget);
@@ -102,7 +104,7 @@ void main() {
       );
     });
   }
-  testWidgets('Android notice fills the bottom without covering its actions', (
+  testWidgets('Android receipt has even padding above the gesture area', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 800);
@@ -136,17 +138,18 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pumpAndSettle();
     final panel = find.byKey(const ValueKey('message-notice'));
-    expect(tester.getBottomLeft(panel), const Offset(0, 800));
-    expect(tester.getBottomRight(panel), const Offset(360, 800));
-    expect(
-      tester.widget<SnackBar>(panel).backgroundColor,
-      const Color(0xffd9f1df),
-    );
+    final bounds = tester.getRect(panel);
+    expect(bounds.bottomLeft, const Offset(0, 776));
+    expect(bounds.bottomRight, const Offset(360, 776));
+    expect(tester.widget<Material>(panel).color, const Color(0xffd9f1df));
     final open = find.byKey(const ValueKey('notice-action'));
     final close = find.byKey(const ValueKey('notice-close'));
-    expect(tester.getSize(panel).height, lessThanOrEqualTo(96));
-    expect(tester.getRect(open).bottom, lessThanOrEqualTo(776));
-    expect(tester.getRect(close).bottom, lessThanOrEqualTo(776));
+    for (final control in [open, close]) {
+      final rect = tester.getRect(control);
+      expect(rect.height, greaterThanOrEqualTo(48));
+      expect(rect.top - bounds.top, 8);
+      expect(bounds.bottom - rect.bottom, 8);
+    }
     expect(find.text('Received'), findsOneWidget);
     await tester.tap(open);
     expect(opened, isTrue);
