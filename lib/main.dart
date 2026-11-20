@@ -4306,6 +4306,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   child: HomeResponsiveLayout(
                     wide: wide,
                     largeText: largeText,
+                    centerActions: !DesktopPlatform.isDesktop,
                     minimumActionWidth: minimumActionWidth,
                     actions: actions,
                     devices: CustomScrollView(

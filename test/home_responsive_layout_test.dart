@@ -1055,6 +1055,14 @@ void main() {
           await waitForHome(tester, () => toggle.evaluate().isNotEmpty);
           final graph = find.byType(DeviceGraph);
           expect(graph, savedView == 'list' ? findsNothing : findsOneWidget);
+          final firstAction = find.byKey(const ValueKey('send-file'));
+          final devices = find.byKey(const ValueKey('home-devices'));
+          expect(
+            tester.getTopLeft(firstAction).dy,
+            tester.getTopLeft(devices).dy,
+            reason:
+                'The desktop send actions start at the top of the device area',
+          );
           if (savedView == 'graph') {
             tester.platformDispatcher.textScaleFactorTestValue = 2;
             addTearDown(
