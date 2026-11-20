@@ -294,7 +294,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   _backgroundAvailability;
   String? _dismissedBackgroundNotice;
   int _backgroundStatusRequest = 0;
-  static const offerActionsChannel = MethodChannel('vela/offer_actions');
   late final runtime = AppRuntime(
     profile: widget.profile,
     testIdentity: kDebugMode && _driverMode,
@@ -498,23 +497,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     unawaited(updates.start());
     presenceController.addListener(_presenceChanged);
     WidgetsBinding.instance.addObserver(this);
-    if (Platform.isAndroid) {
-      offerActionsChannel.setMethodCallHandler((call) async {
-        final arguments = call.arguments;
-        if (call.method == 'cancelTransfer' &&
-            arguments == notificationTransferId &&
-            contentOperationActive &&
-            !cancelling) {
-          _cancelTransfer();
-        }
-        if (call.method == 'decision' && arguments is Map) {
-          incomingPrompt?.notificationDecision(
-            arguments['id'],
-            arguments['accepted'],
-          );
-        }
-      });
-    }
     if (Platform.isAndroid ||
         Platform.isMacOS ||
         DesktopPlatform.isWindowsOrLinux) {
@@ -558,12 +540,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 : PresenceNetworkEvent.configurationChanged,
           );
         }
-        if (call.method == 'offerDecision' && Platform.isMacOS) {
-          final arguments = call.arguments as Map;
-          incomingPrompt?.notificationDecision(
-            arguments['id'],
-            arguments['accepted'],
-          );
+        if (call.method == 'offerDecision') {
+          incomingPrompt?.notificationDecision(call.arguments);
+        }
+        if (call.method == 'cancelTransfer' &&
+            Platform.isAndroid &&
+            call.arguments == notificationTransferId &&
+            contentOperationActive &&
+            !cancelling) {
+          _cancelTransfer();
         }
         if (call.method == 'hidden') {
           windowVisibilityRevision++;
@@ -3908,7 +3893,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         DesktopPlatform.isWindowsOrLinux) {
       backgroundChannel.setMethodCallHandler(null);
     }
-    if (Platform.isAndroid) offerActionsChannel.setMethodCallHandler(null);
     progressTimer?.cancel();
     startupRetry?.cancel();
     presenceController.removeListener(_presenceChanged);

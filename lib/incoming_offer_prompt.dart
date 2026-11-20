@@ -29,15 +29,13 @@ class IncomingOfferPrompt {
     }
   }
 
-  void notificationDecision(Object? id, Object? accepted) {
-    if (notificationId == null ||
-        id != notificationId ||
-        accepted is! bool ||
-        _backgroundAction.isCompleted)
-      return;
-    _backgroundAction.complete(
-      accepted ? BackgroundOfferAction.accept : BackgroundOfferAction.decline,
-    );
+  void notificationDecision(Object? arguments) {
+    if (arguments case {'id': final String id, 'accepted': final bool accepted}
+        when id == notificationId && !_backgroundAction.isCompleted) {
+      _backgroundAction.complete(
+        accepted ? BackgroundOfferAction.accept : BackgroundOfferAction.decline,
+      );
+    }
   }
 
   Future<PeerDecision> confirm(

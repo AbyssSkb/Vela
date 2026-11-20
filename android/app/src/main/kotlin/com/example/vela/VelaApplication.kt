@@ -69,7 +69,7 @@ class VelaApplication : Application() {
         val coalescer =
             NetworkChangeCoalescer({ task, delay -> handler.postDelayed(task, delay) }) {
                 engine?.let {
-                    MethodChannel(it.dartExecutor.binaryMessenger, "vela/background")
+                    MethodChannel(it.dartExecutor.binaryMessenger, BACKGROUND_CHANNEL)
                         .invokeMethod("networkChanged", null)
                 }
             }
