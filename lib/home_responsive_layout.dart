@@ -11,6 +11,7 @@ class HomeResponsiveLayout extends StatefulWidget {
     this.largeText = false,
     this.centerActions = true,
     this.minimumActionWidth,
+    this.maximumActionWidth = double.infinity,
   });
   final bool wide;
   final List<Widget> actions;
@@ -18,6 +19,7 @@ class HomeResponsiveLayout extends StatefulWidget {
   final bool largeText;
   final bool centerActions;
   final double? minimumActionWidth;
+  final double maximumActionWidth;
 
   static const _largeButtonHeight = 64.0;
   static const _gap = 8.0;
@@ -101,6 +103,7 @@ class _HomeLayoutState extends State<HomeResponsiveLayout>
         widget.largeText,
         widget.centerActions,
         widget.minimumActionWidth,
+        widget.maximumActionWidth,
       ),
       children: [
         for (final (index, action) in widget.actions.indexed)
@@ -118,19 +121,22 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
     this.largeText,
     this.centerActions,
     this.minimumActionWidth,
+    this.maximumActionWidth,
   );
   final double progress;
   final int count;
   final bool largeText;
   final bool centerActions;
   final double? minimumActionWidth;
+  final double maximumActionWidth;
 
   @override
   void performLayout(Size size) {
     const gap = HomeResponsiveLayout._gap,
         railGap = 24.0,
         railRowGap = HomeResponsiveLayout._railRowGap;
-    final roomy = HomeResponsiveLayout._roomyActions(largeText, size.width);
+    final actionWidth = math.min(size.width, maximumActionWidth);
+    final roomy = HomeResponsiveLayout._roomyActions(largeText, actionWidth);
     final buttonHeight = roomy ? HomeResponsiveLayout._largeButtonHeight : 48.0;
     final railWidth = largeText ? 208.0 : 144.0;
     final movingDown = (progress * 3).clamp(0.0, 1.0);
@@ -140,7 +146,7 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
         ? math.min(
             HomeResponsiveLayout._roomyColumns(
               largeText,
-              size.width,
+              actionWidth,
               minimumActionWidth,
             ),
             count,
@@ -156,7 +162,7 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
     );
     final buttonWidth = math.max(
       0.0,
-      (size.width - gap * (columns - 1)) / columns,
+      (actionWidth - gap * (columns - 1)) / columns,
     );
     final width =
         buttonWidth +
@@ -190,5 +196,6 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
       count != oldDelegate.count ||
       largeText != oldDelegate.largeText ||
       centerActions != oldDelegate.centerActions ||
-      minimumActionWidth != oldDelegate.minimumActionWidth;
+      minimumActionWidth != oldDelegate.minimumActionWidth ||
+      maximumActionWidth != oldDelegate.maximumActionWidth;
 }

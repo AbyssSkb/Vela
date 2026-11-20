@@ -4090,11 +4090,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           },
         )
       else
-        SliverPadding(
-          padding: EdgeInsets.zero,
-          sliver: SliverList.builder(
-            itemCount: peers.length,
-            itemBuilder: (context, index) {
+        SliverLayoutBuilder(
+          builder: (context, constraints) {
+            final cards = SliverChildBuilderDelegate((context, index) {
               final id = peers.keys.elementAt(index);
               final name = peerState.displayName(id);
               return Padding(
@@ -4149,8 +4147,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
               );
-            },
-          ),
+            }, childCount: peers.length);
+            if (DesktopPlatform.isDesktop &&
+                !largeText &&
+                constraints.crossAxisExtent >= 512) {
+              return SliverGrid(
+                delegate: cards,
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 360,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 64,
+                ),
+              );
+            }
+            return SliverList(delegate: cards);
+          },
         ),
       if (!showingGraph) const SliverToBoxAdapter(child: SizedBox(height: 32)),
     ];
@@ -4159,6 +4170,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildDeviceViewport(BuildContext context, BoxConstraints viewport) {
     final colors = Theme.of(context).colorScheme;
     final wide = viewport.maxWidth >= 700;
+    final desktop = DesktopPlatform.isDesktop;
+    final sideBySide = wide && !desktop;
     final largeText = HomeSendButton.usesLargeLabels(context);
     final compactHeader = wide && viewport.maxHeight < 500 && !Platform.isMacOS;
     final headerTop = Platform.isMacOS
@@ -4197,6 +4210,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         : null;
 
     final actions = _sendButtons();
+    final maximumActionWidth = desktop ? 456.0 : double.infinity;
     final minimumActionWidth = largeText
         ? HomeSendButton.minimumLargeLabelWidth(context, actions)
         : null;
@@ -4288,10 +4302,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: SizedBox(
                 height: math.max(
                   HomeResponsiveLayout.minimumHeight(
-                    wide: wide,
+                    wide: sideBySide,
                     count: actions.length,
                     largeText: largeText,
-                    width: viewport.maxWidth - 48,
+                    width: math.min(viewport.maxWidth - 48, maximumActionWidth),
                     minimumActionWidth: minimumActionWidth,
                   ),
                   constraints.viewportMainAxisExtent -
@@ -4300,10 +4314,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: HomeResponsiveLayout(
-                    wide: wide,
+                    wide: sideBySide,
                     largeText: largeText,
-                    centerActions: !DesktopPlatform.isDesktop,
                     minimumActionWidth: minimumActionWidth,
+                    maximumActionWidth: maximumActionWidth,
                     actions: actions,
                     devices: CustomScrollView(
                       key: const ValueKey('home-devices'),
