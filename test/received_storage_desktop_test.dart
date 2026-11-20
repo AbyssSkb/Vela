@@ -1,11 +1,14 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vela/content_kind.dart';
 import 'package:vela/received_storage.dart';
 
 class DirectoryPicker extends FilePickerPlatform {
@@ -28,12 +31,21 @@ class DownloadsProvider extends PathProviderPlatform {
 
   @override
   Future<String?> getDownloadsPath() async => path;
+
+  @override
+  Future<String?> getApplicationSupportPath() async =>
+      '${Directory(path).parent.path}/Support';
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async =>
+      '${Directory(path).parent.path}/Documents';
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const storage = ReceivedStorage(platform: TargetPlatform.windows);
   const files = MethodChannel('vela/files');
+  const nativeStorage = MethodChannel('vela/storage');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   late Directory temporary;
@@ -57,8 +69,78 @@ void main() {
     FilePickerPlatform.instance = previousPicker;
     PathProviderPlatform.instance = previousPaths;
     messenger.setMockMethodCallHandler(files, null);
+    messenger.setMockMethodCallHandler(nativeStorage, null);
     await temporary.delete(recursive: true);
   });
+
+  test('a Flutter platform override does not change native storage', () {
+    final previous = debugDefaultTargetPlatformOverride;
+    addTearDown(() => debugDefaultTargetPlatformOverride = previous);
+    debugDefaultTargetPlatformOverride = Platform.isAndroid
+        ? TargetPlatform.macOS
+        : TargetPlatform.android;
+    expect(const ReceivedStorage().supportsSaveAs, Platform.isAndroid);
+  });
+
+  test('receive storage selects the destination and publication together', () async {
+    final downloads = await Directory('${temporary.path}/Downloads').create();
+    messenger.setMockMethodCallHandler(nativeStorage, (call) async {
+      expect(call.method, 'location');
+      return {
+        'isDefault': true,
+        'displayPath': 'Downloads',
+        'directoryPath': downloads.path,
+      };
+    });
+
+    for (final platform in [
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+    ]) {
+      final storage = ReceivedStorage(platform: platform);
+      final file = await storage.receiveDirectory('test', TransferKind.file);
+      final text = await storage.receiveDirectory(
+        'test',
+        TransferKind.typedText,
+      );
+      final android = platform == TargetPlatform.android;
+      final ios = platform == TargetPlatform.iOS;
+      expect(storage.supportsReceiveLocation, !ios);
+      expect(storage.supportsSaveAs, android);
+      expect(file.publishFromStaging, android);
+      expect(
+        file.path,
+        android
+            ? '${temporary.path}/Support/Vela/test'
+            : ios
+            ? '${temporary.path}/Documents/Vela/test'
+            : downloads.path,
+      );
+      expect(text.publishFromStaging, isFalse);
+      expect(
+        text.path,
+        '${temporary.path}/${android || ios ? 'Support' : 'Documents'}/Vela/test',
+      );
+    }
+  });
+
+  test(
+    'an unavailable macOS location keeps the incoming file private',
+    () async {
+      messenger.setMockMethodCallHandler(nativeStorage, (_) async {
+        throw PlatformException(code: 'unavailable');
+      });
+      final destination = await const ReceivedStorage(
+        platform: TargetPlatform.macOS,
+      ).receiveDirectory('test', TransferKind.file);
+      expect(destination.privateFallback, isTrue);
+      expect(destination.publishFromStaging, isFalse);
+      expect(destination.path, '${temporary.path}/Documents/Vela/test');
+    },
+  );
 
   test('persists selected directories, rejects missing paths, and resets to Downloads', () async {
     final selected = await Directory('${temporary.path}/chosen').create();

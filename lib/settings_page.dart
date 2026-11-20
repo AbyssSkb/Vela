@@ -92,6 +92,7 @@ class SettingsPage extends StatefulWidget {
     required this.backgroundChanged,
     this.openGuide,
     this.updates,
+    this.receivedStorage = const ReceivedStorage(),
   });
   final String profile, language, appearance, deviceName, systemDeviceName;
   final Future<void> Function(String, String) changeSetting;
@@ -101,6 +102,7 @@ class SettingsPage extends StatefulWidget {
   final Future<void> Function() backgroundChanged;
   final VoidCallback? openGuide;
   final AppUpdateController? updates;
+  final ReceivedStorage receivedStorage;
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
@@ -110,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage>
   late String language = widget.language;
   late String appearance = widget.appearance;
   late String name = widget.deviceName;
-  static const receivedStorage = ReceivedStorage();
+  ReceivedStorage get receivedStorage => widget.receivedStorage;
   bool openAfterReceive = false, autoAccept = false;
   bool defaultSaveLocation = true, saveLocationAvailable = true;
   String? saveLocationLabel;
@@ -137,9 +139,7 @@ class _SettingsPageState extends State<SettingsPage>
         });
       }
     });
-    if (Platform.isAndroid ||
-        Platform.isMacOS ||
-        DesktopPlatform.isWindowsOrLinux) {
+    if (receivedStorage.supportsReceiveLocation) {
       unawaited(_loadSaveLocation());
     }
   }
@@ -518,9 +518,7 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
               divider(),
             ],
-            if (Platform.isAndroid ||
-                Platform.isMacOS ||
-                DesktopPlatform.isWindowsOrLinux) ...[
+            if (receivedStorage.supportsReceiveLocation) ...[
               row(
                 Icons.folder_outlined,
                 t.saveLocation,

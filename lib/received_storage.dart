@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'content_kind.dart';
-import 'desktop_platform.dart';
 
 class ReceiveLocation {
   const ReceiveLocation({
@@ -74,15 +73,18 @@ class ReceivedStorage {
   const ReceivedStorage({this.platform});
 
   final TargetPlatform? platform;
-  TargetPlatform get _platform => platform ?? defaultTargetPlatform;
-  bool get _desktop =>
-      _platform == TargetPlatform.windows || _platform == TargetPlatform.linux;
+  String get _os => platform?.name.toLowerCase() ?? Platform.operatingSystem;
+  bool get _storesLocationInDart => _os == 'windows' || _os == 'linux';
+  bool get _isDesktop => _storesLocationInDart || _os == 'macos';
+
+  bool get supportsReceiveLocation => _isDesktop || supportsSaveAs;
+  bool get supportsSaveAs => _os == 'android';
   static const _storage = MethodChannel('vela/storage');
   static const _files = MethodChannel('vela/files');
   static const _directoryKey = 'desktop_receive_directory';
 
   Future<ReceiveLocation> location() async {
-    if (_desktop) {
+    if (_storesLocationInDart) {
       final prefs = await SharedPreferences.getInstance();
       final selected = prefs.getString(_directoryKey);
       final directory = selected == null
@@ -103,24 +105,34 @@ class ReceivedStorage {
     return ReceiveLocation.fromMap(value);
   }
 
-  Future<({String path, bool privateFallback})> receiveDirectory(
-    String profile,
-    TransferKind kind,
-  ) async {
-    final base = Platform.isAndroid || (Platform.isIOS && !kind.isFile)
+  Future<({String path, bool privateFallback, bool publishFromStaging})>
+  receiveDirectory(String profile, TransferKind kind) async {
+    final base = supportsSaveAs || (_os == 'ios' && !kind.isFile)
         ? await getApplicationSupportDirectory()
         : await getApplicationDocumentsDirectory();
     final privateDir = await Directory('${base.path}/Vela/$profile')
         .create(recursive: true);
-    if (DesktopPlatform.isDesktop && kind.isFile) {
+    if (_isDesktop && kind.isFile) {
       try {
-        return (path: (await writableDirectory()).path, privateFallback: false);
+        return (
+          path: (await writableDirectory()).path,
+          privateFallback: false,
+          publishFromStaging: false,
+        );
       } catch (e) {
         debugPrint('Save location unavailable: $e');
-        return (path: privateDir.path, privateFallback: true);
+        return (
+          path: privateDir.path,
+          privateFallback: true,
+          publishFromStaging: false,
+        );
       }
     }
-    return (path: privateDir.path, privateFallback: false);
+    return (
+      path: privateDir.path,
+      privateFallback: false,
+      publishFromStaging: supportsSaveAs && kind.isFile,
+    );
   }
 
   Future<Directory> writableDirectory() async {
@@ -130,7 +142,7 @@ class ReceivedStorage {
       throw StateError('Receive location has no local directory');
     final directory = Directory(path);
     if (!await directory.exists()) {
-      if (_desktop && current.isDefault) {
+      if (_storesLocationInDart && current.isDefault) {
         await directory.create(recursive: true);
       } else {
         throw StateError('Selected folder is unavailable');
@@ -145,7 +157,7 @@ class ReceivedStorage {
   }
 
   Future<bool> chooseLocation() async {
-    if (_desktop) {
+    if (_storesLocationInDart) {
       final path = await FilePicker.getDirectoryPath();
       if (path == null) return false;
       if (!Directory(path).isAbsolute || !await Directory(path).exists()) {
@@ -161,7 +173,7 @@ class ReceivedStorage {
   }
 
   Future<void> resetLocation() async {
-    if (_desktop) {
+    if (_storesLocationInDart) {
       final prefs = await SharedPreferences.getInstance();
       if (!await prefs.remove(_directoryKey)) {
         throw StateError('Could not reset receive directory');
@@ -244,8 +256,7 @@ class ReceivedStorage {
   }
 
   Future<void> open(String reference) async {
-    if (_platform == TargetPlatform.android ||
-        _platform == TargetPlatform.windows) {
+    if (supportsSaveAs || _os == 'windows') {
       await _files.invokeMethod<void>('openPath', {'path': reference});
       return;
     }
@@ -259,9 +270,9 @@ class ReceivedStorage {
   }
 
   Future<void> openFolder({String? reference}) async {
-    if ((_platform == TargetPlatform.macOS || _desktop) && reference != null) {
+    if (_isDesktop && reference != null) {
       await _files.invokeMethod<void>('reveal', {'path': reference});
-    } else if (_desktop) {
+    } else if (_storesLocationInDart) {
       await _files.invokeMethod<void>('reveal', {
         'path': (await location()).directoryPath,
       });
@@ -274,14 +285,14 @@ class ReceivedStorage {
   }
 
   Future<bool> export(String reference, String name) async {
-    if (_platform == TargetPlatform.android) {
+    if (supportsSaveAs) {
       return await _files.invokeMethod<bool>('saveAs', {
             'path': reference,
             'name': name,
           }) ??
           false;
     }
-    if (_platform == TargetPlatform.macOS || _desktop) {
+    if (_isDesktop) {
       await openFolder(reference: reference);
     }
     return false;

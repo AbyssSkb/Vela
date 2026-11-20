@@ -2,6 +2,7 @@ import 'package:vela/background_settings.dart';
 import 'package:vela/desktop_platform.dart';
 import 'package:vela/l10n/generated/app_localizations.dart';
 import 'package:vela/page_layout.dart';
+import 'package:vela/received_storage.dart';
 import 'package:vela/settings_page.dart';
 import 'package:vela/settings_row_title.dart';
 import 'package:flutter/material.dart';
@@ -171,6 +172,9 @@ void main() {
           relaySettings: () async {},
           diagnostics: () async {},
           backgroundChanged: () async {},
+          receivedStorage: const ReceivedStorage(
+            platform: TargetPlatform.macOS,
+          ),
         ),
       ),
     );

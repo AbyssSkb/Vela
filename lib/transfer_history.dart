@@ -11,7 +11,6 @@ import 'l10n/generated/app_localizations.dart';
 import 'notice.dart';
 import 'page_layout.dart';
 import 'received_storage.dart';
-import 'desktop_platform.dart';
 
 export 'content_kind.dart' show HistoryKind;
 
@@ -338,6 +337,8 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
     );
   }
 
+  static const receivedStorage = ReceivedStorage();
+
   bool _canCopy(TransferRecord record) =>
       widget.copyFiles != null &&
       record.kind.isFile &&
@@ -466,7 +467,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                     icon: const Icon(Icons.copy_rounded),
                     onPressed: () => _copyFiles(visibleRecords),
                   )
-                else if (theme.platform != TargetPlatform.iOS)
+                else if (receivedStorage.supportsReceiveLocation)
                   IconButton(
                     tooltip: t.openReceiveFolder,
                     icon: const Icon(Icons.folder_open_rounded),
@@ -500,7 +501,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                     ),
                     if (copyBatch &&
                         !searching &&
-                        theme.platform != TargetPlatform.iOS)
+                        receivedStorage.supportsReceiveLocation)
                       PopupMenuItem(
                         value: 'folder',
                         child: Text(t.openReceiveFolder),
@@ -800,8 +801,8 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                             ),
                                           if (item.fileReference != null &&
                                               item.kind.isFile &&
-                                              (Platform.isAndroid ||
-                                                  DesktopPlatform.isDesktop))
+                                              receivedStorage
+                                                  .supportsReceiveLocation)
                                             _recordAction(
                                               'reveal',
                                               Icons.folder_outlined,
@@ -816,7 +817,7 @@ class _TransferHistoryPageState extends State<TransferHistoryPage> {
                                           ),
                                           if (item.fileReference != null &&
                                               !item.kind.isText &&
-                                              Platform.isAndroid)
+                                              receivedStorage.supportsSaveAs)
                                             _recordAction(
                                               'export',
                                               Icons.save_alt_rounded,
