@@ -25,6 +25,7 @@ import 'src/rust/api/node.dart';
 import 'src/rust/api/folder.dart';
 import 'src/rust/frb_generated.dart';
 import 'l10n/generated/app_localizations.dart';
+import 'notification_settings.dart';
 import 'peer_state.dart';
 import 'app_runtime.dart';
 import 'presence_controller.dart';
@@ -2690,6 +2691,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   BackgroundReceiving? get _backgroundSetting =>
       BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase());
 
+  String? _backgroundNotificationIssue(
+    Map<Object?, Object?> status, {
+    required bool enabled,
+    required bool autoAccept,
+  }) {
+    if (_backgroundSetting != BackgroundReceiving.androidService ||
+        !enabled ||
+        autoAccept) {
+      return null;
+    }
+    return switch (status) {
+      {'allNotifications': false} => t.backgroundAppNotificationsOff,
+      {'notifications': false} => t.backgroundAllowRequests,
+      _ => null,
+    };
+  }
+
   Future<void> _refreshBackgroundAvailability() async {
     final setting = _backgroundSetting;
     final preferences = prefs;
@@ -2707,7 +2725,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         preferences.getBool('auto_accept_${widget.profile}') ?? false;
     setState(() {
       if (status.isNotEmpty &&
-          !setting.needsAttention(enabled, status, autoAccept: autoAccept)) {
+          !setting.needsAttention(enabled, status) &&
+          _backgroundNotificationIssue(
+                status,
+                enabled: enabled,
+                autoAccept: autoAccept,
+              ) ==
+              null) {
         _dismissedBackgroundNotice = null;
       }
       _backgroundAvailability = status.isEmpty
@@ -4456,20 +4480,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (background == null ||
         availability == null ||
         node == null ||
-        peers.isEmpty ||
-        !background.needsAttention(
-          availability.enabled,
-          availability.status,
-          autoAccept: availability.autoAccept,
-        )) {
+        peers.isEmpty) {
       return null;
     }
-    final message = background.statusText(
-      t,
-      availability.enabled,
+    final notificationIssue = _backgroundNotificationIssue(
       availability.status,
+      enabled: availability.enabled,
       autoAccept: availability.autoAccept,
     );
+    if (notificationIssue == null &&
+        !background.needsAttention(availability.enabled, availability.status)) {
+      return null;
+    }
+    final message =
+        notificationIssue ??
+        background.statusText(t, availability.enabled, availability.status);
     if (message == _dismissedBackgroundNotice) return null;
     void dismiss() => setState(() => _dismissedBackgroundNotice = message);
     return ActivityNotice(
@@ -4487,11 +4512,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               dismiss();
-              unawaited(_showBackgroundSettings());
+              if (notificationIssue == null) {
+                await _showBackgroundSettings();
+              } else {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => NotificationSettingsPage(
+                      autoAccept: availability.autoAccept,
+                    ),
+                  ),
+                );
+                await _refreshBackgroundAvailability();
+              }
             },
-            child: Text(t.settings),
+            child: Text(
+              notificationIssue == null ? t.settings : t.notificationSettings,
+            ),
           ),
           IconButton(
             tooltip: t.close,

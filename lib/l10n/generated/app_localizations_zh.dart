@@ -670,7 +670,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationOff => '已关闭';
 
   @override
-  String get notificationRequests => '接收请求';
+  String get notificationRequests => '接收请求通知';
 
   @override
   String get notificationProgress => '传输进度';
@@ -760,12 +760,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundRestricted => '系统后台限制';
 
   @override
-  String get backgroundAllowed => '已允许';
-
-  @override
-  String get backgroundNeedsAttention => '需要检查';
-
-  @override
   String get backgroundBatteryHint => '若后台经常离线，可在系统设置中允许不受限制的电池使用。';
 
   @override
@@ -773,9 +767,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundOffer => '有设备正在发送内容';
-
-  @override
-  String get backgroundOff => '未开启';
 
   @override
   String get backgroundOn => '已开启';
@@ -940,7 +931,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundLowPowerStandbyRestricted => '低功耗待机会限制锁屏时的网络连接';
 
   @override
-  String get backgroundAutoStart => '自启动';
+  String get backgroundAutoStart => '自启动设置';
 
   @override
   String get macKeepAwake => '防止空闲睡眠';
@@ -949,19 +940,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundLogin => '登录时启动';
 
   @override
-  String get backgroundLoginApproval => '需要在系统设置中允许';
+  String get backgroundLoginApproval => '请在系统设置中允许登录启动';
 
   @override
   String get backgroundOpenLoginSettings => '打开登录项设置';
 
   @override
-  String get backgroundLoginNotFound => '无法找到登录项';
-
-  @override
-  String get backgroundLoginUnsupported => '需要 macOS 13 或更新版本';
-
-  @override
-  String get backgroundLoginFailed => '无法更改登录启动项，请检查系统设置。';
+  String get backgroundLoginFailed => '无法更改登录启动。';
 
   @override
   String get sendText => '发送文字';

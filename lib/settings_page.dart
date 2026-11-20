@@ -188,6 +188,32 @@ class _SettingsPageState extends State<SettingsPage>
     if (mounted) await _refreshBackground();
   }
 
+  Future<void> _showNotificationSettings() async {
+    if (background == BackgroundReceiving.macKeepAwake) {
+      try {
+        await BackgroundReceiving.channel.invokeMethod<void>('settings', {
+          'section': 'notification_requests',
+        });
+      } catch (_) {
+        if (mounted) {
+          showNotice(
+            context,
+            AppLocalizations.of(context)!.backgroundSettingsOpenFailed,
+            kind: NoticeKind.error,
+          );
+        }
+      }
+    } else {
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => NotificationSettingsPage(autoAccept: autoAccept),
+        ),
+      );
+    }
+    if (mounted) await _refreshBackground();
+  }
+
   Future<void> _loadSaveLocation() async {
     try {
       final location = await receivedStorage.location();
@@ -386,6 +412,21 @@ class _SettingsPageState extends State<SettingsPage>
               () => _choose('appearance', appearance, appearances),
               value: appearances[appearance] ?? t.systemDefault,
             ),
+            if (background == BackgroundReceiving.androidService ||
+                background == BackgroundReceiving.macKeepAwake) ...[
+              divider(),
+              row(
+                Icons.notifications_outlined,
+                t.notificationSettings,
+                _showNotificationSettings,
+                value:
+                    backgroundStatus['allNotifications'] == false ||
+                        (background == BackgroundReceiving.macKeepAwake &&
+                            backgroundStatus['notifications'] == false)
+                    ? t.notificationOff
+                    : null,
+              ),
+            ],
           ]),
           section(t.settingsReceiving, [
             if (background != null) ...[
@@ -397,7 +438,6 @@ class _SettingsPageState extends State<SettingsPage>
                   t,
                   backgroundEnabled,
                   backgroundStatus,
-                  autoAccept: autoAccept,
                 ),
               ),
               divider(),
@@ -449,20 +489,6 @@ class _SettingsPageState extends State<SettingsPage>
                     setState(() => openAfterReceive = value);
                   }
                 },
-              ),
-            ],
-            if (Platform.isAndroid) ...[
-              divider(),
-              row(
-                Icons.notifications_outlined,
-                t.notificationSettings,
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        NotificationSettingsPage(autoAccept: autoAccept),
-                  ),
-                ),
               ),
             ],
           ]),

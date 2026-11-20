@@ -722,7 +722,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationOff => 'Off';
 
   @override
-  String get notificationRequests => 'Incoming requests';
+  String get notificationRequests => 'Incoming request notifications';
 
   @override
   String get notificationProgress => 'Transfer progress';
@@ -814,12 +814,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundRestricted => 'System background restrictions';
 
   @override
-  String get backgroundAllowed => 'Allowed';
-
-  @override
-  String get backgroundNeedsAttention => 'Check settings';
-
-  @override
   String get backgroundBatteryHint =>
       'If the device frequently goes offline, allow unrestricted battery use in system settings.';
 
@@ -828,9 +822,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundOffer => 'A device is sending content';
-
-  @override
-  String get backgroundOff => 'Off';
 
   @override
   String get backgroundOn => 'On';
@@ -1000,7 +991,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Low Power Standby restricts network access while locked';
 
   @override
-  String get backgroundAutoStart => 'Auto-start';
+  String get backgroundAutoStart => 'Auto-start settings';
 
   @override
   String get macKeepAwake => 'Prevent idle sleep';
@@ -1009,20 +1000,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundLogin => 'Open at login';
 
   @override
-  String get backgroundLoginApproval => 'Approval required in System Settings';
+  String get backgroundLoginApproval =>
+      'Allow launch at login in System Settings';
 
   @override
   String get backgroundOpenLoginSettings => 'Open Login Items';
 
   @override
-  String get backgroundLoginNotFound => 'Login item unavailable';
-
-  @override
-  String get backgroundLoginUnsupported => 'Requires macOS 13 or later';
-
-  @override
-  String get backgroundLoginFailed =>
-      'Could not change the login item. Check System Settings.';
+  String get backgroundLoginFailed => 'Could not change launch at login.';
 
   @override
   String get sendText => 'Send text';

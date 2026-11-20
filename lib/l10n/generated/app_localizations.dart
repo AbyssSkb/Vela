@@ -1313,7 +1313,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationRequests.
   ///
   /// In en, this message translates to:
-  /// **'Incoming requests'**
+  /// **'Incoming request notifications'**
   String get notificationRequests;
 
   /// No description provided for @notificationProgress.
@@ -1490,18 +1490,6 @@ abstract class AppLocalizations {
   /// **'System background restrictions'**
   String get backgroundRestricted;
 
-  /// No description provided for @backgroundAllowed.
-  ///
-  /// In en, this message translates to:
-  /// **'Allowed'**
-  String get backgroundAllowed;
-
-  /// No description provided for @backgroundNeedsAttention.
-  ///
-  /// In en, this message translates to:
-  /// **'Check settings'**
-  String get backgroundNeedsAttention;
-
   /// No description provided for @backgroundBatteryHint.
   ///
   /// In en, this message translates to:
@@ -1519,12 +1507,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A device is sending content'**
   String get backgroundOffer;
-
-  /// No description provided for @backgroundOff.
-  ///
-  /// In en, this message translates to:
-  /// **'Off'**
-  String get backgroundOff;
 
   /// No description provided for @backgroundOn.
   ///
@@ -1853,7 +1835,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundAutoStart.
   ///
   /// In en, this message translates to:
-  /// **'Auto-start'**
+  /// **'Auto-start settings'**
   String get backgroundAutoStart;
 
   /// No description provided for @macKeepAwake.
@@ -1871,7 +1853,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundLoginApproval.
   ///
   /// In en, this message translates to:
-  /// **'Approval required in System Settings'**
+  /// **'Allow launch at login in System Settings'**
   String get backgroundLoginApproval;
 
   /// No description provided for @backgroundOpenLoginSettings.
@@ -1880,22 +1862,10 @@ abstract class AppLocalizations {
   /// **'Open Login Items'**
   String get backgroundOpenLoginSettings;
 
-  /// No description provided for @backgroundLoginNotFound.
-  ///
-  /// In en, this message translates to:
-  /// **'Login item unavailable'**
-  String get backgroundLoginNotFound;
-
-  /// No description provided for @backgroundLoginUnsupported.
-  ///
-  /// In en, this message translates to:
-  /// **'Requires macOS 13 or later'**
-  String get backgroundLoginUnsupported;
-
   /// No description provided for @backgroundLoginFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not change the login item. Check System Settings.'**
+  /// **'Could not change launch at login.'**
   String get backgroundLoginFailed;
 
   /// No description provided for @sendText.
