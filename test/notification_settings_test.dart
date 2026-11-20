@@ -61,21 +61,13 @@ void main() {
     );
     await tester.pumpWidget(page);
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('Vela accepts transfers automatically'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Auto-accept active.'), findsOneWidget);
     expect(find.textContaining('Open Vela to accept requests'), findsNothing);
     running = false;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining(
-        'Check Background receiving to resume automatic acceptance',
-      ),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Check background receiving.'), findsOneWidget);
   });
 
   testWidgets(
@@ -117,9 +109,14 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        find.text('Not allowed; standard notifications are used'),
-        findsOneWidget,
+        tester
+            .widget<ListTile>(
+              find.widgetWithText(ListTile, 'Incoming requests'),
+            )
+            .subtitle,
+        isNull,
       );
+      expect(find.text('Off in system settings'), findsNWidgets(2));
       final results = find.widgetWithText(ListTile, 'Transfer results');
       expect(
         find.descendant(
@@ -165,13 +162,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.text('This system uses standard notifications'),
-      );
-      expect(
-        find.text('This system uses standard notifications'),
-        findsOneWidget,
-      );
+      await tester.ensureVisible(find.text('Uses standard notifications'));
+      expect(find.text('Uses standard notifications'), findsOneWidget);
       final tile = tester.widget<ListTile>(
         find.ancestor(
           of: find.text('Live updates'),

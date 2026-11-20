@@ -3952,7 +3952,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           if (node != null && peers.isNotEmpty)
             HomeToolbarAction(
               'device',
-              t.showMyCode,
+              t.deviceCode,
               Icons.qr_code_rounded,
               _showMyDeviceDialog,
               key: const ValueKey('show-device-code'),

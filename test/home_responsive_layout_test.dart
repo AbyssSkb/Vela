@@ -58,12 +58,7 @@ void main() {
           tester.widget<ListTile>(availability).tileColor,
           colors.errorContainer,
         );
-        expect(
-          find.text(
-            'Allow incoming request notifications to accept in the background.',
-          ),
-          findsOneWidget,
-        );
+        expect(find.text('Request notifications are off'), findsOneWidget);
         await tester.tap(availability);
         await tester.pumpAndSettle();
         expect(find.text('Open incoming request settings'), findsOneWidget);
@@ -191,7 +186,7 @@ void main() {
         );
         final add = find.byKey(const ValueKey('add-device'));
         await waitForHome(tester, () => add.evaluate().isNotEmpty);
-        final showCode = find.text('Show device code');
+        final showCode = find.text('Device code');
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pump();

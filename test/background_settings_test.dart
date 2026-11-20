@@ -100,7 +100,19 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final choose = find.text('Choose a save location again');
+    expect(
+      tester.getCenter(find.text('Language')).dy,
+      tester.getCenter(find.text('English')).dy,
+    );
+    final autoAccept = find.widgetWithText(SwitchListTile, 'Auto accept');
+    expect(tester.widget<SwitchListTile>(autoAccept).subtitle, isNull);
+    expect(
+      find.byTooltip(
+        'Automatically accept incoming transfers from paired devices.',
+      ),
+      findsOneWidget,
+    );
+    final choose = find.text('Save location');
     await tester.ensureVisible(choose);
     await tester.tap(choose);
     await tester.pumpAndSettle();
@@ -123,18 +135,18 @@ void main() {
       };
       expect(
         android.statusText(t, true, notificationBlocked, autoAccept: false),
-        'Allow incoming request notifications to accept in the background.',
+        'Request notifications are off',
       );
       expect(
         android.statusText(t, true, notificationBlocked, autoAccept: true),
-        'Receiving service is running.',
+        'Service running',
       );
       expect(
         BackgroundReceiving.desktopTray.statusText(t, true, {
           'running': true,
           'trayAvailable': false,
         }, autoAccept: false),
-        'No system tray available. Leave the window open to receive.',
+        'Keep the window open',
       );
     },
   );
@@ -179,15 +191,12 @@ void main() {
       statusUnavailable = false;
       await tester.tap(find.text('Background receiving'));
       await tester.pumpAndSettle();
-      expect(find.text('Receiving service is running.'), findsOneWidget);
+      expect(find.text('Service running'), findsOneWidget);
       await tester.tap(find.byType(SwitchListTile).first);
       await tester.pumpAndSettle();
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(
-        find.text('Off · Turn on to receive while Vela is in the background.'),
-        findsOneWidget,
-      );
+      expect(find.text('Off'), findsOneWidget);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
@@ -319,6 +328,9 @@ void main() {
         ),
       );
       await showPage(tester, () async {});
+      expect(find.text('Auto-start'), findsNothing);
+      await tester.tap(find.text('Background checks'));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.text('Auto-start'), 150);
       await tester.pumpAndSettle();
       expect(
@@ -705,6 +717,9 @@ void main() {
         ),
       );
       await showPage(tester, () async {});
+      expect(find.text('Low Power Standby exemption'), findsNothing);
+      await tester.tap(find.text('Background checks'));
+      await tester.pumpAndSettle();
       final tile = find.ancestor(
         of: find.text('Low Power Standby exemption'),
         matching: find.byType(ListTile),

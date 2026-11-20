@@ -77,50 +77,34 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     Widget row(
       IconData icon,
       String title,
-      String subtitle,
       String section, {
+      String? detail,
       String? statusKey,
       bool enabled = true,
-    }) => ListTile(
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: largeText ? 12 : 20,
-        vertical: 6,
-      ),
-      leading: largeText ? null : Icon(icon, size: 22, color: colors.primary),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(
-        statusKey == 'allNotifications' && notificationsOff
-            ? receivesAutomatically
-                  ? t.notificationAutoAcceptMuted
-                  : widget.autoAccept
-                  ? t.notificationAutoAcceptStopped
-                  : t.notificationBackgroundBlocked
-            : statusKey != 'liveAllowed' &&
-                  (notificationsOff || status?[statusKey] == false)
-            ? t.notificationOff
-            : subtitle,
-        style: TextStyle(color: colors.onSurfaceVariant),
-      ),
-      trailing: enabled && !largeText
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (statusKey != null && status?[statusKey] == false)
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 19,
-                    color: colors.error,
-                  ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: colors.onSurfaceVariant,
-                ),
-              ],
-            )
-          : null,
-      onTap: enabled ? () => _open(section) : null,
-    );
+    }) {
+      final subtitle = statusKey == 'allNotifications' && notificationsOff
+          ? receivesAutomatically
+                ? t.notificationAutoAcceptMuted
+                : widget.autoAccept
+                ? t.notificationAutoAcceptStopped
+                : t.notificationBackgroundBlocked
+          : statusKey != 'liveAllowed' &&
+                (notificationsOff || status?[statusKey] == false)
+          ? t.notificationOff
+          : detail;
+      return ListTile(
+        contentPadding: EdgeInsets.symmetric(horizontal: largeText ? 12 : 16),
+        minTileHeight: 52,
+        leading: largeText ? null : Icon(icon, size: 20),
+        title: Text(title),
+        subtitle: subtitle == null ? null : Text(subtitle),
+        trailing: enabled && !largeText
+            ? const Icon(Icons.chevron_right_rounded, size: 20)
+            : null,
+        onTap: enabled ? () => _open(section) : null,
+      );
+    }
+
     Widget divider() => Divider(
       height: 1,
       indent: largeText ? 12 : 60,
@@ -143,11 +127,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
-                Flex(
-                  direction: largeText ? Axis.vertical : Axis.horizontal,
-                  crossAxisAlignment: largeText
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.center,
+                Row(
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
@@ -155,9 +135,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                           .backButtonTooltip,
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
-                    if (!largeText) const SizedBox(width: 8),
-                    Flexible(
-                      flex: largeText ? 0 : 1,
+                    const SizedBox(width: 8),
+                    Expanded(
                       child: Text(
                         t.notificationSettings,
                         style: Theme.of(context).textTheme.headlineSmall
@@ -166,17 +145,16 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 Material(
                   color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
                       row(
                         Icons.notifications_outlined,
                         t.notificationSystemSettings,
-                        t.notificationChannelHint,
                         'notification_app',
                         statusKey: 'allNotifications',
                       ),
@@ -184,7 +162,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                       row(
                         Icons.move_to_inbox_outlined,
                         t.notificationRequests,
-                        t.notificationRequestsHint,
                         'notification_requests',
                         statusKey: 'requestNotifications',
                       ),
@@ -192,7 +169,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                       row(
                         Icons.sync_alt_rounded,
                         t.notificationProgress,
-                        t.notificationProgressHint,
                         'notification_progress',
                         statusKey: 'progressNotifications',
                       ),
@@ -200,7 +176,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                       row(
                         Icons.task_alt_rounded,
                         t.notificationResults,
-                        t.notificationResultsHint,
                         'notification_results',
                         statusKey: 'resultNotifications',
                       ),
@@ -210,13 +185,13 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                 const SizedBox(height: 12),
                 Material(
                   color: colors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                   clipBehavior: Clip.antiAlias,
                   child: row(
                     Icons.dynamic_feed_outlined,
                     t.notificationLive,
-                    liveText,
                     'notification_live',
+                    detail: liveText,
                     statusKey: 'liveAllowed',
                     enabled: liveSupported,
                   ),
