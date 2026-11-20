@@ -376,7 +376,7 @@
   "notificationLiveUnsupported": "此系统使用普通通知",
   "notificationCompleted": "传输完成",
   "notificationCompletedShort": "已完成",
-  "backgroundReady": "正在等待设备发送",
+  "backgroundReady": "接收服务已启动",
   "backgroundStartHint": "未开启",
   "backgroundMacMaySleep": "唤醒时可接收",
   "backgroundMacInactive": "仍可进入空闲睡眠",

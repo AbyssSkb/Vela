@@ -38,7 +38,7 @@ class MainActivity : FlutterActivity() {
     private val receivedStorage get() = app.channels.storage
     private var pendingMedia: MethodChannel.Result? = null
     private val mediaPicker = ActivityResultContracts.PickMultipleVisualMedia(100)
-    private var serviceMessage: String = "Ready to receive"
+    private var serviceMessage: String? = null
     private val pendingShares = ArrayDeque<Map<String, Any>>()
 
     private fun inputFor(path: String) =
@@ -193,7 +193,7 @@ class MainActivity : FlutterActivity() {
     }
 
     fun requestBackgroundReceiving(message: String?, result: MethodChannel.Result) {
-        serviceMessage = message ?: "Ready to receive"
+        serviceMessage = message
         if (
             Build.VERSION.SDK_INT >= 33 &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
@@ -212,7 +212,7 @@ class MainActivity : FlutterActivity() {
     }
 
     fun resumeBackgroundReceiving(message: String?, result: MethodChannel.Result) {
-        serviceMessage = message ?: "Ready to receive"
+        serviceMessage = message
         if (
             Build.VERSION.SDK_INT >= 33 &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=

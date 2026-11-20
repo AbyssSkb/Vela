@@ -5,6 +5,42 @@ import 'package:flutter_driver/flutter_driver.dart';
 
 import 'android_background.dart' as android;
 
+Future<void> verifyResultExpiry(
+  String adb,
+  Future<void> Function() receive,
+) async {
+  Future<Set<String>> resultKeys() async {
+    final output = await android.adb(adb, [
+      'shell',
+      'cmd',
+      'notification',
+      'list',
+    ]);
+    return output
+        .split('\n')
+        .where(
+          (key) =>
+              key.contains('|com.example.vela|') &&
+              key.contains('|received-result|'),
+        )
+        .toSet();
+  }
+
+  final previous = await resultKeys();
+  await receive();
+  final timer = Stopwatch()..start();
+  var posted = false;
+  while (timer.elapsed < const Duration(seconds: 40)) {
+    final active = (await resultKeys()).difference(previous).isNotEmpty;
+    if (posted && !active) return;
+    posted = posted || active;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
+  throw StateError(
+    posted ? 'Transfer result did not expire' : 'No transfer result posted',
+  );
+}
+
 Future<void> main(List<String> args) async {
   final d = await FlutterDriver.connect(dartVmServiceUrl: args[0]);
   final adb = args[1], peer = args[2];
@@ -55,18 +91,20 @@ Future<void> main(List<String> args) async {
       await waitMessage('对方拒绝了接收');
       await android.waitNotification(adb, false);
       stdout.writeln('BACKGROUND_REJECT_OK');
-      await android.adb(adb, ['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
-      await send('notification accept test');
-      await android.adb(adb, [
-        'shell',
-        'cmd',
-        'statusbar',
-        'expand-notifications',
-      ]);
-      await android.tap(adb, 'Accept');
+      await verifyResultExpiry(adb, () async {
+        await android.adb(adb, ['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+        await send('notification accept test');
+        await android.adb(adb, [
+          'shell',
+          'cmd',
+          'statusbar',
+          'expand-notifications',
+        ]);
+        await android.tap(adb, 'Accept');
+      });
       await waitMessage('已发送给');
       await android.waitNotification(adb, false);
-      stdout.writeln('BACKGROUND_ACCEPT_OK');
+      stdout.writeln('BACKGROUND_ACCEPT_AND_EXPIRY_OK');
       await android.adb(adb, ['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
       await send('notification cancel test');
       await d.tap(find.byValueKey('cancel-transfer'));
