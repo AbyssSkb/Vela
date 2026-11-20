@@ -983,9 +983,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundAutoStart => 'Auto-start settings';
 
   @override
-  String get macKeepAwake => 'Prevent idle sleep';
-
-  @override
   String get backgroundLogin => 'Open at login';
 
   @override

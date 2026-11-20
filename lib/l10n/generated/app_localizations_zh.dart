@@ -926,9 +926,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundAutoStart => '自启动设置';
 
   @override
-  String get macKeepAwake => '防止空闲睡眠';
-
-  @override
   String get backgroundLogin => '登录时启动';
 
   @override

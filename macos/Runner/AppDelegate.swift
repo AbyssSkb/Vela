@@ -109,12 +109,17 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   var menuStatus: String {
     if incoming { return "notification" }
     if transferring { return "transferring" }
-    return completed ? "completed" : nodeStatus
+    if completed { return "completed" }
+    if nodeStatus == "ready", !backgroundActive,
+      let window = NSApp?.windows.compactMap({ $0 as? MainFlutterWindow }).first,
+      !window.isVisible || window.isMiniaturized
+    { return "paused" }
+    return nodeStatus
   }
 
   var menuStatusColor: NSColor {
     switch menuStatus {
-    case "starting": return .systemGray
+    case "starting", "paused": return .systemGray
     case "failed": return .systemRed
     case "notification": return .systemOrange
     case "transferring": return .systemBlue
@@ -133,6 +138,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
       ProcessInfo.processInfo.endActivity(activity)
       backgroundActivity = nil
     }
+    updateMenuLight()
   }
 
   static func isLoginLaunch(_ event: NSAppleEventDescriptor?) -> Bool {
@@ -305,6 +311,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     let chinese = menuIsChinese
     switch status {
     case "starting": return chinese ? "Vela — 正在启动" : "Vela — Starting"
+    case "paused": return chinese ? "Vela — 接收已暂停" : "Vela — Receiving paused"
     case "failed": return chinese ? "Vela — 启动失败" : "Vela — Could not start"
     case "transferring": return chinese ? "Vela — 正在传输" : "Vela — Transferring"
     case "completed": return chinese ? "Vela — 传输完成" : "Vela — Transfer complete"
@@ -313,7 +320,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     }
   }
 
-  private func updateMenuLight() {
+  func updateMenuLight() {
     guard let button = statusItem?.button else { return }
     let description = menuDescription(menuStatus)
     statusLight.color = menuStatusColor

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -100,6 +99,50 @@ enum BackgroundReceiving {
     },
   };
 
+  Future<void> setPreferenceEnabled(
+    String profile,
+    bool value, {
+    String? readyMessage,
+    Future<void> Function()? onChanged,
+    Future<void> Function()? verify,
+  }) async {
+    final key = preferenceKey(profile);
+    final prefs = await SharedPreferences.getInstance();
+    final previous = prefs.getBool(key);
+    var serviceAttempted = false;
+    var notified = false;
+    try {
+      if (!await prefs.setBool(key, value)) throw StateError('settings failed');
+      serviceAttempted = true;
+      await setEnabled(value, readyMessage: readyMessage);
+      notified = onChanged != null;
+      await onChanged?.call();
+      await verify?.call();
+    } catch (_) {
+      try {
+        if (previous == null) {
+          await prefs.remove(key);
+        } else {
+          await prefs.setBool(key, previous);
+        }
+      } catch (_) {}
+      if (serviceAttempted) {
+        try {
+          await setEnabled(
+            previous ?? defaultEnabled,
+            readyMessage: readyMessage,
+          );
+        } catch (_) {}
+      }
+      if (notified) {
+        try {
+          await onChanged?.call();
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+
   Future<void> setEnabled(bool value, {String? readyMessage}) async {
     switch (this) {
       case macKeepAwake:
@@ -137,11 +180,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
   Map<Object?, Object?> status = {};
   bool? enabled;
   bool changing = false;
-  BackgroundReceiving get setting =>
-      BackgroundReceiving.forOS(defaultTargetPlatform.name.toLowerCase()) ??
-      BackgroundReceiving.androidService;
-  bool get isMac => setting == BackgroundReceiving.macKeepAwake;
-  bool get usesTray => setting == BackgroundReceiving.desktopTray;
+  static const setting = BackgroundReceiving.androidService;
   @override
   void initState() {
     super.initState();
@@ -180,85 +219,22 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
 
   Future<void> _toggle(bool value) async {
     setState(() => changing = true);
-    final key = setting.preferenceKey(widget.profile);
-    SharedPreferences? prefs;
-    bool? previous;
-    var saved = false;
-    var serviceAttempted = false;
-    var notified = false;
     final readyMessage = AppLocalizations.of(context)!.backgroundReady;
     try {
-      prefs = await SharedPreferences.getInstance();
-      previous = prefs.getBool(key);
-      saved = true;
-      if (!await prefs.setBool(key, value)) throw StateError('settings failed');
-      serviceAttempted = true;
-      await setting.setEnabled(value, readyMessage: readyMessage);
-      notified = widget.onChanged != null;
-      await widget.onChanged?.call();
-      await _refresh(strict: true);
+      await setting.setPreferenceEnabled(
+        widget.profile,
+        value,
+        readyMessage: readyMessage,
+        onChanged: widget.onChanged,
+        verify: () => _refresh(strict: true),
+      );
     } catch (_) {
-      if (saved && prefs != null) {
-        try {
-          if (previous == null) {
-            await prefs.remove(key);
-          } else {
-            await prefs.setBool(key, previous);
-          }
-        } catch (_) {}
-      }
-      if (serviceAttempted) {
-        try {
-          await setting.setEnabled(
-            previous ?? setting.defaultEnabled,
-            readyMessage: readyMessage,
-          );
-        } catch (_) {}
-      }
-      if (notified) {
-        try {
-          await widget.onChanged?.call();
-        } catch (_) {}
-      }
       if (mounted) {
         await _refresh();
         if (mounted) {
           showNotice(
             context,
             AppLocalizations.of(context)!.backgroundUnavailable,
-            kind: NoticeKind.error,
-          );
-        }
-      }
-    } finally {
-      if (mounted) setState(() => changing = false);
-    }
-  }
-
-  Future<void> _toggleLogin(bool value) async {
-    setState(() => changing = true);
-    try {
-      await channel.invokeMethod<String>('setLaunchAtLogin', value);
-      await _refresh(strict: true);
-      if (mounted &&
-          isMac &&
-          value &&
-          status['loginStatus'] == 'requiresApproval') {
-        final t = AppLocalizations.of(context)!;
-        showNotice(
-          context,
-          t.backgroundLoginApproval,
-          actionLabel: t.backgroundOpenLoginSettings,
-          onAction: () => _openSettings('login'),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        await _refresh();
-        if (mounted) {
-          showNotice(
-            context,
-            AppLocalizations.of(context)!.backgroundLoginFailed,
             kind: NoticeKind.error,
           );
         }
@@ -292,7 +268,6 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     final summary = setting.statusText(t, enabled, status);
     final recovery = setting.recoverySettings(status);
     final needsRetry =
-        setting == BackgroundReceiving.androidService &&
         enabled == true &&
         (status['running'] == false || status['nodeReady'] == false);
     final needsAttention = setting.needsAttention(enabled, status);
@@ -301,7 +276,6 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
         ? summary
         : null;
     final restricted = status['restricted'] == true;
-    final login = status['loginStatus'];
     Widget recoveryButton(String label, VoidCallback? onPressed) => Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
       child: Align(
@@ -313,7 +287,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     return Scaffold(
       body: PageLayout(
         header: Padding(
-          padding: EdgeInsets.fromLTRB(20, isMac ? 38 : 8, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: Row(
             children: [
               IconButton(
@@ -342,9 +316,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
               child: Column(
                 children: [
                   SwitchListTile(
-                    title: Text(
-                      isMac ? t.macKeepAwake : t.enableBackgroundReceiving,
-                    ),
+                    title: Text(t.enableBackgroundReceiving),
                     subtitle: detail == null
                         ? null
                         : Text(
@@ -361,75 +333,62 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                       t.retry,
                       changing ? null : () => _toggle(true),
                     ),
-                  if ((isMac || usesTray) &&
-                      status['loginSupported'] == true) ...[
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    SwitchListTile(
-                      title: Text(t.backgroundLogin),
-                      value: login == 'enabled' || login == 'requiresApproval',
-                      onChanged: changing ? null : _toggleLogin,
-                    ),
-                  ],
                 ],
               ),
             ),
-            if (!isMac && !usesTray) ...[
-              const SizedBox(height: 12),
-              Material(
-                color: colors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  leading: Icon(
-                    !restricted && exempt == true
-                        ? Icons.check_circle_outline_rounded
-                        : Icons.info_outline_rounded,
-                    color: !restricted && exempt == true
-                        ? colors.primary
-                        : colors.onSurfaceVariant,
-                  ),
-                  title: SettingsRowTitle(
-                    t.backgroundBattery,
-                    value: Text(switch ((restricted, exempt)) {
-                      (true, _) => t.backgroundBatteryRestricted,
-                      (false, true) => t.backgroundBatteryExempt,
-                      (false, false) => t.backgroundBatteryOptimized,
-                      (false, null) => t.backgroundUnknown,
-                    }),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _openSettings(
-                    !restricted && exempt == false
-                        ? 'battery_exemption'
-                        : 'battery',
-                  ),
+            const SizedBox(height: 12),
+            Material(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                leading: Icon(
+                  !restricted && exempt == true
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.info_outline_rounded,
+                  color: !restricted && exempt == true
+                      ? colors.primary
+                      : colors.onSurfaceVariant,
+                ),
+                title: SettingsRowTitle(
+                  t.backgroundBattery,
+                  value: Text(switch ((restricted, exempt)) {
+                    (true, _) => t.backgroundBatteryRestricted,
+                    (false, true) => t.backgroundBatteryExempt,
+                    (false, false) => t.backgroundBatteryOptimized,
+                    (false, null) => t.backgroundUnknown,
+                  }),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _openSettings(
+                  !restricted && exempt == false
+                      ? 'battery_exemption'
+                      : 'battery',
                 ),
               ),
-            ],
-            if (!isMac && !usesTray) ...[
-              const SizedBox(height: 12),
-              Material(
-                color: colors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    ListTile(
-                      title: Text(t.backgroundAutoStart),
-                      trailing: const Icon(Icons.open_in_new_rounded),
-                      onTap: () =>
-                          _openSettings(isOplus ? 'battery' : 'autostart'),
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    ListTile(
-                      title: Text(t.backgroundVendorGuide),
-                      trailing: const Icon(Icons.open_in_new_rounded),
-                      onTap: () => _openSettings('guide'),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 12),
+            Material(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Text(t.backgroundAutoStart),
+                    trailing: const Icon(Icons.open_in_new_rounded),
+                    onTap: () =>
+                        _openSettings(isOplus ? 'battery' : 'autostart'),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    title: Text(t.backgroundVendorGuide),
+                    trailing: const Icon(Icons.open_in_new_rounded),
+                    onTap: () => _openSettings('guide'),
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),

@@ -455,7 +455,6 @@
   "backgroundUnknown": "Unknown",
   "backgroundLowPowerStandbyRestricted": "Low Power Standby restricts network access while locked",
   "backgroundAutoStart": "Auto-start settings",
-  "macKeepAwake": "Prevent idle sleep",
   "backgroundLogin": "Open at login",
   "backgroundLoginApproval": "Allow launch at login in System Settings",
   "backgroundOpenLoginSettings": "Open Login Items",

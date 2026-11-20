@@ -1826,12 +1826,6 @@ abstract class AppLocalizations {
   /// **'Auto-start settings'**
   String get backgroundAutoStart;
 
-  /// No description provided for @macKeepAwake.
-  ///
-  /// In en, this message translates to:
-  /// **'Prevent idle sleep'**
-  String get macKeepAwake;
-
   /// No description provided for @backgroundLogin.
   ///
   /// In en, this message translates to:

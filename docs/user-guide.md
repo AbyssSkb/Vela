@@ -61,7 +61,7 @@ Background receiving is on by default. Open **Settings → Receiving** to check 
 | Platform | Keep Vela available |
 | --- | --- |
 | Android | Open **Settings → Notifications** to manage notifications and **Settings → Background receiving** to check battery optimization. You can accept or decline requests from notifications. After a reboot, unlock once for the enabled service to restart. |
-| macOS | Close the window to leave Vela in the menu bar. **Prevent idle sleep** keeps the Mac awake. Open **Settings → Notifications** to grant Vela permission to alert you when a transfer needs confirmation. Closing the lid and manual sleep still suspend the connection. On macOS 13 or later, you can enable launch at login separately. |
+| macOS | Close the window to leave Vela in the menu bar. **Settings → Receiving → Background receiving** keeps the Mac awake and available when the window is closed. Turn on **Settings → Notifications** to receive system alerts for incoming requests. Closing the lid and manual sleep still suspend the connection. On macOS 13 or later, use **Open at login** in the main settings page. |
 | Windows and Linux | With background receiving enabled and a tray available, closing the window leaves Vela in the system tray. Open or quit it from the tray menu. If the tray is unavailable, keep the window open. Sleep or logout stops reception. |
 
 On **ColorOS**, open Vela's app info and check its battery settings for **Allow background activity** and **Auto launch**. On **HyperOS**, check **Background autostart** and **No restrictions** for Vela. On **One UI**, check Samsung's **Never sleeping apps** list. The names and location can vary by build. [ColorOS settings example](https://consumer.huawei.com/cn/support/content/zh-cn15848664/) · [HyperOS autostart](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [HyperOS battery settings](https://www.mi.com/global/support/faq/details/KA-538010/) · [Samsung app management](https://developer.samsung.com/mobile/app-management.html)
@@ -70,7 +70,7 @@ On **ColorOS**, open Vela's app info and check its battery settings for **Allow 
 
 On supported Android systems, transfer progress may appear in a status-bar capsule. Keeping a device available in the background can increase power use. If you force-stop Vela, reopen it to resume receiving. [Android background receiving details](background-execution-research.md)
 
-On desktop, the menu bar or tray icon shows when a transfer is in progress or has finished. Open Vela from the icon or an incoming request notification to approve a transfer manually. Turn on **Settings → Receiving → Show window after receiving** to bring Vela forward after content has been saved. This setting starts off.
+On desktop, the menu bar or tray icon shows when a transfer is in progress or has finished. On macOS, click the menu bar icon to see the status and accept or decline an incoming transfer. On Windows and Linux, open Vela from the tray or an incoming request notification to approve a transfer manually. Turn on **Settings → Receiving → Show window after receiving** to bring Vela forward after content has been saved. This setting starts off.
 
 ## Update Vela
 
