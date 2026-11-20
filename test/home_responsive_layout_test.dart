@@ -1097,6 +1097,18 @@ void main() {
           await waitForHome(tester, () => extra.evaluate().isEmpty);
           expect(tester.getRect(files), action);
           expect(tester.getRect(first), firstDevice);
+
+          tester.view.physicalSize = const Size(336, 680);
+          await finishTransition();
+          final narrowFiles = tester.getRect(files);
+          final folder = find.byKey(const ValueKey('send-folder'));
+          final text = find.byKey(const ValueKey('send-text'));
+          expect(tester.getTopLeft(folder).dy, narrowFiles.top);
+          expect(tester.getTopLeft(text).dy, greaterThan(narrowFiles.bottom));
+          expect(tester.getTopLeft(clipboard).dy, tester.getTopLeft(text).dy);
+          for (final button in [files, folder, text, clipboard]) {
+            expect(tester.getSize(button).height, action.height);
+          }
         },
       );
     },
