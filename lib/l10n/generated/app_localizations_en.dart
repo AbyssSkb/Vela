@@ -527,6 +527,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refreshDevices => 'Refresh device status';
 
   @override
+  String get refreshThisDevice => 'Refresh this device';
+
+  @override
   String get transferCancelled => 'Transfer cancelled';
 
   @override
