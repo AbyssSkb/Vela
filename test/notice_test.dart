@@ -46,10 +46,17 @@ void main() {
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
     );
-    final action = tester.getRect(find.byType(IconButton));
-    expect(action.top - tester.getTopLeft(panel).dy, 8);
+    final button = find.byType(IconButton);
+    final action = tester.getRect(button);
+    expect(action.top - tester.getTopLeft(panel).dy, 24);
     expect(action.bottom, 616);
     expect(action.right, lessThanOrEqualTo(302));
+    const sidesOnly = FakeViewPadding(left: 18, right: 18);
+    tester.view.viewPadding = sidesOnly;
+    tester.view.padding = sidesOnly;
+    await tester.pump();
+    expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 8);
+    expect(tester.getRect(button).bottom, 632);
     await tester.tap(find.byIcon(Icons.close));
     expect(cancelled, isTrue);
     expect(tester.takeException(), isNull);
@@ -103,7 +110,7 @@ void main() {
       );
     });
   }
-  testWidgets('Android notice fills the bottom without covering its actions', (
+  testWidgets('Android receipt follows changes in the bottom system inset', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 800);
@@ -137,20 +144,29 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pumpAndSettle();
     final panel = find.byKey(const ValueKey('message-notice'));
-    final bounds = tester.getRect(panel);
-    expect(bounds.bottomLeft, const Offset(0, 800));
-    expect(bounds.bottomRight, const Offset(360, 800));
     expect(
       tester.widget<SnackBar>(panel).backgroundColor,
       const Color(0xffd9f1df),
     );
     final open = find.byKey(const ValueKey('notice-action'));
     final close = find.byKey(const ValueKey('notice-close'));
-    for (final control in [open, close]) {
-      final rect = tester.getRect(control);
-      expect(rect.height, greaterThanOrEqualTo(48));
-      expect(rect.top - bounds.top, 8);
-      expect(bounds.bottom - rect.bottom, 24);
+    for (final (inset, top, bottom) in [
+      (24.0, 24.0, 24.0),
+      (40.0, 40.0, 40.0),
+      (0.0, 8.0, 8.0),
+    ]) {
+      tester.view.viewPadding = FakeViewPadding(bottom: inset);
+      tester.view.padding = FakeViewPadding(bottom: inset);
+      await tester.pump();
+      final bounds = tester.getRect(panel);
+      expect(bounds.bottomLeft, const Offset(0, 800));
+      expect(bounds.bottomRight, const Offset(360, 800));
+      for (final control in [open, close]) {
+        final rect = tester.getRect(control);
+        expect(rect.height, greaterThanOrEqualTo(48));
+        expect(rect.top - bounds.top, top);
+        expect(bounds.bottom - rect.bottom, bottom);
+      }
     }
     expect(find.text('Received'), findsOneWidget);
     await tester.tap(open);

@@ -7,7 +7,11 @@ const receiptDuration = Duration(seconds: 8);
 const _noticeShape = RoundedRectangleBorder(
   borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
 );
-const _noticePadding = EdgeInsets.fromLTRB(16, 8, 16, 0);
+const _noticeHorizontalPadding = EdgeInsets.symmetric(horizontal: 16);
+
+EdgeInsets _noticeVerticalPadding(double bottomInset) => bottomInset > 0
+    ? EdgeInsets.only(top: bottomInset)
+    : const EdgeInsets.symmetric(vertical: 8);
 
 class ActivityNotice extends StatelessWidget {
   const ActivityNotice({super.key, required this.child});
@@ -16,6 +20,9 @@ class ActivityNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final verticalPadding = _noticeVerticalPadding(
+      MediaQuery.paddingOf(context).bottom,
+    );
     return Material(
       key: const ValueKey('activity-notice'),
       color: colors.secondaryContainer,
@@ -24,7 +31,7 @@ class ActivityNotice extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: _noticePadding,
+          padding: _noticeHorizontalPadding + verticalPadding,
           child: IconTheme.merge(
             data: IconThemeData(color: colors.onSecondaryContainer),
             child: DefaultTextStyle.merge(
@@ -148,7 +155,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       behavior: SnackBarBehavior.fixed,
       backgroundColor: background,
       elevation: 0,
-      padding: _noticePadding,
+      padding: _noticeHorizontalPadding,
       shape: _noticeShape,
       clipBehavior: Clip.antiAlias,
       hitTestBehavior: HitTestBehavior.deferToChild,
@@ -166,25 +173,37 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
             return const SizedBox.shrink();
           }
           final scale = MediaQuery.textScalerOf(context).scale(1);
-          if (actions.isNotEmpty &&
-              (constraints.maxWidth < 320 || scale > 1.3)) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                details,
-                OverflowBar(
-                  alignment: MainAxisAlignment.end,
-                  children: actions,
+          final stackActions =
+              actions.isNotEmpty && (constraints.maxWidth < 320 || scale > 1.3);
+          final content = stackActions
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    details,
+                    OverflowBar(
+                      alignment: MainAxisAlignment.end,
+                      children: actions,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: details),
+                    ...actions,
+                  ],
+                );
+          // The fixed SnackBar consumes the inset before laying out its content.
+          return MediaQuery.fromView(
+            view: View.of(context),
+            child: Builder(
+              builder: (context) => Padding(
+                padding: _noticeVerticalPadding(
+                  MediaQuery.paddingOf(context).bottom,
                 ),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: details),
-              ...actions,
-            ],
+                child: content,
+              ),
+            ),
           );
         },
       ),
