@@ -83,6 +83,8 @@ jobs:
           python-version: '3.12'
       - run: python -m unittest discover -s tool/release -p 'test_*.py'
       - run: python -m unittest discover -s packaging/linux -p 'test_*.py'
+      - name: Check desktop tray activity
+        run: c++ -std=c++14 -fsyntax-only shared/desktop/tray_activity_test.cc
       - name: Check Linux autostart entries
         run: |
           if ! pkg-config --exists glib-2.0; then

@@ -10,6 +10,8 @@
 #include <optional>
 #include <string>
 
+#include "../../shared/desktop/tray_activity.h"
+
 class DesktopIntegration {
  public:
   DesktopIntegration(HWND window, flutter::BinaryMessenger* messenger);
@@ -40,9 +42,7 @@ class DesktopIntegration {
   HANDLE address_change_ = nullptr;
   bool tray_available_ = false;
   bool background_enabled_ = true;
-  bool transferring_ = false;
-  bool incoming_ = false;
-  bool completed_ = false;
+  vela::TrayActivity activity_;
   bool quitting_ = false;
   bool shutdown_complete_ = false;
   std::wstring node_status_ = L"Starting";

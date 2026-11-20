@@ -9,6 +9,7 @@
 #include <string>
 
 #include "desktop_entry.h"
+#include "../../shared/desktop/tray_activity.h"
 
 namespace {
 
@@ -110,23 +111,32 @@ class DesktopIntegration {
   guint sleep_subscription_ = 0;
   bool background_enabled_ = true;
   bool quitting_ = false;
-  bool incoming_ = false;
-  bool transferring_ = false;
-  bool completed_ = false;
+  vela::TrayActivity activity_;
   std::string node_status_ = "Starting";
   std::string incoming_label_ = "Incoming transfer";
   std::string transferring_label_ = "Transferring";
   std::string completed_label_ = "Transfer complete";
 
   void UpdateIndicator() {
-    const auto* icon = incoming_ ? "vela-incoming"
-                     : transferring_ ? "vela-transferring"
-                     : completed_ ? "vela-completed"
-                                  : APPLICATION_ID;
-    const auto title = std::string("Vela · ") +
-                       (incoming_ ? incoming_label_
-                        : transferring_ ? transferring_label_
-                        : completed_ ? completed_label_ : node_status_);
+    const char* icon = APPLICATION_ID;
+    const std::string* label = &node_status_;
+    switch (activity_.status()) {
+      case vela::TrayActivity::Status::kIncoming:
+        icon = "vela-incoming";
+        label = &incoming_label_;
+        break;
+      case vela::TrayActivity::Status::kTransferring:
+        icon = "vela-transferring";
+        label = &transferring_label_;
+        break;
+      case vela::TrayActivity::Status::kCompleted:
+        icon = "vela-completed";
+        label = &completed_label_;
+        break;
+      case vela::TrayActivity::Status::kNode:
+        break;
+    }
+    const auto title = "Vela · " + *label;
     app_indicator_set_icon_full(indicator_, icon, title.c_str());
     app_indicator_set_title(indicator_, title.c_str());
   }
@@ -193,8 +203,7 @@ class DesktopIntegration {
 
   static gboolean WindowFocused(GtkWidget*, GdkEvent*, gpointer data) {
     auto* self = static_cast<DesktopIntegration*>(data);
-    if (self->completed_) {
-      self->completed_ = false;
+    if (self->activity_.ClearCompletion()) {
       self->UpdateIndicator();
     }
     self->Event("visible");
@@ -272,8 +281,7 @@ class DesktopIntegration {
   }
 
   void ClearOffer() {
-    if (incoming_) {
-      incoming_ = false;
+    if (activity_.SetIncoming(false)) {
       UpdateIndicator();
     }
     if (offer_ == nullptr) return;
@@ -284,7 +292,7 @@ class DesktopIntegration {
 
   bool Offer(const char* title, const char* message) {
     ClearOffer();
-    incoming_ = true;
+    activity_.SetIncoming(true);
     UpdateIndicator();
     g_autofree gchar* escaped = g_markup_escape_text(message, -1);
     offer_ = notify_notification_new(title, escaped, APPLICATION_ID);
@@ -395,14 +403,14 @@ class DesktopIntegration {
       }
       const bool value = fl_value_get_bool(arguments);
       if (strcmp(method, "setTransferring") == 0) {
-        self->transferring_ = value;
-        if (value) self->completed_ = false;
+        self->activity_.SetTransferring(value);
         self->UpdateIndicator();
       } else {
-        self->transferring_ = false;
-        self->completed_ = self->window_ == nullptr || !gtk_window_is_active(self->window_);
+        const bool in_background =
+            self->window_ == nullptr || !gtk_window_is_active(self->window_);
+        self->activity_.FinishTransfer(in_background);
         self->UpdateIndicator();
-        if (self->completed_ && value) Show(self);
+        if (in_background && value) Show(self);
       }
     } else {
       fl_method_call_respond_not_implemented(call, nullptr);
