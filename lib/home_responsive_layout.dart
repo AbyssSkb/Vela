@@ -22,8 +22,12 @@ class HomeResponsiveLayout extends StatefulWidget {
   final double maximumActionWidth;
 
   static const _largeButtonHeight = 64.0;
+  static const _minimumRailHeight = 40.0;
   static const _gap = 8.0;
   static const _railRowGap = 6.0;
+
+  static double _buttonHeight(bool largeText) =>
+      largeText ? _largeButtonHeight : 48.0;
 
   static double minimumHeight({
     required bool wide,
@@ -32,14 +36,14 @@ class HomeResponsiveLayout extends StatefulWidget {
     required double width,
     double? minimumActionWidth,
   }) {
-    if (!_roomyActions(largeText, width)) {
-      return wide ? count * 40.0 + (count - 1) * _railRowGap : 220.0;
+    if (wide) {
+      final height = largeText ? _largeButtonHeight : _minimumRailHeight;
+      return count * height + (count - 1) * _railRowGap;
     }
+    if (!_roomyActions(largeText, width)) return 220.0;
     final columns = _roomyColumns(largeText, width, minimumActionWidth);
     final rows = (count + columns - 1) ~/ columns;
-    return wide
-        ? count * _largeButtonHeight + (count - 1) * _railRowGap
-        : rows * _largeButtonHeight + (rows - 1) * _gap + 120;
+    return rows * _buttonHeight(largeText) + (rows - 1) * _gap + 120;
   }
 
   static bool _roomyActions(bool largeText, double width) =>
@@ -137,7 +141,7 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
         railRowGap = HomeResponsiveLayout._railRowGap;
     final actionWidth = math.min(size.width, maximumActionWidth);
     final roomy = HomeResponsiveLayout._roomyActions(largeText, actionWidth);
-    final buttonHeight = roomy ? HomeResponsiveLayout._largeButtonHeight : 48.0;
+    final buttonHeight = HomeResponsiveLayout._buttonHeight(largeText);
     final railWidth = largeText ? 208.0 : 144.0;
     final movingDown = (progress * 3).clamp(0.0, 1.0);
     final movingSide = ((progress - 1 / 3) * 3).clamp(0.0, 1.0);
@@ -153,7 +157,7 @@ class _HomeLayoutDelegate extends MultiChildLayoutDelegate {
           )
         : (count > 4 ? 3 : count);
     final railHeight = ((size.height - (count - 1) * railRowGap) / count).clamp(
-      largeText ? buttonHeight : 40.0,
+      largeText ? buttonHeight : HomeResponsiveLayout._minimumRailHeight,
       buttonHeight,
     );
     final railTop = math.max(
