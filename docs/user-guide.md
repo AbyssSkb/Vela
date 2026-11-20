@@ -60,13 +60,13 @@ Background receiving is on by default. Open **Settings → Receiving** to check 
 
 | Platform | Keep Vela available |
 | --- | --- |
-| Android | Use **Background checks** to check notifications and battery optimization and open the relevant system settings. You can accept or decline requests from notifications. After a reboot, unlock once for the enabled service to restart. |
-| macOS | Close the window to leave Vela in the menu bar. **Keep available in background** prevents idle sleep. **Incoming requests** in **Background checks** shows notification access. The first authorization is requested only when you select that row. Closing the lid and manual sleep still suspend the connection. On macOS 13 or later, you can enable launch at login separately. |
+| Android | Under **Background receiving**, check notifications and battery optimization and open their system settings. You can accept or decline requests from notifications. After a reboot, unlock once for the enabled service to restart. |
+| macOS | Close the window to leave Vela in the menu bar. **Prevent idle sleep** keeps the Mac awake. With **Auto-accept** off, **Incoming request notifications** under **Background receiving** shows notification access and lets you request it. Closing the lid and manual sleep still suspend the connection. On macOS 13 or later, you can enable launch at login separately. |
 | Windows and Linux | With background receiving enabled and a tray available, closing the window leaves Vela in the system tray. Open or quit it from the tray menu. If the tray is unavailable, keep the window open. Sleep or logout stops reception. |
 
 On **ColorOS**, open Vela's app info and check its battery settings for **Allow background activity** and **Auto launch**. On **HyperOS**, check **Background autostart** and **No restrictions** for Vela. On **One UI**, check Samsung's **Never sleeping apps** list. The names and location can vary by build. [ColorOS settings example](https://consumer.huawei.com/cn/support/content/zh-cn15848664/) · [HyperOS autostart](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [HyperOS battery settings](https://www.mi.com/global/support/faq/details/KA-538010/) · [Samsung app management](https://developer.samsung.com/mobile/app-management.html)
 
-Under **Background checks**, **Auto-start** reports whether Vela restored the receiving service on this boot. To verify, restart and unlock the phone, then send a file to it before opening Vela.
+**Auto-start settings** under **Background receiving** opens the relevant Android settings. To verify receiving after reboot, restart and unlock the phone, then send a file to it before opening Vela.
 
 On supported Android systems, transfer progress may appear in a status-bar capsule. Keeping a device available in the background can increase power use. If you force-stop Vela, reopen it to resume receiving. [Android background receiving details](background-execution-research.md)
 

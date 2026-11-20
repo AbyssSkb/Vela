@@ -1313,7 +1313,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationRequests.
   ///
   /// In en, this message translates to:
-  /// **'Incoming requests'**
+  /// **'Incoming request notifications'**
   String get notificationRequests;
 
   /// No description provided for @notificationProgress.
@@ -1853,7 +1853,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundAutoStart.
   ///
   /// In en, this message translates to:
-  /// **'Auto-start'**
+  /// **'Auto-start settings'**
   String get backgroundAutoStart;
 
   /// No description provided for @macKeepAwake.
@@ -1871,7 +1871,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundLoginApproval.
   ///
   /// In en, this message translates to:
-  /// **'Approval required in System Settings'**
+  /// **'Allow launch at login in System Settings'**
   String get backgroundLoginApproval;
 
   /// No description provided for @backgroundOpenLoginSettings.

@@ -722,7 +722,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationOff => 'Off';
 
   @override
-  String get notificationRequests => 'Incoming requests';
+  String get notificationRequests => 'Incoming request notifications';
 
   @override
   String get notificationProgress => 'Transfer progress';
@@ -1000,7 +1000,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Low Power Standby restricts network access while locked';
 
   @override
-  String get backgroundAutoStart => 'Auto-start';
+  String get backgroundAutoStart => 'Auto-start settings';
 
   @override
   String get macKeepAwake => 'Prevent idle sleep';
@@ -1009,7 +1009,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundLogin => 'Open at login';
 
   @override
-  String get backgroundLoginApproval => 'Approval required in System Settings';
+  String get backgroundLoginApproval =>
+      'Allow launch at login in System Settings';
 
   @override
   String get backgroundOpenLoginSettings => 'Open Login Items';

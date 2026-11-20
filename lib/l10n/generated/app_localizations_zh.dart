@@ -670,7 +670,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationOff => '已关闭';
 
   @override
-  String get notificationRequests => '接收请求';
+  String get notificationRequests => '接收请求通知';
 
   @override
   String get notificationProgress => '传输进度';
@@ -940,7 +940,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundLowPowerStandbyRestricted => '低功耗待机会限制锁屏时的网络连接';
 
   @override
-  String get backgroundAutoStart => '自启动';
+  String get backgroundAutoStart => '自启动设置';
 
   @override
   String get macKeepAwake => '防止空闲睡眠';
@@ -949,7 +949,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundLogin => '登录时启动';
 
   @override
-  String get backgroundLoginApproval => '需要在系统设置中允许';
+  String get backgroundLoginApproval => '请在系统设置中允许登录启动';
 
   @override
   String get backgroundOpenLoginSettings => '打开登录项设置';

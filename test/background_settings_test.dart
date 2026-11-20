@@ -258,8 +258,8 @@ void main() {
   }
 
   for (final (state, label, section) in [
-    ('app', 'Incoming requests', 'notification_app'),
-    ('requests', 'Incoming requests', 'notification_requests'),
+    ('app', 'Incoming request notifications', 'notification_app'),
+    ('requests', 'Incoming request notifications', 'notification_requests'),
     ('battery', 'Battery optimization', 'battery_exemption'),
     ('restricted', 'Battery optimization', 'battery'),
   ]) {
@@ -373,10 +373,10 @@ void main() {
       ),
     );
     await showPage(tester, () async {});
-    expect(find.text('Auto-start').hitTestable(), findsOneWidget);
+    expect(find.text('Auto-start settings').hitTestable(), findsOneWidget);
     expect(find.text('Boot signal received'), findsNothing);
     expect(find.text('Unverified'), findsNothing);
-    await tester.tap(find.text('Auto-start'));
+    await tester.tap(find.text('Auto-start settings'));
     await tester.pump();
     expect(section, 'battery');
   });
@@ -687,7 +687,10 @@ void main() {
     );
     expect(active, isTrue);
     expect(changes, 1);
-    final requests = find.widgetWithText(ListTile, 'Incoming requests');
+    final requests = find.widgetWithText(
+      ListTile,
+      'Incoming request notifications',
+    );
     await tester.ensureVisible(requests);
     await tester.pumpAndSettle();
     await tester.tap(requests);
@@ -700,10 +703,13 @@ void main() {
     await tester.ensureVisible(loginSwitch);
     await tester.tap(loginSwitch);
     await tester.pumpAndSettle();
-    expect(find.text('Approval required in System Settings'), findsOneWidget);
+    expect(
+      find.text('Allow launch at login in System Settings'),
+      findsOneWidget,
+    );
     expect(
       find.ancestor(
-        of: find.text('Approval required in System Settings'),
+        of: find.text('Allow launch at login in System Settings'),
         matching: find.byType(SnackBar),
       ),
       findsOneWidget,
@@ -779,7 +785,7 @@ void main() {
       await showPage(tester, () async {});
       expect(find.text('Low Power Standby exemption'), findsNothing);
       expect(find.text('Battery optimization').hitTestable(), findsOneWidget);
-      expect(find.text('Incoming requests'), findsOneWidget);
+      expect(find.text('Incoming request notifications'), findsOneWidget);
       expect(find.text('Low Power Standby exemption'), findsNothing);
       expect(find.text('Receiving service'), findsNothing);
       expect(find.text('Receiving node'), findsNothing);

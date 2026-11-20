@@ -111,7 +111,7 @@ void main() {
       expect(
         tester
             .widget<ListTile>(
-              find.widgetWithText(ListTile, 'Incoming requests'),
+              find.widgetWithText(ListTile, 'Incoming request notifications'),
             )
             .subtitle,
         isNull,
@@ -122,7 +122,7 @@ void main() {
         find.descendant(of: results, matching: find.text('Off')),
         findsOneWidget,
       );
-      await tester.tap(find.text('Incoming requests'));
+      await tester.tap(find.text('Incoming request notifications'));
       await tester.tap(find.text('Transfer results'));
       await tester.ensureVisible(find.text('Live updates'));
       await tester.pumpAndSettle();
