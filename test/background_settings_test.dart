@@ -695,13 +695,23 @@ void main() {
     expect(opened, 'notification_requests');
     final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
     expect(tester.widget<SwitchListTile>(loginSwitch).onChanged, isNotNull);
+    expect(tester.widget<SwitchListTile>(loginSwitch).subtitle, isNull);
+    expect(find.text('Open Login Items'), findsNothing);
     await tester.ensureVisible(loginSwitch);
     await tester.tap(loginSwitch);
     await tester.pumpAndSettle();
     expect(find.text('Approval required in System Settings'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('Approval required in System Settings'),
+        matching: find.byType(SnackBar),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.widgetWithText(TextButton, 'Open Login Items'));
     await tester.pump();
     expect(opened, 'login');
+    expect(find.text('Open Login Items'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('Mac keep-awake failure rolls back its setting', (tester) async {

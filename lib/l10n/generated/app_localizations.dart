@@ -1880,22 +1880,10 @@ abstract class AppLocalizations {
   /// **'Open Login Items'**
   String get backgroundOpenLoginSettings;
 
-  /// No description provided for @backgroundLoginNotFound.
-  ///
-  /// In en, this message translates to:
-  /// **'Login item unavailable'**
-  String get backgroundLoginNotFound;
-
-  /// No description provided for @backgroundLoginUnsupported.
-  ///
-  /// In en, this message translates to:
-  /// **'Requires macOS 13 or later'**
-  String get backgroundLoginUnsupported;
-
   /// No description provided for @backgroundLoginFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not change the login item. Check System Settings.'**
+  /// **'Could not change launch at login.'**
   String get backgroundLoginFailed;
 
   /// No description provided for @sendText.

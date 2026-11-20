@@ -955,13 +955,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundOpenLoginSettings => '打开登录项设置';
 
   @override
-  String get backgroundLoginNotFound => '无法找到登录项';
-
-  @override
-  String get backgroundLoginUnsupported => '需要 macOS 13 或更新版本';
-
-  @override
-  String get backgroundLoginFailed => '无法更改登录启动项，请检查系统设置。';
+  String get backgroundLoginFailed => '无法更改登录启动。';
 
   @override
   String get sendText => '发送文字';

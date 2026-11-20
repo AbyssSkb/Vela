@@ -257,18 +257,26 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     try {
       await channel.invokeMethod<String>('setLaunchAtLogin', value);
       await _refresh(strict: true);
+      if (mounted &&
+          isMac &&
+          value &&
+          status['loginStatus'] == 'requiresApproval') {
+        final t = AppLocalizations.of(context)!;
+        showNotice(
+          context,
+          t.backgroundLoginApproval,
+          actionLabel: t.backgroundOpenLoginSettings,
+          onAction: () => _openSettings('login'),
+        );
+      }
     } catch (_) {
       if (mounted) {
         await _refresh();
         if (mounted) {
-          final t = AppLocalizations.of(context)!;
-          final canOpenSettings = isMac && status['loginSupported'] == true;
           showNotice(
             context,
-            t.backgroundLoginFailed,
+            AppLocalizations.of(context)!.backgroundLoginFailed,
             kind: NoticeKind.error,
-            actionLabel: canOpenSettings ? t.backgroundOpenLoginSettings : null,
-            onAction: canOpenSettings ? () => _openSettings('login') : null,
           );
         }
       }
@@ -324,13 +332,6 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
         : null;
     final restricted = status['restricted'] == true;
     final login = status['loginStatus'];
-    final loginDetail = switch (login) {
-      'enabled' || 'notRegistered' => null,
-      'requiresApproval' => t.backgroundLoginApproval,
-      'notFound' => t.backgroundLoginNotFound,
-      'unsupported' => t.backgroundLoginUnsupported,
-      _ => t.backgroundUnknown,
-    };
     Widget recoveryButton(String label, VoidCallback? onPressed) => Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
       child: Align(
@@ -417,27 +418,15 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                           t.retry,
                           changing ? null : () => _toggle(true),
                         ),
-                      if (isMac || usesTray) ...[
+                      if ((isMac || usesTray) &&
+                          status['loginSupported'] == true) ...[
                         const Divider(height: 1, indent: 16, endIndent: 16),
                         SwitchListTile(
                           title: Text(t.backgroundLogin),
-                          subtitle: loginDetail == null
-                              ? null
-                              : Text(loginDetail),
                           value:
                               login == 'enabled' || login == 'requiresApproval',
-                          onChanged:
-                              changing || status['loginSupported'] != true
-                              ? null
-                              : _toggleLogin,
+                          onChanged: changing ? null : _toggleLogin,
                         ),
-                        if (isMac &&
-                            (login == 'requiresApproval' ||
-                                login == 'notFound'))
-                          recoveryButton(
-                            t.backgroundOpenLoginSettings,
-                            () => _openSettings('login'),
-                          ),
                       ],
                     ],
                   ),

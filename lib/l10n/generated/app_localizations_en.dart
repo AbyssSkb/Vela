@@ -1015,14 +1015,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundOpenLoginSettings => 'Open Login Items';
 
   @override
-  String get backgroundLoginNotFound => 'Login item unavailable';
-
-  @override
-  String get backgroundLoginUnsupported => 'Requires macOS 13 or later';
-
-  @override
-  String get backgroundLoginFailed =>
-      'Could not change the login item. Check System Settings.';
+  String get backgroundLoginFailed => 'Could not change launch at login.';
 
   @override
   String get sendText => 'Send text';
