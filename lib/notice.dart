@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 enum NoticeKind { info, success, error }
 
+const receiptDuration = Duration(seconds: 8);
+
 const _noticeShape = RoundedRectangleBorder(
   borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
 );
@@ -73,6 +75,15 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
           : const Color(0xff174d2f),
   };
   final messenger = ScaffoldMessenger.of(context);
+  final route = ModalRoute.of(context);
+  var active = true;
+  void dismiss() {
+    if (active && messenger.mounted) {
+      active = false;
+      messenger.removeCurrentSnackBar();
+    }
+  }
+
   final details = Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -110,7 +121,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       TextButton(
         key: const ValueKey('notice-action'),
         onPressed: () {
-          messenger.hideCurrentSnackBar();
+          dismiss();
           onAction();
         },
         style: TextButton.styleFrom(
@@ -123,7 +134,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       IconButton(
         key: const ValueKey('notice-close'),
         tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-        onPressed: messenger.hideCurrentSnackBar,
+        onPressed: dismiss,
         color: foreground,
         iconSize: 20,
         icon: const Icon(Icons.close_rounded),
@@ -131,7 +142,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
     ],
   ];
   messenger.clearSnackBars();
-  return messenger.showSnackBar(
+  final controller = messenger.showSnackBar(
     SnackBar(
       key: const ValueKey('message-notice'),
       behavior: SnackBarBehavior.fixed,
@@ -143,9 +154,17 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       hitTestBehavior: HitTestBehavior.deferToChild,
       duration: onAction == null
           ? const Duration(seconds: 4)
-          : const Duration(days: 1),
+          : MediaQuery.accessibleNavigationOf(context)
+          ? const Duration(days: 1)
+          : receiptDuration,
       content: LayoutBuilder(
         builder: (context, constraints) {
+          if (MediaQuery.viewInsetsOf(context).bottom > 0 ||
+              (route != null &&
+                  (ModalRoute.of(context) != route || !route.isCurrent))) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => dismiss());
+            return const SizedBox.shrink();
+          }
           final scale = MediaQuery.textScalerOf(context).scale(1);
           if (actions.isNotEmpty &&
               (constraints.maxWidth < 340 || scale > 1.3)) {
@@ -171,4 +190,6 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showNotice(
       ),
     ),
   );
+  controller.closed.then((_) => active = false);
+  return controller;
 }

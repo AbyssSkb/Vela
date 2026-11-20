@@ -157,6 +157,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(platform: TargetPlatform.macOS),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(accessibleNavigation: true),
+          child: child!,
+        ),
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(
@@ -180,6 +184,8 @@ void main() {
     expect(find.byKey(const ValueKey('notice-close')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('notice-action')));
     expect(opened, isTrue);
+    await tester.pump();
+    expect(find.text('File received'), findsNothing);
   });
   testWidgets('long received names fit beside the open action on a phone', (
     tester,
@@ -261,7 +267,7 @@ void main() {
     expect(find.text('View received items').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('actionable notice fits when the IME opens on a short phone', (
+  testWidgets('actionable notice expires when the keyboard opens', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -290,9 +296,11 @@ void main() {
     await tester.tap(find.text('Show'));
     await tester.pumpAndSettle();
     tester.view.viewInsets = const FakeViewPadding(bottom: 248);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(tester.getBottomRight(find.byType(SnackBar)), const Offset(640, 72));
-    expect(find.text('Open file').hitTestable(), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
   });
 }
