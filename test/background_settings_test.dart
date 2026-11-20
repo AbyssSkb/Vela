@@ -101,6 +101,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(
+      tester.getCenter(find.text('Language')).dy,
+      tester.getCenter(find.text('English')).dy,
+    );
+    final autoAccept = find.widgetWithText(SwitchListTile, 'Auto accept');
+    expect(tester.widget<SwitchListTile>(autoAccept).subtitle, isNull);
+    expect(
+      find.byTooltip(
+        'Automatically accept incoming transfers from paired devices.',
+      ),
+      findsOneWidget,
+    );
     final choose = find.text('Save location');
     await tester.ensureVisible(choose);
     await tester.tap(choose);

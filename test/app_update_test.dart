@@ -490,8 +490,8 @@ void main() {
       )..state = AppUpdateState.current;
       addTearDown(offline.dispose);
       await tester.pumpWidget(updatePage(offline, scale: 1.5));
-      expect(find.text('You are up to date'), findsOneWidget);
-      final check = find.widgetWithText(OutlinedButton, 'Check for updates');
+      expect(find.text('Up to date'), findsOneWidget);
+      final check = find.widgetWithText(TextButton, 'Check');
       expect(check.hitTestable(), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -501,7 +501,7 @@ void main() {
       expect(checks, 1);
       expect(find.text('Could not update.'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Retry'));
+      await tester.tap(find.widgetWithText(TextButton, 'Retry'));
       await tester.pumpAndSettle();
       expect(checks, 2);
       expect(tester.takeException(), isNull);
@@ -514,21 +514,30 @@ void main() {
       final preview = AppUpdateController(version: '1.0.0-beta.5', build: 10);
       addTearDown(preview.dispose);
       await tester.pumpWidget(updatePage(preview));
-      expect(find.text('Installed version 1.0.0-beta.5'), findsOneWidget);
+      expect(find.text('1.0.0-beta.5'), findsOneWidget);
       expect(
-        find.text('Updates are unavailable in this build'),
+        find.byTooltip('Updates are unavailable in this build'),
         findsOneWidget,
       );
-      expect(find.byType(OutlinedButton), findsNothing);
+      expect(find.byType(TextButton), findsNothing);
+      expect(
+        tester.getCenter(find.text('App updates')).dy,
+        tester.getCenter(find.text('1.0.0-beta.5')).dy,
+      );
     });
 
     testWidgets('ready updates require explicit confirmation', (tester) async {
       await tester.runAsync(controller.start);
       await controller.setBusy(false);
       await tester.pumpWidget(updatePage(controller));
-      expect(find.text('Available version 1.1.0'), findsOneWidget);
-      expect(find.byType(OutlinedButton), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('install-update')));
+      final install = find.byKey(const ValueKey('install-update'));
+      expect(find.text('1.1.0'), findsOneWidget);
+      expect(find.byType(TextButton), findsNothing);
+      expect(
+        tester.getCenter(find.text('1.1.0')).dy,
+        tester.getCenter(install).dy,
+      );
+      await tester.tap(install);
       await tester.pumpAndSettle();
       expect(find.text('Install update?'), findsOneWidget);
       expect(calls.where((c) => c.method == 'installDownloaded'), isEmpty);

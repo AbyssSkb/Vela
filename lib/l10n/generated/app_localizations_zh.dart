@@ -829,7 +829,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoAccept => '自动接收';
 
   @override
-  String get autoAcceptHint => '已配对设备可直接发送，包括剪贴板。';
+  String get autoAcceptHint => '自动接受已配对设备发来的内容。';
 
   @override
   String get retry => '重试';
@@ -877,7 +877,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAbout => '关于 Vela';
 
   @override
-  String get appUpdateCheck => '检查更新';
+  String get appUpdateCheck => '检查';
 
   @override
   String get appUpdateFailed => '更新失败。';
