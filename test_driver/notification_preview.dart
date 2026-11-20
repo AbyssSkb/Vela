@@ -20,10 +20,7 @@ Future<void> main(List<String> args) async {
         ? {'action': 'notification-finish-test'}
         : {
             'action': 'notification-preview-test',
-            'title': 'FileApex-v0.20.5-Silicon.dmg',
-            'text': '7%\u2003\u20031.1 MB/s',
-            'progress': 7,
-            'shortText': '连接中',
+            'progress': args.length > 1 && args[1] == 'connect' ? null : 7,
           };
     final result = await driver.requestData(jsonEncode(message));
     if (result !=

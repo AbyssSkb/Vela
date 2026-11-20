@@ -217,7 +217,8 @@
     }
   },
   "receiving": "正在接收 {name}",
-  "notificationSending": "正在发送",
+  "notificationTransferring": "正在传输",
+  "notificationTransferringShort": "传输中",
   "@receiving": {
     "placeholders": {
       "name": {
@@ -314,7 +315,6 @@
   "receivedFromLabel": "来自",
   "connectingShort": "连接中",
   "incomingShort": "待接收",
-  "transferNotificationTitle": "传输",
   "noTransferHistory": "暂无接收记录",
   "transferHistoryEmptyHint": "收到的文件、文字和链接会显示在这里。",
   "manageRecords": "管理记录",
@@ -372,7 +372,7 @@
   "notificationRequests": "接收请求",
   "notificationRequestsHint": "设备发来内容时提醒，可在通知中接收或拒绝",
   "notificationProgress": "传输进度",
-  "notificationProgressHint": "显示进度和速度，系统支持时显示实时活动",
+  "notificationProgressHint": "显示传输进度和实时活动",
   "notificationResults": "传输结果",
   "notificationResultsHint": "完成或失败后保留通知，可打开接收的文件",
   "notificationLive": "实时活动",
@@ -380,8 +380,8 @@
   "notificationLiveDisabled": "未允许，将使用普通通知",
   "notificationLiveUnsupported": "当前系统使用普通通知",
   "notificationChannelHint": "可在系统设置中调整横幅、声音、振动和锁屏显示",
-  "notificationReceivedTitle": "接收完成",
-  "notificationReceivedShort": "已接收",
+  "notificationCompleted": "传输完成",
+  "notificationCompletedShort": "已完成",
   "backgroundDescription": "允许应用在后台保持连接并接收请求。运行时会显示系统通知，可能增加耗电。",
   "backgroundReady": "正在等待设备发送",
   "backgroundStartHint": "未开启 · 开启后可在后台接收。",

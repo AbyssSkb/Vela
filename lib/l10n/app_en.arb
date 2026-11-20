@@ -227,7 +227,8 @@
     }
   },
   "receiving": "Receiving {name}",
-  "notificationSending": "Sending",
+  "notificationTransferring": "Transferring",
+  "notificationTransferringShort": "Moving",
   "@receiving": {
     "placeholders": {
       "name": {
@@ -324,7 +325,6 @@
   "receivedFromLabel": "From",
   "connectingShort": "Linking",
   "incomingShort": "Incoming",
-  "transferNotificationTitle": "Transfer",
   "noTransferHistory": "No received items yet",
   "transferHistoryEmptyHint": "Files, text, and links you receive will appear here.",
   "manageRecords": "Manage records",
@@ -382,7 +382,7 @@
   "notificationRequests": "Incoming requests",
   "notificationRequestsHint": "Alerts when a device sends content, with accept and decline actions",
   "notificationProgress": "Transfer progress",
-  "notificationProgressHint": "Shows progress and speed; uses live updates when supported",
+  "notificationProgressHint": "Shows transfer progress and live updates",
   "notificationResults": "Transfer results",
   "notificationResultsHint": "Keeps completion and failure notifications, with an option to open files",
   "notificationLive": "Live updates",
@@ -390,8 +390,8 @@
   "notificationLiveDisabled": "Not allowed; standard notifications are used",
   "notificationLiveUnsupported": "This system uses standard notifications",
   "notificationChannelHint": "Adjust banners, sound, vibration and lock-screen display in system settings",
-  "notificationReceivedTitle": "Received",
-  "notificationReceivedShort": "Received",
+  "notificationCompleted": "Transfer complete",
+  "notificationCompletedShort": "Done",
   "backgroundDescription": "Keep a connection available and receive requests in the background. A system notification is shown and battery use may increase.",
   "backgroundReady": "Waiting for devices",
   "backgroundStartHint": "Off · Turn on to receive while Vela is in the background.",

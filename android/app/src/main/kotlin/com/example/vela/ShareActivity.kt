@@ -178,11 +178,12 @@ class ShareActivity : Activity() {
             selected != null -> directSend = { send(selected) }
             devices.isEmpty() || debugging -> openVela()
             else -> AlertDialog.Builder(this)
-                .setTitle(R.string.send_with_vela)
+                .setTitle(R.string.share_choose_device)
                 .setItems(devices.map { it.name }.toTypedArray()) { _, index -> send(devices[index]) }
                 .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }
                 .setOnCancelListener { finish() }
                 .show()
+                .window?.setBackgroundDrawableResource(R.drawable.share_dialog_background)
         }
     }
 

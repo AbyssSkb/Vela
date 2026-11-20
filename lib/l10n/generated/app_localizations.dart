@@ -938,11 +938,17 @@ abstract class AppLocalizations {
   /// **'Receiving {name}'**
   String receiving(String name);
 
-  /// No description provided for @notificationSending.
+  /// No description provided for @notificationTransferring.
   ///
   /// In en, this message translates to:
-  /// **'Sending'**
-  String get notificationSending;
+  /// **'Transferring'**
+  String get notificationTransferring;
+
+  /// No description provided for @notificationTransferringShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving'**
+  String get notificationTransferringShort;
 
   /// No description provided for @sendingTo.
   ///
@@ -1135,12 +1141,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Incoming'**
   String get incomingShort;
-
-  /// No description provided for @transferNotificationTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Transfer'**
-  String get transferNotificationTitle;
 
   /// No description provided for @noTransferHistory.
   ///
@@ -1361,7 +1361,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationProgressHint.
   ///
   /// In en, this message translates to:
-  /// **'Shows progress and speed; uses live updates when supported'**
+  /// **'Shows transfer progress and live updates'**
   String get notificationProgressHint;
 
   /// No description provided for @notificationResults.
@@ -1406,17 +1406,17 @@ abstract class AppLocalizations {
   /// **'Adjust banners, sound, vibration and lock-screen display in system settings'**
   String get notificationChannelHint;
 
-  /// No description provided for @notificationReceivedTitle.
+  /// No description provided for @notificationCompleted.
   ///
   /// In en, this message translates to:
-  /// **'Received'**
-  String get notificationReceivedTitle;
+  /// **'Transfer complete'**
+  String get notificationCompleted;
 
-  /// No description provided for @notificationReceivedShort.
+  /// No description provided for @notificationCompletedShort.
   ///
   /// In en, this message translates to:
-  /// **'Received'**
-  String get notificationReceivedShort;
+  /// **'Done'**
+  String get notificationCompletedShort;
 
   /// No description provided for @backgroundDescription.
   ///

@@ -462,7 +462,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get notificationSending => '正在发送';
+  String get notificationTransferring => '正在传输';
+
+  @override
+  String get notificationTransferringShort => '传输中';
 
   @override
   String sendingTo(String name) {
@@ -575,9 +578,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get incomingShort => '待接收';
-
-  @override
-  String get transferNotificationTitle => '传输';
 
   @override
   String get noTransferHistory => '暂无接收记录';
@@ -694,7 +694,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationProgress => '传输进度';
 
   @override
-  String get notificationProgressHint => '显示进度和速度，系统支持时显示实时活动';
+  String get notificationProgressHint => '显示传输进度和实时活动';
 
   @override
   String get notificationResults => '传输结果';
@@ -718,10 +718,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationChannelHint => '可在系统设置中调整横幅、声音、振动和锁屏显示';
 
   @override
-  String get notificationReceivedTitle => '接收完成';
+  String get notificationCompleted => '传输完成';
 
   @override
-  String get notificationReceivedShort => '已接收';
+  String get notificationCompletedShort => '已完成';
 
   @override
   String get backgroundDescription => '允许应用在后台保持连接并接收请求。运行时会显示系统通知，可能增加耗电。';

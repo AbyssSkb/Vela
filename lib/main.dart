@@ -46,7 +46,6 @@ import 'transfer_history.dart';
 import 'transfer_history_store.dart';
 import 'background_settings.dart';
 import 'diagnostics_page.dart';
-import 'notification_title.dart';
 import 'relay_settings.dart';
 import 'device_graph.dart';
 import 'home_responsive_layout.dart';
@@ -655,40 +654,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final now = DateTime.now().millisecondsSinceEpoch;
       if (Platform.isAndroid && now - lastSystemTransferUpdate >= 1000) {
         lastSystemTransferUpdate = now;
-        final speed = transferRate?.bytesPerSecond;
         final status = cancelling
             ? t.cancelling
+            : hasTransferred ||
+                  contentProcessing == ContentProcessing.savingReceived
+            ? t.notificationTransferring
             : processingLocalContent
             ? contentProcessingLabel!
-            : sendingTo != null
-            ? activity ?? t.notificationSending
-            : t.receiving('').trim();
-        final details =
-            !cancelling &&
-                !processingLocalContent &&
-                hasTransferred &&
-                total > 0
-            ? '${(value! * 100).floor()}%${speed != null ? '\u2003\u2003${_size(speed.round())}/s' : ''}'
-            : '';
+            : t.connectingShort;
         unawaited(
           backgroundChannel
               .invokeMethod<void>('transfer', {
-                'title': notificationTitle(
-                  notificationContentName ?? t.transferNotificationTitle,
-                ),
-                'channel': t.transferNotificationTitle,
-                'text': details.isEmpty ? status : details,
+                'title': status,
                 'sourceType': sendingTo != null
                     ? deviceType
                     : notificationPeerType,
                 'destinationType': sendingTo != null
                     ? notificationPeerType
                     : deviceType,
-                'shortText': cancelling
-                    ? t.cancelling
-                    : processingLocalContent
-                    ? contentProcessingLabel!
-                    : t.connectingShort,
+                'shortText': status == t.notificationTransferring
+                    ? t.notificationTransferringShort
+                    : status,
                 'id': notificationTransferId,
                 'cancel': t.cancel,
                 'cancelling': cancelling,
@@ -826,7 +812,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String? previewTextPath,
     String? batchId,
     String? openLabel,
-    bool received = false,
+    bool completed = false,
   }) {
     if (!Platform.isAndroid) return;
     unawaited(
@@ -835,16 +821,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             message != null ? 'finishTransfer' : 'clearTransfer',
             {
               'text': message,
-              'channel': t.transferNotificationTitle,
               'path': path,
               'name': name,
               'url': url,
               'previewTextPath': previewTextPath,
               'batchId': batchId,
               'open': openLabel ?? t.open,
-              'received': received,
-              'title': received ? t.notificationReceivedTitle : null,
-              'shortText': t.notificationReceivedShort,
+              'completed': completed,
+              'title': completed ? t.notificationCompleted : null,
+              'shortText': completed ? t.notificationCompletedShort : null,
             },
           )
           .catchError((Object e) {
@@ -1740,7 +1725,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           : null,
       batchId: content.historySaved ? batchId : null,
       openLabel: openLabel,
-      received: true,
+      completed: true,
     );
     _message(
       message,
@@ -3591,7 +3576,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           });
         }
         if (transferStarted || confirmedShare) {
-          _finishSystemTransfer(resultMessage);
+          _finishSystemTransfer(resultMessage, completed: sendCompleted);
         }
         if (resultMessage != null) {
           if (!sendCompleted && !declined && retryOffer == null) {
