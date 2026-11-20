@@ -291,6 +291,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   static const backgroundChannel = MethodChannel('vela/background');
   ({bool enabled, bool autoAccept, Map<Object?, Object?> status})?
   _backgroundAvailability;
+  String? _dismissedBackgroundNotice;
   int _backgroundStatusRequest = 0;
   static const offerActionsChannel = MethodChannel('vela/offer_actions');
   late final runtime = AppRuntime(
@@ -1349,18 +1350,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     legacyNoticeShowing = true;
     try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: Text(t.devices),
-          content: Text(t.legacyPairingsNotice),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(t.close),
-            ),
-          ],
+      await Navigator.of(context, rootNavigator: true).push(
+        bottomNoticeRoute<void>(
+          context,
+          builder: (context) => NoticePrompt(
+            title: t.legacyPairingsNotice,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(t.close),
+              ),
+            ],
+          ),
         ),
       );
       if (mounted) {
@@ -1397,10 +1398,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         confirm: (closed) => showPeerConfirmation(
           context,
           peerClosed: closed,
-          builder: (context) => AlertDialog(
-            constraints: const BoxConstraints(maxWidth: 420),
-            scrollable: true,
-            title: Text(t.pairRequest),
+          builder: (context) => NoticePrompt(
+            title: t.pairRequest,
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2703,15 +2702,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       status = {};
     }
     if (!mounted || request != _backgroundStatusRequest) return;
+    final enabled = setting.enabled(preferences, widget.profile);
+    final autoAccept =
+        preferences.getBool('auto_accept_${widget.profile}') ?? false;
     setState(() {
+      if (status.isNotEmpty &&
+          !setting.needsAttention(enabled, status, autoAccept: autoAccept)) {
+        _dismissedBackgroundNotice = null;
+      }
       _backgroundAvailability = status.isEmpty
           ? null
-          : (
-              enabled: setting.enabled(preferences, widget.profile),
-              autoAccept:
-                  preferences.getBool('auto_accept_${widget.profile}') ?? false,
-              status: status,
-            );
+          : (enabled: enabled, autoAccept: autoAccept, status: status);
     });
   }
 
@@ -4201,7 +4202,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildDeviceViewport(BuildContext context, BoxConstraints viewport) {
-    final colors = Theme.of(context).colorScheme;
     final wide = viewport.maxWidth >= 700;
     final desktop = DesktopPlatform.isDesktop;
     final sideBySide = wide && !desktop;
@@ -4221,27 +4221,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         !largeText &&
         (deviceView == 'graph' ||
             (deviceView == null && automaticGraph == true));
-    final background = _backgroundSetting;
-    final availability = _backgroundAvailability;
-    final backgroundStatus =
-        background != null &&
-            availability != null &&
-            node != null &&
-            error == null &&
-            peers.isNotEmpty &&
-            background.needsAttention(
-              availability.enabled,
-              availability.status,
-              autoAccept: availability.autoAccept,
-            )
-        ? background.statusText(
-            t,
-            availability.enabled,
-            availability.status,
-            autoAccept: availability.autoAccept,
-          )
-        : null;
-
     final actions = _sendButtons();
     final maximumActionWidth = desktop ? 456.0 : double.infinity;
     final minimumActionWidth = largeText
@@ -4256,62 +4235,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: _buildHomeToolbar(showingGraph, allowGraph: !largeText),
           ),
         ),
-        if (backgroundStatus != null)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-            sliver: SliverToBoxAdapter(
-              child: ListTile(
-                key: const ValueKey('local-background-availability'),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                tileColor: colors.errorContainer,
-                textColor: colors.onErrorContainer,
-                leading: Icon(
-                  Icons.error_outline_rounded,
-                  color: colors.onErrorContainer,
-                ),
-                title: Text(t.localBackgroundReceiving),
-                subtitle: Semantics(
-                  liveRegion: true,
-                  child: Text(backgroundStatus),
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: _showBackgroundSettings,
-              ),
-            ),
-          ),
-        if (error != null)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(t.startupFailed, style: TextStyle(color: colors.error)),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      TextButton(onPressed: _retryFromUI, child: Text(t.retry)),
-                      TextButton(
-                        onPressed: _showDiagnostics,
-                        child: Text(t.diagnostics),
-                      ),
-                      if (Platform.isAndroid ||
-                          Platform.isMacOS ||
-                          DesktopPlatform.isWindowsOrLinux)
-                        TextButton(
-                          onPressed: _showBackgroundSettings,
-                          child: Text(t.backgroundReceiving),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          )
-        else if (node == null)
+        if (node == null && error == null)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(32),
@@ -4324,6 +4248,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
           )
+        else if (node == null)
+          const SliverToBoxAdapter()
         else if (peers.isEmpty)
           EmptyDevicesSliver(
             onAddDevice: _deviceActionsBlocked ? null : _addDevice,
@@ -4503,7 +4429,78 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ? _buildSendRetryNotice()
         : pendingShare != null
         ? ActivityNotice(child: _buildPendingShareNotice(pendingShare!))
-        : _buildSendReceipt();
+        : _buildSendReceipt() ?? _buildHomeStatusNotice();
+  }
+
+  Widget? _buildHomeStatusNotice() {
+    if (_messageNotice != null) return null;
+    final background = _backgroundSetting;
+    if (error != null) {
+      return ActivityNotice(
+        error: true,
+        child: NoticePrompt(
+          title: t.startupFailed,
+          actions: [
+            TextButton(onPressed: _showDiagnostics, child: Text(t.diagnostics)),
+            if (background != null)
+              TextButton(
+                onPressed: _showBackgroundSettings,
+                child: Text(t.backgroundReceiving),
+              ),
+            FilledButton(onPressed: _retryFromUI, child: Text(t.retry)),
+          ],
+        ),
+      );
+    }
+    final availability = _backgroundAvailability;
+    if (background == null ||
+        availability == null ||
+        node == null ||
+        peers.isEmpty ||
+        !background.needsAttention(
+          availability.enabled,
+          availability.status,
+          autoAccept: availability.autoAccept,
+        )) {
+      return null;
+    }
+    final message = background.statusText(
+      t,
+      availability.enabled,
+      availability.status,
+      autoAccept: availability.autoAccept,
+    );
+    if (message == _dismissedBackgroundNotice) return null;
+    void dismiss() => setState(() => _dismissedBackgroundNotice = message);
+    return ActivityNotice(
+      child: Row(
+        key: const ValueKey('local-background-availability'),
+        children: [
+          Expanded(
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              dismiss();
+              unawaited(_showBackgroundSettings());
+            },
+            child: Text(t.settings),
+          ),
+          IconButton(
+            tooltip: t.close,
+            onPressed: dismiss,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildHomeSendNotice() {

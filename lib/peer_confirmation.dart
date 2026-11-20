@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'notice.dart';
+
 enum PeerDecision { accepted, declined, connectionClosed }
 
 Future<PeerDecision> showPeerConfirmation(
@@ -10,11 +12,7 @@ Future<PeerDecision> showPeerConfirmation(
   required Future<void> peerClosed,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
-  final route = DialogRoute<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: builder,
-  );
+  final route = bottomNoticeRoute<bool>(context, builder: builder);
   final choice = navigator
       .push(route)
       .then(

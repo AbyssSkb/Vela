@@ -17,7 +17,7 @@ import 'support/home_environment.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('short home keeps blocked background receiving visible', (
+  testWidgets('home overlays background problems without moving devices', (
     tester,
   ) async {
     await withHomeTestEnvironment(
@@ -53,13 +53,15 @@ void main() {
         );
         await waitForHome(tester, () => availability.evaluate().isNotEmpty);
         expect(availability.hitTestable(), findsOneWidget);
-        final colors = Theme.of(tester.element(availability)).colorScheme;
-        expect(
-          tester.widget<ListTile>(availability).tileColor,
-          colors.errorContainer,
+        final peer = find.byKey(const ValueKey('peer-${fakes.peerId}'));
+        final before = tester.getTopLeft(peer);
+        final notice = find.ancestor(
+          of: availability,
+          matching: find.byKey(const ValueKey('activity-notice')),
         );
+        expect(tester.getBottomLeft(notice).dy, 480);
         expect(find.text('Request notifications are off'), findsOneWidget);
-        await tester.tap(availability);
+        await tester.tap(find.widgetWithText(TextButton, 'Settings'));
         await tester.pumpAndSettle();
         expect(find.text('Allow background receiving'), findsOneWidget);
         permission = true;
@@ -67,6 +69,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
         expect(availability, findsNothing);
+        expect(tester.getTopLeft(peer).dy, before.dy);
       },
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));

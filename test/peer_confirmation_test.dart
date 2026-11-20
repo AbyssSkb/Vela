@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import 'package:vela/peer_confirmation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vela/notice.dart';
+import 'package:vela/peer_confirmation.dart';
 
 void main() {
-  testWidgets('closes the exact pairing dialog when its peer disconnects', (
+  testWidgets('closes the bottom pairing notice when its peer disconnects', (
     tester,
   ) async {
     final peerClosed = Completer<void>();
@@ -17,7 +18,8 @@ void main() {
             onPressed: () async => result = await showPeerConfirmation(
               context,
               peerClosed: peerClosed.future,
-              builder: (_) => const AlertDialog(title: Text('Pair request')),
+              builder: (_) =>
+                  const NoticePrompt(title: 'Pair request', actions: []),
             ),
             child: const Text('Open'),
           ),
@@ -27,6 +29,19 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.text('Pair request'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    final screen = tester.getSize(find.byType(Navigator));
+    final notice = tester.getRect(find.byType(ActivityNotice));
+    expect(notice.left, 0);
+    expect(notice.right, screen.width);
+    expect(notice.bottom, screen.height);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    expect(find.byType(ActivityNotice), findsNothing);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(find.byType(ActivityNotice), findsOneWidget);
     peerClosed.complete();
     await tester.pumpAndSettle();
     expect(find.text('Pair request'), findsNothing);
@@ -43,7 +58,8 @@ void main() {
             onPressed: () async => result = await showPeerConfirmation(
               context,
               peerClosed: peerClosed.future,
-              builder: (context) => AlertDialog(
+              builder: (context) => NoticePrompt(
+                title: 'Pair request',
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),
