@@ -33,6 +33,10 @@ flutter devices
 
 Run `flutter run -d DEVICE_ID` with an ID from the list. Build Windows, Linux, and macOS targets on their respective operating systems. Cargokit builds the Rust library as part of the Flutter build. [Architecture and test entry points](docs/architecture.md)
 
+### iPhone and iPad preview
+
+The iOS runner targets foreground pairing and transfers with iOS and iPadOS 15 or later. To build on a Mac with the iOS simulator tools installed, run `flutter build ios --simulator --debug --no-codesign`. For personal device testing, open `ios/Runner.xcworkspace` in Xcode and select your Personal Team and a unique bundle identifier. Free device provisioning expires after seven days. The simulator workflow checks startup on an iPad without a signing account. [Apple developer accounts](https://developer.apple.com/help/account/basics/about-your-developer-account)
+
 ### Local signing on macOS
 
 Ad-hoc development builds can trigger a fresh Keychain prompt after rebuilding. To keep a stable local identity, add the following to `macos/Runner/Configs/LocalSigning.xcconfig` and substitute the certificate fingerprint.

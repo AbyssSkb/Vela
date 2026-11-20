@@ -1,0 +1,73 @@
+name: iOS and iPadOS preview
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'integration_test/ios_startup_test.dart'
+      - '.github/workflows/ios-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    name: iPad simulator startup
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+      - run: rustup toolchain install 1.98.1 --profile minimal --target aarch64-apple-ios-sim
+      - run: flutter pub get --enforce-lockfile
+      - name: Boot an iPad simulator
+        id: ipad
+        run: |
+          device="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          print(next(d["udid"] for entries in reversed(list(runtimes.values()))
+                     for d in entries if d["name"].startswith("iPad")))
+          ')"
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device" -b
+          echo "id=$device" >> "$GITHUB_OUTPUT"
+      - name: Build and verify node startup without a signing account
+        env:
+          DEVICE_ID: ${{ steps.ipad.outputs.id }}
+        run: |
+          flutter drive --no-pub --debug --verbose -d "$DEVICE_ID" \
+            --driver=test_driver/integration_test.dart \
+            --target=integration_test/ios_startup_test.dart \
+            --dart-define=VELA_SIMULATOR_DEVICE=tablet
+      - name: Archive the simulator app
+        run: |
+          flutter build ios --simulator --no-codesign --debug --no-pub
+          preview="$RUNNER_TEMP/Vela-iPad-simulator"
+          ditto build/ios/iphonesimulator/Runner.app "$preview/Runner.app"
+          cargo metadata --locked --format-version 1 --manifest-path rust/Cargo.toml \
+            --filter-platform aarch64-apple-ios-sim > "$RUNNER_TEMP/ios-metadata.json"
+          python3 tool/release/notices.py --metadata "$RUNNER_TEMP/ios-metadata.json" --output "$preview/third-party-notices"
+          cp LICENSE "$preview/VELA-LICENSE.txt"
+          cp rust_builder/cargokit/LICENSE "$preview/third-party-notices/CARGOKIT-LICENSE.txt"
+          ditto -c -k --keepParent "$preview" "$RUNNER_TEMP/Vela-iPad-simulator.zip"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: Vela-iPad-simulator
+          path: ${{ runner.temp }}/Vela-iPad-simulator.zip
+          if-no-files-found: error

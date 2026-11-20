@@ -12,7 +12,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 flutter_rust_bridge = "=2.13.0"
 log = "0.4"
 rand = "0.10"
-iroh = "1.2"
+iroh = "1.4.2"
 n0-future = "0.3.2"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "io-util", "fs", "time", "macros", "net"] }
 anyhow = "1"

@@ -20,6 +20,8 @@ Builds Vela's Rust networking and file transfer engine for Flutter.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
+  s.frameworks = 'Network', 'SystemConfiguration'
+  s.libraries = 'resolv'
   s.platform = :ios, '11.0'
 
   # Flutter.framework does not contain a i386 slice.

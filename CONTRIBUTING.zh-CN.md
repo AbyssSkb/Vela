@@ -33,6 +33,10 @@ flutter devices
 
 用列表里的设备 ID 运行 `flutter run -d DEVICE_ID`。Windows、Linux 和 macOS 目标在对应操作系统上构建。Flutter 构建过程中，Cargokit 会构建 Rust 库。 [代码架构与测试入口](docs/architecture.zh-CN.md)
 
+### iPhone 和 iPad 预览
+
+iOS 工程面向 iOS 和 iPadOS 15 或更新版本的前台配对和传输。在装有 iOS 模拟器工具的 Mac 上运行 `flutter build ios --simulator --debug --no-codesign`，即可为模拟器构建。要在自己的设备上试用，在 Xcode 打开 `ios/Runner.xcworkspace`，选择 Personal Team 并使用唯一的应用标识。免费签名的描述文件七天后到期。模拟器工作流无需签名账号即可验证 iPad 启动。[Apple 开发者账号](https://developer.apple.com/help/account/basics/about-your-developer-account)
+
 ### macOS 本地签名
 
 临时签名的开发包在重建后可能再次弹出钥匙串提示。需要固定本地签名身份时，在 `macos/Runner/Configs/LocalSigning.xcconfig` 中加上下面的配置，并填写证书指纹。
