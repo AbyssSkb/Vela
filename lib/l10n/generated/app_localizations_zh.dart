@@ -742,6 +742,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundOpenBatterySettings => '打开应用设置';
 
   @override
+  String get backgroundAllowLockedReceiving => '允许锁屏接收';
+
+  @override
+  String get backgroundBatteryLimitsLockedReceiving => '电池优化可能中断锁屏接收';
+
+  @override
   String get backgroundSettingsOpenFailed => '无法打开系统设置。';
 
   @override
@@ -979,6 +985,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundLowPowerStandby => '低功耗待机豁免';
 
   @override
+  String get backgroundLowPowerStandbyRestricted => '低功耗待机会限制锁屏时的网络连接';
+
+  @override
   String get backgroundAutoStart => '自启动';
 
   @override
@@ -986,8 +995,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '状态无法自动检测。打开系统设置，搜索“自启动”，找到 Vela 并开启（如系统提供）。';
 
   @override
-  String get backgroundAutoStartOplusHint =>
-      '状态无法自动检测。尝试：设置 → 应用 → 自启动 → Vela；找不到时在设置中搜索“自启动”。';
+  String get backgroundAutoStartOplusHint => '在 Vela 的耗电管理中允许后台运行和自启动。';
 
   @override
   String get macKeepAwake => '后台保持可用';

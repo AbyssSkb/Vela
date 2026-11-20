@@ -60,11 +60,13 @@ Vela 一次处理一项传输。在 Vela 内可以查看进度或取消。发送
 
 | 平台 | 怎样保持可接收 |
 | --- | --- |
-| Android | 开启「允许后台接收」。接收服务会显示常驻通知，可以在通知上接收或拒绝请求。重启并解锁后，Vela 会尝试恢复已开启的服务。如果服务被系统停止，重新打开 Vela，再检查通知和电池设置。 |
+| Android | 开启「允许后台接收」。如果页面显示「允许锁屏接收」，点它打开系统电池豁免确认。可以通过通知接收或拒绝请求。重启后首次解锁，已开启的接收服务会尝试恢复。 |
 | macOS | 关闭窗口后，Vela 会留在菜单栏。可以开启「后台保持可用」来阻止空闲睡眠。合盖和手动睡眠仍会中断连接。macOS 13 起还可另行开启登录启动。 |
 | Windows 和 Linux | 后台接收开启且托盘可用时，关闭窗口后 Vela 会留在系统托盘。可从托盘菜单打开或退出。托盘不可用时请保持窗口打开。系统睡眠或退出登录会停止接收。 |
 
-支持实时更新的 Android 系统也可能在状态栏胶囊中显示传输进度。保持后台可用会增加耗电。
+**ColorOS** 在 Vela 的应用详情中查看「耗电管理」，开启后台运行和自启动。**澎湃 OS** 检查 Vela 的「后台自启动」和应用省电设置里的「无限制」。**One UI** 检查「从不自动休眠的应用」列表。菜单名称和位置随系统版本变化。 [ColorOS 设置示例](https://consumer.huawei.com/cn/support/content/zh-cn15848664/) · [澎湃 OS 自启动](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [澎湃 OS 电池设置](https://www.mi.com/global/support/faq/details/KA-538010/) · [三星应用管理](https://developer.samsung.com/mobile/app-management.html)
+
+支持实时更新的 Android 系统可能在状态栏胶囊中显示传输进度。保持后台可用会增加耗电。强制停止 Vela 后，重新打开应用以恢复接收。 [Android 后台接收细节](background-execution-research.zh-CN.md)
 
 桌面端通过菜单栏或托盘图标显示传输中和传输完成。需要手动确认时，可点图标或接收请求通知打开 Vela。要在内容保存后自动打开窗口，可以开启「设置 → 接收 → 接收完成后显示窗口」，默认关闭。
 

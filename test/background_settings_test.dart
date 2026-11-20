@@ -152,6 +152,19 @@ void main() {
         android.statusText(t, true, notificationBlocked, autoAccept: true),
         'Service running',
       );
+      const lowPowerStandby = {
+        ...notificationBlocked,
+        'lowPowerStandbyEnabled': true,
+        'lowPowerStandbyExempt': false,
+      };
+      expect(
+        android.statusText(t, true, lowPowerStandby, autoAccept: true),
+        'Low Power Standby restricts network access while locked',
+      );
+      expect(
+        android.recoverySettings(lowPowerStandby, autoAccept: true),
+        isNull,
+      );
       expect(
         BackgroundReceiving.desktopTray.statusText(t, true, {
           'running': true,
@@ -230,7 +243,8 @@ void main() {
   for (final (state, label, section) in [
     ('app', 'System notification settings', 'notification_app'),
     ('requests', 'Open incoming request settings', 'notification_requests'),
-    ('battery', 'Open app settings', 'battery'),
+    ('battery', 'Allow receiving while locked', 'battery_exemption'),
+    ('restricted', 'Open app settings', 'battery'),
   ]) {
     testWidgets('blocked Android receiving opens the $state settings', (
       tester,
@@ -241,11 +255,12 @@ void main() {
       messenger.setMockMethodCallHandler(channel, (call) async {
         if (call.method == 'status') {
           return {
-            'running': true,
-            'nodeReady': true,
+            'running': state != 'restricted',
+            'nodeReady': state != 'restricted',
             'allNotifications': state != 'app',
-            'notifications': state == 'battery',
+            'notifications': state == 'battery' || state == 'restricted',
             'batteryExempt': false,
+            'restricted': state == 'restricted',
           };
         }
         if (call.method == 'settings') {
@@ -345,16 +360,12 @@ void main() {
       await tester.scrollUntilVisible(find.text('Auto-start'), 150);
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('Status cannot be checked automatically.'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('Settings → Apps → Auto launch → Vela'),
+        find.textContaining('allow background activity and auto launch'),
         findsOneWidget,
       );
       await tester.tap(find.text('Auto-start'));
       await tester.pump();
-      expect(section, 'autostart');
+      expect(section, 'battery');
     },
   );
 

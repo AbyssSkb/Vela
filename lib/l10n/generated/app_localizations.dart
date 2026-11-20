@@ -1454,6 +1454,18 @@ abstract class AppLocalizations {
   /// **'Open app settings'**
   String get backgroundOpenBatterySettings;
 
+  /// No description provided for @backgroundAllowLockedReceiving.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow receiving while locked'**
+  String get backgroundAllowLockedReceiving;
+
+  /// No description provided for @backgroundBatteryLimitsLockedReceiving.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery optimization can interrupt receiving while locked'**
+  String get backgroundBatteryLimitsLockedReceiving;
+
   /// No description provided for @backgroundSettingsOpenFailed.
   ///
   /// In en, this message translates to:
@@ -1928,6 +1940,12 @@ abstract class AppLocalizations {
   /// **'Low Power Standby exemption'**
   String get backgroundLowPowerStandby;
 
+  /// No description provided for @backgroundLowPowerStandbyRestricted.
+  ///
+  /// In en, this message translates to:
+  /// **'Low Power Standby restricts network access while locked'**
+  String get backgroundLowPowerStandbyRestricted;
+
   /// No description provided for @backgroundAutoStart.
   ///
   /// In en, this message translates to:
@@ -1943,7 +1961,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundAutoStartOplusHint.
   ///
   /// In en, this message translates to:
-  /// **'Status cannot be checked automatically. Try Settings → Apps → Auto launch → Vela, or search settings for auto-start.'**
+  /// **'In Vela’s battery settings, allow background activity and auto launch.'**
   String get backgroundAutoStartOplusHint;
 
   /// No description provided for @macKeepAwake.

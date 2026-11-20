@@ -798,6 +798,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundOpenBatterySettings => 'Open app settings';
 
   @override
+  String get backgroundAllowLockedReceiving => 'Allow receiving while locked';
+
+  @override
+  String get backgroundBatteryLimitsLockedReceiving =>
+      'Battery optimization can interrupt receiving while locked';
+
+  @override
   String get backgroundSettingsOpenFailed => 'Could not open system settings.';
 
   @override
@@ -1048,6 +1055,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundLowPowerStandby => 'Low Power Standby exemption';
 
   @override
+  String get backgroundLowPowerStandbyRestricted =>
+      'Low Power Standby restricts network access while locked';
+
+  @override
   String get backgroundAutoStart => 'Auto-start';
 
   @override
@@ -1056,7 +1067,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundAutoStartOplusHint =>
-      'Status cannot be checked automatically. Try Settings → Apps → Auto launch → Vela, or search settings for auto-start.';
+      'In Vela’s battery settings, allow background activity and auto launch.';
 
   @override
   String get macKeepAwake => 'Keep available in background';

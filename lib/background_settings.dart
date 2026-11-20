@@ -50,16 +50,16 @@ enum BackgroundReceiving {
           when !autoAccept || status['running'] == false =>
         'notification_app',
       {'notifications': false} when !autoAccept => 'notification_requests',
+      {'restricted': true} => 'battery',
       {'running': false} || {'nodeReady': false} => null,
-      {'restricted': true} ||
-      {'batteryExempt': false} ||
-      {
-        'lowPowerStandbyEnabled': true,
-        'lowPowerStandbyExempt': false,
-      } => 'battery',
+      {'batteryExempt': false} => 'battery_exemption',
       _ => null,
     };
   }
+
+  static bool _lowPowerStandbyRestricts(Map<Object?, Object?> status) =>
+      status['lowPowerStandbyEnabled'] == true &&
+      status['lowPowerStandbyExempt'] == false;
 
   bool needsAttention(
     bool? enabled,
@@ -71,7 +71,8 @@ enum BackgroundReceiving {
         androidService =>
           recoverySettings(status, autoAccept: autoAccept) != null ||
               status['running'] == false ||
-              status['nodeReady'] == false,
+              status['nodeReady'] == false ||
+              _lowPowerStandbyRestricts(status),
         macKeepAwake => status['active'] == false,
         desktopTray => status['trayAvailable'] == false,
       };
@@ -102,9 +103,12 @@ enum BackgroundReceiving {
       'notification_app' => t.backgroundAppNotificationsOff,
       'notification_requests' => t.backgroundAllowRequests,
       'battery' => t.backgroundCheckBattery,
+      'battery_exemption' => t.backgroundBatteryLimitsLockedReceiving,
       _ => switch (status) {
         {'running': false} ||
         {'nodeReady': false} => t.backgroundServiceStopped,
+        _ when _lowPowerStandbyRestricts(status) =>
+          t.backgroundLowPowerStandbyRestricted,
         {'running': true, 'nodeReady': true}
             when status['notifications'] == true || autoAccept =>
           t.backgroundServiceReady,
@@ -308,6 +312,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
       'notification_app' => t.notificationSystemSettings,
       'notification_requests' => t.backgroundOpenRequestSettings,
       'battery' => t.backgroundOpenBatterySettings,
+      'battery_exemption' => t.backgroundAllowLockedReceiving,
       _ => null,
     };
     final needsRetry =
@@ -510,7 +515,9 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                         check(
                           t.backgroundBattery,
                           status['batteryExempt'] as bool?,
-                          'battery',
+                          status['batteryExempt'] == false
+                              ? 'battery_exemption'
+                              : 'battery',
                           whenAllowed: t.backgroundBatteryExempt,
                           whenBlocked: t.backgroundBatteryOptimized,
                         ),
@@ -527,6 +534,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                             t.backgroundLowPowerStandby,
                             status['lowPowerStandbyExempt'] as bool?,
                             null,
+                            whenBlocked: t.backgroundLowPowerStandbyRestricted,
                           ),
                         ListTile(
                           leading: const Icon(Icons.open_in_new_rounded),
@@ -536,7 +544,8 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                                 ? t.backgroundAutoStartOplusHint
                                 : t.backgroundAutoStartHint,
                           ),
-                          onTap: () => _openSettings('autostart'),
+                          onTap: () =>
+                              _openSettings(isOplus ? 'battery' : 'autostart'),
                         ),
                         ListTile(
                           leading: const Icon(Icons.open_in_new_rounded),
