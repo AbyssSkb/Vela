@@ -3,9 +3,25 @@ import Cocoa
 import FlutterMacOS
 import UserNotifications
 
+private final class MenuStatusLight: NSView {
+  var color = NSColor.systemGray {
+    didSet { needsDisplay = true }
+  }
+
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+  override func draw(_ dirtyRect: NSRect) {
+    color.setFill()
+    NSBezierPath(
+      ovalIn: NSRect(x: bounds.midX + 2.5, y: bounds.midY + 2.5, width: 6, height: 6)
+    ).fill()
+  }
+}
+
 @main
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   private var statusItem: NSStatusItem?
+  private let statusLight = MenuStatusLight()
   private var backgroundActivity: NSObjectProtocol?
   private var menuLanguage: String?
   private var menuIsChinese: Bool {
@@ -19,6 +35,17 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     if incoming { return "notification" }
     if transferring { return "transferring" }
     return completed ? "completed" : nodeStatus
+  }
+
+  var menuStatusColor: NSColor {
+    switch menuStatus {
+    case "starting": return .systemGray
+    case "failed": return .systemRed
+    case "notification": return .systemOrange
+    case "transferring": return .systemBlue
+    case "completed": return .systemPurple
+    default: return .systemGreen
+    }
   }
 
   var backgroundActive: Bool { backgroundActivity != nil }
@@ -46,7 +73,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
         "exists": statusItem != nil, "visible": statusItem?.isVisible ?? false,
         "status": menuStatus,
         "hasImage": button?.image != nil, "windowVisible": button?.window?.isVisible ?? false,
-        "imageHash": button?.image?.tiffRepresentation?.hashValue ?? 0,
+        "lightColor": statusLight.superview != nil ? statusLight.color.description : "",
         "frame": button?.window.map { NSStringFromRect($0.frame) } ?? "none",
       ]
     }
@@ -70,7 +97,13 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     item.button?.action = #selector(statusClicked(_:))
     item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     statusItem = item
-    updateMenuImage()
+    if let button = item.button {
+      button.image = menuImage()
+      statusLight.frame = button.bounds
+      statusLight.autoresizingMask = [.width, .height]
+      button.addSubview(statusLight)
+    }
+    updateMenuLight()
   }
 
   @objc private func statusClicked(_ sender: NSStatusBarButton) {
@@ -89,7 +122,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     NSMenu.popUpContextMenu(menu, with: event, for: sender)
   }
 
-  private func menuImage(status: String) -> NSImage {
+  private func menuImage() -> NSImage {
     let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
       NSColor.black.setFill()
       for angle in stride(from: 0.0, to: 360.0, by: 90.0) {
@@ -113,79 +146,48 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
         blade.fill()
         NSGraphicsContext.restoreGraphicsState()
       }
-      if status != "ready" {
-        let badge = NSRect(x: 11, y: 11, width: 7, height: 7)
-        NSGraphicsContext.current?.saveGraphicsState()
-        NSGraphicsContext.current?.compositingOperation = .clear
-        NSBezierPath(ovalIn: badge.insetBy(dx: -0.5, dy: -0.5)).fill()
-        NSGraphicsContext.current?.restoreGraphicsState()
-        NSColor.black.setFill()
-        NSColor.black.setStroke()
-        if status == "notification" {
-          NSBezierPath(ovalIn: badge.insetBy(dx: 1, dy: 1)).fill()
-        } else if status == "starting" {
-          NSBezierPath(ovalIn: badge.insetBy(dx: 1.5, dy: 1.5)).stroke()
-        } else {
-          let path = NSBezierPath()
-          path.lineWidth = 1.3
-          if status == "failed" {
-            path.move(to: NSPoint(x: 12, y: 12))
-            path.line(to: NSPoint(x: 17, y: 17))
-            path.move(to: NSPoint(x: 17, y: 12))
-            path.line(to: NSPoint(x: 12, y: 17))
-          } else if status == "completed" {
-            path.move(to: NSPoint(x: 12, y: 14))
-            path.line(to: NSPoint(x: 14, y: 12))
-            path.line(to: NSPoint(x: 17, y: 16))
-          } else {
-            path.move(to: NSPoint(x: 12, y: 13))
-            path.line(to: NSPoint(x: 15.5, y: 16.5))
-            path.move(to: NSPoint(x: 13.5, y: 16.5))
-            path.line(to: NSPoint(x: 15.5, y: 16.5))
-            path.line(to: NSPoint(x: 15.5, y: 14.5))
-          }
-          path.stroke()
-        }
-      }
+      let cutout = NSRect(x: 10.5, y: 10.5, width: 8, height: 8)
+      NSGraphicsContext.current?.compositingOperation = .clear
+      NSBezierPath(ovalIn: cutout).fill()
       return true
     }
     image.isTemplate = true
-    image.accessibilityDescription = menuDescription(status)
+    image.accessibilityDescription = "Vela"
     return image
   }
 
   func setIncoming(_ incoming: Bool) {
     self.incoming = incoming
-    updateMenuImage()
+    updateMenuLight()
   }
 
   func setNodeStatus(_ status: String) {
     guard ["starting", "ready", "failed"].contains(status) else { return }
     nodeStatus = status
-    updateMenuImage()
+    updateMenuLight()
   }
 
   func setTransferring(_ transferring: Bool) {
     self.transferring = transferring
     if transferring { completed = false }
-    updateMenuImage()
+    updateMenuLight()
   }
 
   func finishTransfer(inBackground: Bool) {
     transferring = false
     completed = inBackground
-    updateMenuImage()
+    updateMenuLight()
   }
 
   func clearTransferCompletion() {
     guard completed else { return }
     completed = false
-    updateMenuImage()
+    updateMenuLight()
   }
 
   func setMenuLanguage(_ language: String) {
     menuLanguage = language
-    updateMenuImage()
+    updateMenuLight()
   }
 
   private func menuDescription(_ status: String) -> String {
@@ -200,9 +202,12 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     }
   }
 
-  private func updateMenuImage() {
-    statusItem?.button?.image = menuImage(status: menuStatus)
-    statusItem?.button?.toolTip = menuDescription(menuStatus)
+  private func updateMenuLight() {
+    guard let button = statusItem?.button else { return }
+    let description = menuDescription(menuStatus)
+    statusLight.color = menuStatusColor
+    button.toolTip = description
+    button.setAccessibilityLabel(description)
   }
 
   @objc func showWindow() {
