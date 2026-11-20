@@ -229,7 +229,7 @@ void main() {
         await tester.tap(
           find.descendant(
             of: sheet,
-            matching: find.byTooltip('Refresh device status'),
+            matching: find.byTooltip('Refresh this device'),
           ),
         );
         await tester.pump();

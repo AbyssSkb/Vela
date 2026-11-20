@@ -2501,16 +2501,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (peers.containsKey(id) &&
-                          presence[id] != PeerPresence.reachable &&
-                          !visiblePresenceChecks.contains(id))
-                        IconButton(
-                          tooltip: t.refreshDevices,
-                          onPressed: () => presenceController.requestPeerProbes(
-                            userInitiated: true,
-                          ),
-                          icon: const Icon(Icons.refresh_rounded),
-                        ),
+                      IconButton(
+                        tooltip: t.refreshThisDevice,
+                        onPressed:
+                            !peers.containsKey(id) ||
+                                visiblePresenceChecks.contains(id)
+                            ? null
+                            : () => presenceController.requestPeerProbe(id),
+                        icon: const Icon(Icons.refresh_rounded),
+                      ),
                       Semantics(liveRegion: true, child: _presenceIcon(id)),
                     ],
                   ),
