@@ -397,6 +397,7 @@
   "backgroundBatteryRestricted": "Restricted",
   "backgroundBatteryOptimized": "Not exempt",
   "backgroundRestricted": "System background restrictions",
+  "backgroundBatteryManagement": "Battery usage and auto-start",
   "backgroundBatteryHint": "If the device frequently goes offline, allow unrestricted battery use in system settings.",
   "backgroundVendorGuide": "Background receiving guide",
   "backgroundOffer": "A device is sending content",

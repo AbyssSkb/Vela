@@ -752,6 +752,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundRestricted => '系统后台限制';
 
   @override
+  String get backgroundBatteryManagement => '耗电管理与自启动';
+
+  @override
   String get backgroundBatteryHint => '若后台经常离线，可在系统设置中允许不受限制的电池使用。';
 
   @override

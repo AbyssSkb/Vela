@@ -10,9 +10,12 @@ Future<PeerDecision> showPeerConfirmation(
   BuildContext context, {
   required WidgetBuilder builder,
   required Future<void> peerClosed,
+  bool asDialog = false,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
-  final route = bottomNoticeRoute<bool>(context, builder: builder);
+  final route = asDialog
+      ? DialogRoute<bool>(context: context, builder: builder)
+      : bottomNoticeRoute<bool>(context, builder: builder);
   final choice = navigator
       .push(route)
       .then(

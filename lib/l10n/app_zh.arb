@@ -387,6 +387,7 @@
   "backgroundBatteryRestricted": "受限",
   "backgroundBatteryOptimized": "未豁免",
   "backgroundRestricted": "系统后台限制",
+  "backgroundBatteryManagement": "耗电管理与自启动",
   "backgroundBatteryHint": "若后台经常离线，可在系统设置中允许不受限制的电池使用。",
   "backgroundVendorGuide": "后台接收指南",
   "backgroundOffer": "有设备正在发送内容",

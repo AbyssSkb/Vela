@@ -6,7 +6,7 @@ import 'package:vela/notice.dart';
 import 'package:vela/peer_confirmation.dart';
 
 void main() {
-  testWidgets('closes the bottom pairing notice when its peer disconnects', (
+  testWidgets('closes the bottom transfer notice when its peer disconnects', (
     tester,
   ) async {
     final peerClosed = Completer<void>();
@@ -19,7 +19,7 @@ void main() {
               context,
               peerClosed: peerClosed.future,
               builder: (_) =>
-                  const NoticePrompt(title: 'Pair request', actions: []),
+                  const NoticePrompt(title: 'Transfer request', actions: []),
             ),
             child: const Text('Open'),
           ),
@@ -28,7 +28,7 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    expect(find.text('Pair request'), findsOneWidget);
+    expect(find.text('Transfer request'), findsOneWidget);
     expect(find.byType(AlertDialog), findsNothing);
     final screen = tester.getSize(find.byType(Navigator));
     final notice = tester.getRect(find.byType(ActivityNotice));
@@ -44,7 +44,7 @@ void main() {
     expect(find.byType(ActivityNotice), findsOneWidget);
     peerClosed.complete();
     await tester.pumpAndSettle();
-    expect(find.text('Pair request'), findsNothing);
+    expect(find.text('Transfer request'), findsNothing);
     expect(result, PeerDecision.connectionClosed);
   });
 
@@ -58,8 +58,9 @@ void main() {
             onPressed: () async => result = await showPeerConfirmation(
               context,
               peerClosed: peerClosed.future,
-              builder: (context) => NoticePrompt(
-                title: 'Pair request',
+              asDialog: true,
+              builder: (context) => AlertDialog(
+                title: const Text('Pair request'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),

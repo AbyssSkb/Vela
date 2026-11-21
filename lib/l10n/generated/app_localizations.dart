@@ -1478,6 +1478,12 @@ abstract class AppLocalizations {
   /// **'System background restrictions'**
   String get backgroundRestricted;
 
+  /// No description provided for @backgroundBatteryManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery usage and auto-start'**
+  String get backgroundBatteryManagement;
+
   /// No description provided for @backgroundBatteryHint.
   ///
   /// In en, this message translates to:
