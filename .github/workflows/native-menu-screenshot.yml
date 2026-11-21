@@ -15,10 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [package, dark]
+        variant: [source-dark, dark]
     steps:
       - name: Download the exact menu fix build
-        if: matrix.variant != 'source'
+        if: matrix.variant == 'dark'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -35,7 +35,7 @@ jobs:
           ditto -x -k "${archive[0]}" .
 
       - name: Compile the exact AppKit sources with a Flutter interface stub
-        if: matrix.variant == 'source'
+        if: matrix.variant == 'source-dark'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -72,6 +72,7 @@ jobs:
 
           let app = NSApplication.shared
           app.setActivationPolicy(.accessory)
+          app.appearance = NSAppearance(named: .darkAqua)
           let window = MainFlutterWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
                                          styleMask: [.titled], backing: .buffered, defer: false)
           window.isReleasedWhenClosed = false
@@ -324,7 +325,8 @@ jobs:
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
           if [[ "$VARIANT" == dark ]]; then
-            defaults write -g AppleInterfaceStyle -string Dark
+            /usr/bin/osascript -e 'with timeout of 8 seconds' -e 'tell application "System Events" to tell appearance preferences to set dark mode to true' -e 'end timeout'
+            /usr/bin/osascript -e 'tell application "System Events" to tell appearance preferences to get dark mode' | grep '^true$' 
           else
             defaults delete -g AppleInterfaceStyle 2>/dev/null || true
           fi
@@ -352,7 +354,7 @@ jobs:
           printf 'Second file for Vela\n' > "$fixture/Vela second fixture.txt"
           xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
           test -s vela-finder-hint.png && test -s vela-finder-highlight.png && test -s vela-finder-two-files.png
-          if [[ "$VARIANT" == source ]]; then
+          if [[ "$VARIANT" == source-dark ]]; then
             grep 'FINDER_SEND_TO=phone COUNT=2 PATH=.*Vela drag fixture.txt,.*Vela second fixture.txt' vela.log
             grep 'FINDER_SEND_TO=phone COUNT=1 PATH=.*Vela second fixture.txt' vela.log
             test "$(grep -c 'FINDER_SEND_TO=' vela.log)" = 2
