@@ -81,6 +81,8 @@ python3 tool/release/feeds.py --key /path/to/private/vela-update.pem --print-pub
 
 公开桌面构建使用 macOS 临时签名和无 Authenticode 签名的 Windows 安装程序。Ed25519 更新密钥用于校验 Vela 的更新源与更新包。macOS 发行包保留应用沙盒，Windows 将编译器运行库随应用打包。
 
+各平台的开发者注册、签名和安装验收见[发布签名与开发者验证](release-signing.zh-CN.md)。
+
 客户端在安装前核对清单目标、签名、文件大小和 SHA-256。用户确认后，macOS 通过本机 appcast 将已验证的 ZIP 交给 Sparkle。Windows 退出应用后运行已验证的安装程序，Linux 通过辅助程序替换完整 AppImage，Android 把 APK 交给系统安装器。
 
 ## 单独验证联网
