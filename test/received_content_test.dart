@@ -135,6 +135,7 @@ void testReceiving(
   bool failClipboardText = false,
   bool inBackground = false,
   bool? openAfterReceive,
+  bool legacyImageAutoCopy = false,
 }) {
   testWidgets(description, (tester) async {
     final dir = Directory.systemTemp.createTempSync('vela-received-content-');
@@ -143,6 +144,7 @@ void testReceiving(
     await seedPeerState(tester, dir, PeerState(peers: {peerId: 'Phone'}));
     SharedPreferences.setMockInitialValues({
       'auto_accept_test': true,
+      if (legacyImageAutoCopy) 'macos_copy_received_images_test': true,
       if (openAfterReceive != null)
         DesktopPlatform.openAfterReceiveKey('test'): openAfterReceive,
     });
@@ -403,6 +405,29 @@ void main() {
       expect(File(archive).readAsStringSync(), 'archive');
     },
     macOnly: true,
+  );
+
+  testReceiving(
+    'a received image file requires Copy even with the former image setting',
+    ContentOffer('file', {
+      'photo.png': [1, 2, 3, 4],
+    }),
+    (_, effects) async {
+      final receipt =
+          effects.menuStates
+                  .singleWhere((state) => state.$1 == 'receivedMenuContent')
+                  .$2
+              as Map<Object?, Object?>;
+      expect(receipt['title'], 'Received photo.png');
+      expect(receipt['paths'], hasLength(1));
+      expect(receipt.containsKey('copyImage'), isFalse);
+      expect(effects.copiedImage, isNull);
+      expect(effects.copiedTexts, isEmpty);
+      expect(effects.fileCopyAttempts, isEmpty);
+    },
+    inBackground: true,
+    macOnly: true,
+    legacyImageAutoCopy: true,
   );
 
   testReceiving(

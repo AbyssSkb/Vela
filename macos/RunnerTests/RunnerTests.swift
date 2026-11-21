@@ -51,7 +51,23 @@ class RunnerTests: XCTestCase {
     app.setMenuDevices([["id": "phone", "name": "Phone", "label": "Reachable"]])
     let menu = app.menuTargets(for: [url], files: files)
     XCTAssertEqual(menu.items.map(\.title), ["Send “Report.pdf” to", "Phone"])
+    XCTAssertNotNil(menu.items.first?.view)
+    XCTAssertFalse(menu.items[0].isEnabled)
     XCTAssertNotNil(menu.items.last?.action)
+  }
+
+  func testDropTargetsShowBatchCountAndAccessibleDevicePresence() {
+    let app = AppDelegate()
+    app.setMenuLanguage("zh")
+    let urls = (1...3).map { URL(fileURLWithPath: "/tmp/Report\($0).pdf") }
+    app.setMenuDevices([[
+      "id": "phone", "name": "手机", "presence": "unavailable", "label": "暂时无法连接",
+    ]])
+    let menu = app.menuTargets(for: urls, files: urls.map { ["path": $0.path] }, showPresence: true)
+    XCTAssertEqual(menu.items.map(\.title), ["发送 3 个文件到", "手机"])
+    XCTAssertEqual(menu.items[1].toolTip, "手机, 暂时无法连接")
+    XCTAssertNotNil(menu.items[1].image)
+    XCTAssertTrue(menu.items[1].isEnabled)
   }
 
   func testReceivedItemsOfferOpenAndCopyWithNativeClipboardTypes() throws {
@@ -87,7 +103,10 @@ class RunnerTests: XCTestCase {
                             inBackground: true)
       app.menuNeedsUpdate(menu)
       XCTAssertEqual(Array(menu.items.prefix(3).map(\.title)), ["Newest receipt", "Open", "Copy"])
+      XCTAssertNotNil(menu.items.first?.view)
       XCTAssertTrue(menu.items[1].isEnabled && menu.items[2].isEnabled)
+      XCTAssertNotNil(menu.items[1].image)
+      XCTAssertNotNil(menu.items[2].image)
       XCTAssertTrue(app.copyCurrentReceipt(to: board))
       XCTAssertTrue(board.types?.contains(type) == true)
       if isText { XCTAssertEqual(board.string(forType: .string), "https://example.com\n") }
