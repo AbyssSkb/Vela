@@ -274,8 +274,9 @@ jobs:
           let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("会议纪要.pdf")
           try Data().write(to: file)
           let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first!
+          NSWorkspace.shared.activateFileViewerSelecting([file])
           finder.activate()
-          RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
+          RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.7))
           let receipt: [String: Any] = ["title": "已接收 会议纪要.pdf", "paths": [file.path]]
           for name in [NSAppearance.Name.aqua, .darkAqua] {
             application.appearance = NSAppearance(named: name)
@@ -307,12 +308,22 @@ jobs:
               precondition(copied == [file])
             } else {
               precondition(CGPreflightPostEventAccess(), "Hosted desktop cannot post a mouse click")
-              let outside = CGPoint(x: 300, y: 400)
+              precondition(NSWorkspace.shared.frontmostApplication?.processIdentifier == finder.processIdentifier)
+              let pointer = CGEventSource(stateID: .hidSystemState)
+              let outside = CGPoint(x: 300, y: 350)
               for kind in [CGEventType.leftMouseDown, .leftMouseUp] {
-                CGEvent(mouseEventSource: nil, mouseType: kind, mouseCursorPosition: outside,
-                        mouseButton: .left)?.post(tap: .cghidEventTap)
+                let click = CGEvent(mouseEventSource: pointer, mouseType: kind,
+                                    mouseCursorPosition: outside, mouseButton: .left)
+                click?.setIntegerValueField(.mouseEventClickState, value: 1)
+                click?.post(tap: .cghidEventTap)
               }
-              RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.7))
+              let deadline = Date(timeIntervalSinceNow: 1.5)
+              while panel.isVisible && Date() < deadline {
+                if let event = application.nextEvent(
+                  matching: .any, until: deadline, inMode: .default, dequeue: true) {
+                  application.sendEvent(event)
+                }
+              }
             }
             precondition(!panel.isVisible, "Menu preview should close after an action or outside click")
             precondition(!application.isActive, "Menu preview activated Vela")
