@@ -7,16 +7,24 @@ import XCTest
 
 class RunnerTests: XCTestCase {
 
-  func testMenuOfferOnlyDecidesTheCurrentRequestOnce() {
+  func testMenuOfferOnlyDecidesTheCurrentRequestOnce() throws {
     let app = AppDelegate()
+    let menu = NSMenu()
     var decisions: [String] = []
     app.setMenuOffer(["id": "old"]) { _, _ in XCTFail("Decided a stale request") }
+    app.menuNeedsUpdate(menu)
+    let stale = try XCTUnwrap(menu.items.first { $0.representedObject as? String == "old" && $0.tag == 1 })
     app.setMenuOffer(["id": "current"]) { id, accepted in
       if accepted { decisions.append(id) }
     }
-    app.decideMenuOffer("old", accepted: true)
-    app.decideMenuOffer("current", accepted: true)
-    app.decideMenuOffer("current", accepted: true)
+    app.menuNeedsUpdate(menu)
+    let accept = try XCTUnwrap(menu.items.first { $0.representedObject as? String == "current" && $0.tag == 1 })
+    XCTAssertTrue(accept.isEnabled)
+    XCTAssertFalse(menu.items[0].isEnabled)
+    for item in [stale, accept, accept] {
+      let action = try XCTUnwrap(item.action)
+      XCTAssertTrue(NSApplication.shared.sendAction(action, to: app, from: item))
+    }
     XCTAssertEqual(decisions, ["current"])
   }
 
