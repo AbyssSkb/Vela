@@ -36,7 +36,6 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
     dropArea.wantsLayer = true
     dropArea.layer?.cornerRadius = 13
     contentView = dropArea
-    registerForDraggedTypes([.fileURL])
   }
 
   func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -66,6 +65,7 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
     setFrame(NSRect(x: anchor.minX, y: anchor.minY - 40, width: compactWidth, height: 36), display: false)
     showDropArea(targeted: false)
     orderFrontRegardless()
+    registerForDraggedTypes([.fileURL])
     return true
   }
 
@@ -165,6 +165,7 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
 
   func dismiss() {
     choosingDevice = false
+    unregisterDraggedTypes()
     orderOut(nil)
     dismissalMonitors.forEach(NSEvent.removeMonitor)
     dismissalMonitors.removeAll()
