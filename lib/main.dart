@@ -55,6 +55,7 @@ import 'home_toolbar.dart';
 import 'device_pair_dialog.dart';
 import 'settings_page.dart';
 import 'app_update.dart';
+import 'app_update_tile.dart';
 import 'desktop_platform.dart';
 
 export 'home_responsive_layout.dart';
@@ -321,6 +322,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool shuttingDown = false;
   bool closingForUpdate = false;
   AppUpdateState? lastUpdateState;
+  bool _updatePromptPending = false;
   late final PresenceController presenceController = PresenceController(
     pairingActive: (id) => pairings.isActiveFor(id),
     canPersistInfo: () => !changingRelay,
@@ -457,22 +459,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       shuttingDown = false;
       unawaited(_startNode());
     }
-    if (updates.state == AppUpdateState.ready &&
-        lastUpdateState != AppUpdateState.ready) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || shuttingDown || updates.state != AppUpdateState.ready) {
-          return;
-        }
-        final zh = Localizations.localeOf(context).languageCode == 'zh';
-        _message(
-          zh ? '更新已下载，可在设置中安装' : 'Update downloaded. Install it from settings.',
-          actionLabel: t.settings,
-          onAction: () => unawaited(_showSettings()),
-        );
-      });
+    if (updates.state != AppUpdateState.ready) {
+      _updatePromptPending = false;
+    } else if (lastUpdateState == AppUpdateState.downloading) {
+      _updatePromptPending = true;
     }
     lastUpdateState = updates.state;
     setState(() {});
+    _maybePromptForUpdate();
+  }
+
+  bool get _canPromptForUpdate =>
+      _updatePromptPending &&
+      foreground &&
+      !presenceWindowHidden &&
+      updates.canInstall &&
+      !_updateBusy;
+
+  void _maybePromptForUpdate() {
+    if (!_canPromptForUpdate) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_canPromptForUpdate) return;
+      _updatePromptPending = false;
+      unawaited(confirmAppUpdate(context, updates, isBusy: () => _updateBusy));
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -601,6 +612,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     progressTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
       if (!updates.installing) unawaited(updates.setBusy(_updateBusy));
+      _maybePromptForUpdate();
       if (_confirmedShareAvailable) unawaited(_sendNextConfirmedShare());
       final job = activeTransfer;
       if (!mounted ||
