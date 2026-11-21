@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [source]
+        variant: [source, package, dark]
     steps:
       - name: Download the exact menu fix build
         if: matrix.variant != 'source'
@@ -23,11 +23,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44910514550 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = 5af149e86304a3864e00d94f4308e29d16822e90
+          result=$(gh run view 44911065416 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = b69b11ce80ff5fa56b2955b15778267a23e8e687
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44910514550 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44911065416 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/vela-menu/Vela.app/Contents/MacOS"
           cd "$RUNNER_TEMP/vela-menu"
-          ref=5af149e86304a3864e00d94f4308e29d16822e90
+          ref=b69b11ce80ff5fa56b2955b15778267a23e8e687
           for file in AppDelegate.swift MenuFileDropPanel.swift; do
             gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/$file?ref=$ref" |
               sed '/^import FlutterMacOS$/d; /^@main$/d; /UNUserNotificationCenter.current().delegate = self/d' > "$file"
@@ -87,25 +87,6 @@ jobs:
           fflush(stdout)
           app.run()
           SWIFT
-          python3 - <<'PY2'
-          from pathlib import Path
-          p = Path("MenuFileDropPanel.swift")
-          s = p.read_text()
-          for marker, label in [
-              ("    showDropArea(targeted: true)", "ENTER"),
-              ("    let urls = sender.draggingPasteboard.readObjects(", "PERFORM"),
-              ("    choosingDevice = true", "CHOOSE"),
-              ("    if !choosingDevice { dismiss() }", "END"),
-              ("    choosingDevice = false", "DISMISS"),
-          ]:
-              s = s.replace(marker, '    print("DROP_LIFECYCLE '+label+'"); fflush(stdout)\n'+marker)
-          p.write_text(s)
-          p = Path("AppDelegate.swift")
-          s = p.read_text().replace("        fileDropPanel?.endDrag()", """        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self, weak panel = fileDropPanel] in
-                  if self?.finderDragActive == false { panel?.endDrag() }
-                }""")
-          p.write_text(s)
-          PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
           cat > Vela.app/Contents/Info.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -360,6 +341,13 @@ jobs:
           precondition(findDrop(height: 110, timeout: 0.1) == nil, "Selecting a device did not close the panel")
           precondition(NSWorkspace.shared.frontmostApplication?.processIdentifier == finder.processIdentifier,
                        "The transfer took Finder's foreground focus")
+          let finderBlank = CGPoint(x: target.x - 470, y: 440)
+          mouse(.mouseMoved, finderBlank)
+          mouse(.leftMouseDown, finderBlank)
+          Thread.sleep(forTimeInterval: 0.15)
+          glide(to: CGPoint(x: finderBlank.x + 50, y: finderBlank.y + 25))
+          precondition(findDrop(height: 36, timeout: 0.25) == nil, "Selecting Finder space showed a stale drop hint")
+          mouse(.leftMouseUp, finderBlank)
           print("FINDER_DROP_HINT_DROP_CANCEL_SEND_OK")
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
