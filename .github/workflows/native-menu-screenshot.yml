@@ -194,7 +194,7 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/vela-menu"
           gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/AppDelegate.swift?ref=dba98e5f05932e9af6daaee0266eecb2a10e7222" |
-            sed '/^import FlutterMacOS$/d; /^@main$/d' > AppDelegate.swift
+            sed '/^import FlutterMacOS$/d; /^@main$/d; /UNUserNotificationCenter.current().delegate = self/d' > AppDelegate.swift
           cat > Dependencies.swift <<'SWIFT'
           import AppKit
           class FlutterAppDelegate: NSObject, NSApplicationDelegate {
