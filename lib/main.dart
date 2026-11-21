@@ -363,6 +363,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     onPairingStarted: (id) => presenceController.pairingStarted(id),
   );
   String? activePairingPeer;
+  DialogRoute<void>? _deviceCodeRoute;
   bool get outgoingPairingUiActive => activePairingPeer != null;
   bool get awaitingOfferDecision => incomingPrompt?.openedDialog ?? false;
   bool changingRelay = false;
@@ -1378,6 +1379,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final id = info.sender;
     final device = info.pairing!;
+    final deviceCodeRoute = _deviceCodeRoute;
     try {
       final added = await pairings.receive(
         devices,
@@ -1426,6 +1428,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       );
       if (added && mounted) {
+        if (deviceCodeRoute != null && deviceCodeRoute.isActive) {
+          deviceCodeRoute.navigator?.removeRoute(deviceCodeRoute);
+        }
         unawaited(presenceController.readCurrentSnapshot());
         _message(t.addedPeer(device.name), kind: NoticeKind.success);
       }
@@ -3034,10 +3039,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _showMyDeviceDialog() {
+    if (_deviceCodeRoute?.isActive == true) return;
     final id = node!.id();
+    final navigator = Navigator.of(context, rootNavigator: true);
     String? copyStatus;
-    showDialog<void>(
+    final route = DialogRoute<void>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+      barrierColor:
+          DialogTheme.of(context).barrierColor ??
+          Theme.of(context).dialogTheme.barrierColor ??
+          Colors.black54,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
       builder: (context) => StatefulBuilder(
         builder: (context, update) => AlertDialog(
           title: Text(t.deviceCode),
@@ -3112,6 +3125,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ],
         ),
       ),
+    );
+    _deviceCodeRoute = route;
+    unawaited(
+      navigator.push(route).whenComplete(() {
+        if (identical(_deviceCodeRoute, route)) _deviceCodeRoute = null;
+      }),
     );
   }
 
