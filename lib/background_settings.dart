@@ -363,12 +363,16 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => _openSettings('battery_exemption'),
                   ),
-                  if (restricted) ...[
+                  if (restricted || isOplus) ...[
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       title: SettingsRowTitle(
-                        t.backgroundRestricted,
-                        value: Text(t.backgroundBatteryRestricted),
+                        isOplus
+                            ? t.backgroundBatteryManagement
+                            : t.backgroundRestricted,
+                        value: restricted
+                            ? Text(t.backgroundBatteryRestricted)
+                            : null,
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => _openSettings('battery'),
@@ -384,13 +388,14 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  ListTile(
-                    title: Text(t.backgroundAutoStart),
-                    trailing: const Icon(Icons.open_in_new_rounded),
-                    onTap: () =>
-                        _openSettings(isOplus ? 'battery' : 'autostart'),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  if (!isOplus) ...[
+                    ListTile(
+                      title: Text(t.backgroundAutoStart),
+                      trailing: const Icon(Icons.open_in_new_rounded),
+                      onTap: () => _openSettings('autostart'),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                  ],
                   ListTile(
                     title: Text(t.backgroundVendorGuide),
                     trailing: const Icon(Icons.open_in_new_rounded),
