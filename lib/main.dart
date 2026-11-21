@@ -1845,12 +1845,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         'paths': files.map((file) => file.reference).toList(),
         'isText': content.text != null,
         'link': content.link,
-        'copyImage':
-            kind == TransferKind.file &&
-            (prefs?.getBool(
-                  DesktopPlatform.copyReceivedImagesKey(widget.profile),
-                ) ??
-                false),
         'showWindow':
             prefs?.getBool(
               DesktopPlatform.openAfterReceiveKey(widget.profile),

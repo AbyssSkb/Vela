@@ -88,6 +88,8 @@ class RunnerTests: XCTestCase {
       app.menuNeedsUpdate(menu)
       XCTAssertEqual(Array(menu.items.prefix(3).map(\.title)), ["Newest receipt", "Open", "Copy"])
       XCTAssertTrue(menu.items[1].isEnabled && menu.items[2].isEnabled)
+      XCTAssertNotNil(menu.items[1].image)
+      XCTAssertNotNil(menu.items[2].image)
       XCTAssertTrue(app.copyCurrentReceipt(to: board))
       XCTAssertTrue(board.types?.contains(type) == true)
       if isText { XCTAssertEqual(board.string(forType: .string), "https://example.com\n") }
