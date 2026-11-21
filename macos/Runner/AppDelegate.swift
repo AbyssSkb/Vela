@@ -36,6 +36,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private var statusMenuOpen = false
   private var folderOpenFailed = false
   private var menuOffer: MenuOffer?
+  private var menuDevices: [[String: String]] = []
   private var backgroundActivity: NSObjectProtocol?
   private var menuLanguage: String?
   private var menuIsChinese: Bool {
@@ -145,6 +146,26 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       menu.addItem(.separator())
     }
 
+    for device in menuDevices {
+      guard let name = device["name"], let status = device["label"] else { continue }
+      let item = menuItem(shortMenuTitle(name))
+      item.attributedTitle = NSAttributedString(
+        string: item.title, attributes: [.foregroundColor: NSColor.labelColor])
+      item.setAccessibilityLabel("\(name), \(status)")
+      let color: NSColor = switch device["presence"] {
+      case "reachable": .systemGreen
+      case "unavailable": .systemRed
+      default: .systemGray
+      }
+      item.image = NSImage(size: NSSize(width: 13, height: 13), flipped: false) { rect in
+        color.setFill()
+        NSBezierPath(ovalIn: rect.insetBy(dx: 3.5, dy: 3.5)).fill()
+        return true
+      }
+      menu.addItem(item)
+    }
+    if !menuDevices.isEmpty { menu.addItem(.separator()) }
+
     menu.addItem(menuItem(
       chinese ? "打开接收文件夹" : "Open received folder", icon: "folder",
       action: #selector(openReceivedFolderFromMenu)))
@@ -247,7 +268,14 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   func setNodeStatus(_ status: String) {
     guard ["starting", "ready", "failed"].contains(status) else { return }
     nodeStatus = status
+    if status != "ready" { menuDevices = [] }
     updateMenuLight()
+  }
+
+  func setMenuDevices(_ devices: [[String: String]]) {
+    guard devices != menuDevices else { return }
+    menuDevices = devices
+    if statusMenuOpen { statusMenu.update() }
   }
 
   func setTransferring(_ transferring: Bool) {

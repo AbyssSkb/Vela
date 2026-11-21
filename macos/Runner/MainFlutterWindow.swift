@@ -303,6 +303,13 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         }
         (NSApplication.shared.delegate as? AppDelegate)?.setNodeStatus(status)
         result(nil)
+      case "setMenuDevices":
+        guard let devices = call.arguments as? [[String: String]] else {
+          result(FlutterError(code: "devices", message: "Missing menu devices", details: nil))
+          return
+        }
+        (NSApplication.shared.delegate as? AppDelegate)?.setMenuDevices(devices)
+        result(nil)
       case "setTransferring":
         guard let transferring = call.arguments as? Bool else {
           result(FlutterError(code: "status", message: "Missing transfer state", details: nil))

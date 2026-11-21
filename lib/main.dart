@@ -480,6 +480,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.didChangeDependencies();
     if (defaultTargetPlatform == TargetPlatform.macOS) {
       _updateDesktopStatus('setMenuLanguage', t.localeName);
+      _publishMacMenuDevices();
     } else if (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux) {
       _updateDesktopStatus('setTrayLabels', {
@@ -1327,7 +1328,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _presenceChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _publishMacMenuDevices();
+  }
+
+  void _publishMacMenuDevices() {
+    if (!Platform.isMacOS) return;
+    _updateDesktopStatus('setMenuDevices', [
+      for (final id in peers.keys) _macMenuDevice(id),
+    ]);
+  }
+
+  Map<String, String> _macMenuDevice(String id) {
+    final (:value, :label, checking: _) = _visiblePresence(id);
+    return {
+      'name': _sendDeviceName(id),
+      'presence': value?.name ?? 'unknown',
+      'label': label,
+    };
   }
 
   Future<void> _showLegacyPairingNotice() async {
@@ -1971,7 +1990,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Widget _presenceIcon(String id) {
+  ({PeerPresence? value, String label, bool checking}) _visiblePresence(
+    String id,
+  ) {
     final checking = visiblePresenceChecks.contains(id);
     final value = checking ? null : presence[id];
     final label = switch (value) {
@@ -1979,6 +2000,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       PeerPresence.unavailable => t.unreachable,
       null => checking ? t.checking : t.unknown,
     };
+    return (value: value, label: label, checking: checking);
+  }
+
+  Widget _presenceIcon(String id) {
+    final (:value, :label, :checking) = _visiblePresence(id);
     return Tooltip(
       message: label,
       excludeFromSemantics: true,
