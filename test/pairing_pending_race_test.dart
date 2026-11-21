@@ -14,9 +14,20 @@ import 'package:vela/src/rust/frb_generated.dart';
 
 import 'support/fakes.dart' show FakeNode, FakeRustApi, peerId;
 import 'peer_test_utils.dart';
+import 'support/home_environment.dart';
 
 class PairOffer implements IncomingRequest {
   final closed = Completer<void>();
+  bool accepted = false;
+
+  @override
+  Future<void> acceptPair({
+    required String name,
+    required String deviceType,
+  }) async {
+    accepted = true;
+  }
+
   @override
   IncomingRequestInfo info() => IncomingRequestInfo(
     name: 'Phone',
@@ -70,6 +81,46 @@ class PairRaceNode extends FakeNode {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+  testWidgets('successful incoming pairing closes the displayed device code', (
+    tester,
+  ) async {
+    final node = PairRaceNode();
+    final offer = PairOffer();
+    node.releaseFalse.complete();
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(),
+      api: FakeRustApi(node),
+      run: (_) async {
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'light',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        final showCode = find.byKey(const ValueKey('show-device-code'));
+        final code = find.byKey(const ValueKey('device-id'));
+        await waitForHome(tester, () => showCode.evaluate().isNotEmpty);
+        await tester.tap(showCode);
+        await tester.pumpAndSettle();
+        expect(code, findsOneWidget);
+
+        node.first.complete(offer);
+        final accept = find.byKey(const ValueKey('accept-pair'));
+        await waitForHome(tester, () => accept.evaluate().isNotEmpty);
+        await tester.pumpAndSettle();
+        await tester.tap(accept);
+        await waitForHome(tester, () => offer.accepted);
+        await tester.pumpAndSettle();
+
+        expect(code, findsNothing);
+        expect(find.text('Phone'), findsOneWidget);
+      },
+    );
+  });
+
   testWidgets(
     'late completion of old pairing cannot clear newer pending pairing',
     (tester) async {
