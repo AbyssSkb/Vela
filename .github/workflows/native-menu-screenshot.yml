@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [package, dark]
+        variant: [source]
     steps:
       - name: Download the exact menu fix build
         if: matrix.variant != 'source'
@@ -23,11 +23,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44909313307 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          result=$(gh run view 44908142226 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
           test "$result" = b891b8b94a4e285b84dcffeb91b9324c7e766bc5
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44909313307 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44908142226 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -87,6 +87,23 @@ jobs:
           fflush(stdout)
           app.run()
           SWIFT
+          python3 - <<'PY2'
+          from pathlib import Path
+          p = Path("MenuFileDropPanel.swift")
+          s = p.read_text()
+          s = s.replace("    guard !choosingDevice, sender.draggingSourceOperationMask", r"""    print("DROP_ENTER id=\(windowNumber) frame=\(frame) location=\(sender.draggingLocation) mask=\(sender.draggingSourceOperationMask.rawValue)")
+              fflush(stdout)
+              guard !choosingDevice, sender.draggingSourceOperationMask""")
+          s = s.replace("func draggingExited(_ sender: NSDraggingInfo?) { showDropArea(targeted: false) }", r"""func draggingExited(_ sender: NSDraggingInfo?) {
+              print("DROP_EXIT id=\(windowNumber) frame=\(frame) location=\(String(describing: sender?.draggingLocation))")
+              fflush(stdout)
+              showDropArea(targeted: false)
+            }""")
+          s = s.replace("    orderFrontRegardless()", r"""    orderFrontRegardless()
+              print("DROP_SHOW id=\(windowNumber) frame=\(frame)")
+              fflush(stdout)""")
+          p.write_text(s)
+          PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
           cat > Vela.app/Contents/Info.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -260,7 +277,7 @@ jobs:
 
           func dropInPanel(from hint: [String: Any]) -> [String: Any] {
             let frameBefore = frame(hint)!
-            let location = CGPoint(x: frameBefore.midX - 46, y: frameBefore.minY + 20)
+            let location = CGPoint(x: frameBefore.midX, y: frameBefore.minY + 20)
             for offset in [0, 4, -3, 0] {
               mouse(.leftMouseDragged, CGPoint(x: location.x + CGFloat(offset), y: location.y))
               Thread.sleep(forTimeInterval: 0.09)
@@ -283,9 +300,13 @@ jobs:
 
           let first = startDrag()
           try capture(first, "vela-finder-hint.png", pointer: target)
-          let inside = CGPoint(x: frame(first)!.midX, y: frame(first)!.minY + 15)
+          let inside = CGPoint(x: frame(first)!.midX - 46, y: frame(first)!.minY + 15)
           mouse(.leftMouseDragged, inside)
-          precondition(findDrop(height: 96) != nil)
+          if findDrop(height: 96) == nil {
+            try? fullCapture("vela-finder-edge-entry.png")
+            mouse(.leftMouseUp, inside)
+            fatalError("First drag did not expand from the left side")
+          }
           mouse(.leftMouseDragged, waypoint)
           precondition(findDrop(height: 36) != nil, "Moving out should restore the short hint")
           mouse(.leftMouseUp, waypoint)
