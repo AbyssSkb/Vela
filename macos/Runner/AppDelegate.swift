@@ -1,7 +1,6 @@
 import Carbon
 import Cocoa
 import FlutterMacOS
-import SwiftUI
 import UserNotifications
 
 private final class MenuStatusLight: NSView {
@@ -29,73 +28,13 @@ private struct MenuOffer {
   let decide: (String, Bool) -> Void
 }
 
-private struct VelaMenuPanel: View {
-  let status: String
-  let color: NSColor
-  let chinese: Bool
-  let offer: MenuOffer?
-  let decide: (String, Bool) -> Void
-  let openFolder: () -> Bool
-  let openVela: () -> Void
-  let quit: () -> Void
-  @State private var folderFailed = false
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(spacing: 8) {
-        Circle().fill(Color(nsColor: color)).frame(width: 7, height: 7)
-          .accessibilityHidden(true)
-        Text(status).font(.headline)
-      }
-      if let offer {
-        VStack(alignment: .leading, spacing: 6) {
-          Text(offer.sender).fontWeight(.medium).lineLimit(1)
-          Text(offer.detail).foregroundStyle(.secondary).lineLimit(2)
-          if let hint = offer.clipboardHint {
-            Text(hint).font(.caption).foregroundStyle(.secondary)
-          }
-          HStack {
-            Spacer()
-            Button(offer.decline) { decide(offer.id, false) }
-            Button(offer.accept) { decide(offer.id, true) }
-              .buttonStyle(.borderedProminent)
-          }
-        }
-      }
-      Divider()
-      VStack(spacing: 0) {
-        action(chinese ? "打开接收文件夹" : "Open received folder", icon: "folder") {
-          folderFailed = !openFolder()
-        }
-        action(chinese ? "打开 Vela" : "Open Vela", icon: "macwindow", perform: openVela)
-        action(chinese ? "退出 Vela" : "Quit Vela", icon: "power", perform: quit)
-      }
-      if folderFailed {
-        Text(chinese ? "无法打开接收文件夹" : "Could not open the received folder")
-          .font(.caption).foregroundStyle(.secondary)
-      }
-    }
-    .padding(14)
-    .frame(width: 264)
-  }
-
-  private func action(
-    _ title: String, icon: String, perform: @escaping () -> Void
-  ) -> some View {
-    Button(action: perform) {
-      Label(title, systemImage: icon)
-        .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
-        .contentShape(Rectangle())
-    }
-    .buttonStyle(.borderless)
-  }
-}
-
 @main
-class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuDelegate {
   private var statusItem: NSStatusItem?
   private let statusLight = MenuStatusLight()
-  private let menuPanel = NSPopover()
+  private let statusMenu = NSMenu()
+  private var statusMenuOpen = false
+  private var folderOpenFailed = false
   private var menuOffer: MenuOffer?
   private var backgroundActivity: NSObjectProtocol?
   private var menuLanguage: String?
@@ -152,7 +91,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
       let button = statusItem?.button
       return [
         "exists": statusItem != nil, "visible": statusItem?.isVisible ?? false,
-        "status": menuStatus, "panelVisible": menuPanel.isShown,
+        "status": menuStatus, "panelVisible": statusMenuOpen,
         "panelHasOffer": menuOffer != nil,
         "hasImage": button?.image != nil, "windowVisible": button?.window?.isVisible ?? false,
         "lightColor": statusLight.superview != nil ? statusLight.color.description : "",
@@ -175,9 +114,10 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     guard statusItem == nil else { return }
     UNUserNotificationCenter.current().delegate = self
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    item.button?.target = self
-    item.button?.action = #selector(statusClicked(_:))
-    menuPanel.behavior = .transient
+    statusMenu.delegate = self
+    statusMenu.autoenablesItems = false
+    menuNeedsUpdate(statusMenu)
+    item.menu = statusMenu
     statusItem = item
     if let button = item.button {
       button.image = menuImage()
@@ -188,35 +128,67 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     updateMenuLight()
   }
 
-  @objc private func statusClicked(_ sender: NSStatusBarButton) {
-    if menuPanel.isShown {
-      menuPanel.performClose(nil)
-    } else {
-      updateMenuPanel()
-      menuPanel.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+  func menuNeedsUpdate(_ menu: NSMenu) {
+    let chinese = menuIsChinese
+    menu.removeAllItems()
+    menu.addItem(menuItem(menuDescription(menuStatus)))
+
+    if let offer = menuOffer {
+      menu.addItem(.separator())
+      menu.addItem(menuItem(shortMenuTitle(offer.sender)))
+      if !offer.detail.isEmpty { menu.addItem(menuItem(shortMenuTitle(offer.detail))) }
+      if let hint = offer.clipboardHint { menu.addItem(menuItem(hint)) }
+      let accept = menuItem(offer.accept, action: #selector(decideMenuOfferFromItem(_:)))
+      accept.representedObject = offer.id
+      accept.tag = 1
+      menu.addItem(accept)
+      let decline = menuItem(offer.decline, action: #selector(decideMenuOfferFromItem(_:)))
+      decline.representedObject = offer.id
+      menu.addItem(decline)
     }
+
+    menu.addItem(.separator())
+    menu.addItem(menuItem(
+      chinese ? "打开接收文件夹" : "Open received folder", icon: "folder",
+      action: #selector(openReceivedFolderFromMenu)))
+    if folderOpenFailed {
+      menu.addItem(menuItem(chinese ? "无法打开接收文件夹" : "Could not open the received folder"))
+    }
+    menu.addItem(menuItem(
+      chinese ? "打开 Vela" : "Open Vela", icon: "macwindow", action: #selector(showWindow)))
+    let quit = menuItem(
+      chinese ? "退出 Vela" : "Quit Vela", icon: "power", action: #selector(NSApplication.terminate(_:)))
+    quit.target = NSApp
+    menu.addItem(quit)
   }
 
-  private func updateMenuPanel() {
-    let panel = VelaMenuPanel(
-      status: menuDescription(menuStatus), color: menuStatusColor, chinese: menuIsChinese,
-      offer: menuOffer, decide: { [weak self] id, accepted in
-        self?.decideMenuOffer(id, accepted: accepted)
-      },
-      openFolder: { [weak self] in
-        let window = NSApp.windows.compactMap { $0 as? MainFlutterWindow }.first
-        guard (try? window?.openReceiveFolder()) == true else { return false }
-        self?.menuPanel.performClose(nil)
-        return true
-      },
-      openVela: { [weak self] in self?.showWindow() },
-      quit: { NSApp.terminate(nil) })
-    if let host = menuPanel.contentViewController as? NSHostingController<VelaMenuPanel> {
-      host.rootView = panel
-      menuPanel.contentSize = host.view.fittingSize
-    } else {
-      menuPanel.contentViewController = NSHostingController(rootView: panel)
+  func menuWillOpen(_ menu: NSMenu) { statusMenuOpen = true }
+  func menuDidClose(_ menu: NSMenu) { statusMenuOpen = false }
+
+  private func shortMenuTitle(_ text: String) -> String {
+    let line = text.components(separatedBy: .newlines).joined(separator: " ")
+    if line.count <= 54 { return line }
+    return String(line.prefix(35)) + "…" + String(line.suffix(18))
+  }
+
+  private func menuItem(_ title: String, icon: String? = nil, action: Selector? = nil) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+    item.target = self
+    item.isEnabled = action != nil
+    if let icon {
+      item.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)
     }
+    return item
+  }
+
+  @objc private func decideMenuOfferFromItem(_ item: NSMenuItem) {
+    guard let id = item.representedObject as? String else { return }
+    decideMenuOffer(id, accepted: item.tag == 1)
+  }
+
+  @objc private func openReceivedFolderFromMenu() {
+    let window = NSApp.windows.compactMap { $0 as? MainFlutterWindow }.first
+    folderOpenFailed = (try? window?.openReceiveFolder()) != true
   }
 
   func setMenuOffer(_ args: [String: Any], decide: @escaping (String, Bool) -> Void) {
@@ -326,11 +298,11 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     statusLight.color = menuStatusColor
     button.toolTip = description
     button.setAccessibilityLabel(description)
-    if menuPanel.isShown { updateMenuPanel() }
+    if statusMenuOpen { statusMenu.update() }
   }
 
   @objc func showWindow() {
-    menuPanel.performClose(nil)
+    statusMenu.cancelTracking()
     NSApplication.shared.activate(ignoringOtherApps: true)
     if let window = NSApplication.shared.windows.first(where: { $0 is MainFlutterWindow })
       as? MainFlutterWindow
