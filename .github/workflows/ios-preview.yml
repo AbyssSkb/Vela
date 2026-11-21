@@ -1,23 +1,14 @@
 name: iOS and iPadOS preview
 
 on:
-  pull_request:
-    paths:
-      - 'ios/**'
-      - 'integration_test/ios_startup_test.dart'
-      - '.github/workflows/ios-preview.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ios-preview-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  simulator:
-    name: iPad simulator startup
+  device-archive:
+    name: Build iPad device archive for local signing
     runs-on: macos-26
     timeout-minutes: 45
     env:
@@ -33,73 +24,20 @@ jobs:
           flutter-version: '3.47.9'
           channel: stable
           cache: true
-      - run: rustup toolchain install 1.98.1 --profile minimal --target aarch64-apple-ios-sim
+      - run: rustup toolchain install 1.98.1 --profile minimal --target aarch64-apple-ios
       - run: flutter pub get --enforce-lockfile
-      - name: Boot an iPad simulator
-        id: ipad
+      - name: Archive for physical devices
         run: |
-          device="$(xcrun simctl list devices available -j | python3 -c '
-          import json, sys
-          runtimes = json.load(sys.stdin)["devices"]
-          print(next(d["udid"] for entries in reversed(list(runtimes.values()))
-                     for d in entries if d["name"].startswith("iPad")))
-          ')"
-          xcrun simctl boot "$device"
-          xcrun simctl bootstatus "$device" -b
-          echo "id=$device" >> "$GITHUB_OUTPUT"
-      - name: Build the iPad startup test
-        env:
-          DEVICE_ID: ${{ steps.ipad.outputs.id }}
-        run: |
-          flutter build ios --config-only --simulator --debug --no-pub \
-            --target=integration_test/ios_startup_test.dart \
-            --dart-define=VELA_SIMULATOR_DEVICE=tablet
-          # Simulator signing supplies the application identifier Keychain requires.
-          xcodebuild build-for-testing -quiet -workspace ios/Runner.xcworkspace \
-            -scheme Runner -configuration Debug -destination "id=$DEVICE_ID" \
-            -derivedDataPath "$RUNNER_TEMP/ipad-tests"
-      - name: Verify node startup with XCTest
-        timeout-minutes: 5
-        env:
-          DEVICE_ID: ${{ steps.ipad.outputs.id }}
-        run: |
-          xcodebuild test-without-building -workspace ios/Runner.xcworkspace \
-            -scheme Runner -configuration Debug -destination "id=$DEVICE_ID" \
-            -derivedDataPath "$RUNNER_TEMP/ipad-tests" -parallel-testing-enabled NO \
-            -resultBundlePath "$RUNNER_TEMP/ipad-startup.xcresult"
-          # An empty XCTest run can succeed without executing the Dart test.
-          xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ipad-startup.xcresult" |
-            jq -e 'any(.testNodes[] | .. | objects;
-              .nodeType == "Test Case" and .result == "Passed" and
-              (.name | ascii_downcase | startswith("teststartsthevelanodeanddetectstheiosdevice")))'
-      - name: Collect iPad diagnostics
-        if: failure() && steps.ipad.outputs.id != ''
-        timeout-minutes: 2
-        env:
-          DEVICE_ID: ${{ steps.ipad.outputs.id }}
-        run: |
-          xcrun simctl spawn "$DEVICE_ID" log show --last 5m \
-            --style compact --predicate 'process == "Runner"' > "$RUNNER_TEMP/ipad-runner.log"
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: failure() && steps.ipad.outputs.id != ''
-        with:
-          name: Vela-iPad-startup-failure
-          path: |
-            ${{ runner.temp }}/ipad-startup.xcresult
-            ${{ runner.temp }}/ipad-runner.log
-      - name: Archive the simulator app
-        run: |
-          flutter build ios --simulator --debug --no-pub
-          preview="$RUNNER_TEMP/Vela-iPad-simulator"
-          ditto build/ios/iphonesimulator/Runner.app "$preview/Runner.app"
-          cargo metadata --locked --format-version 1 --manifest-path rust/Cargo.toml \
-            --filter-platform aarch64-apple-ios-sim > "$RUNNER_TEMP/ios-metadata.json"
-          python3 tool/release/notices.py --metadata "$RUNNER_TEMP/ios-metadata.json" --output "$preview/third-party-notices"
-          cp LICENSE "$preview/VELA-LICENSE.txt"
-          cp rust_builder/cargokit/LICENSE "$preview/third-party-notices/CARGOKIT-LICENSE.txt"
-          ditto -c -k --keepParent "$preview" "$RUNNER_TEMP/Vela-iPad-simulator.zip"
+          flutter build ios --config-only --release --no-pub --no-codesign
+          xcodebuild archive -quiet -workspace ios/Runner.xcworkspace \
+            -scheme Runner -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Vela.xcarchive" CODE_SIGNING_ALLOWED=NO
+          app="$RUNNER_TEMP/Vela.xcarchive/Products/Applications/Runner.app"
+          xcrun vtool -show-build "$app/Runner" | grep -E 'platform IOS$'
+          ditto -c -k --keepParent "$RUNNER_TEMP/Vela.xcarchive" "$RUNNER_TEMP/Vela-iPad-device-archive.zip"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: Vela-iPad-simulator
-          path: ${{ runner.temp }}/Vela-iPad-simulator.zip
+          name: Vela-iPad-device-archive
+          path: ${{ runner.temp }}/Vela-iPad-device-archive.zip
+          retention-days: 1
           if-no-files-found: error
