@@ -326,14 +326,22 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     panel.acceptFiles = { [weak self] urls in self?.acceptDroppedFiles(urls) == true }
     dismissReceiptPreview()
     return panel.showHint(
-      under: button, icon: button.image,
+      under: button, icon: menuImage(width: 18),
       hint: menuIsChinese ? "把文件拖到这里" : "Drag files here",
       dropHint: menuIsChinese ? "松手添加文件" : "Release to add files")
   }
 
   private func acceptDroppedFiles(_ urls: [URL]) -> Bool {
-    guard let files = prepareMenuFiles(urls), showFileDropHint(), let fileDropPanel else { return false }
-    fileDropPanel.showDevices(menuTargets(for: urls, files: files, showPresence: true))
+    let pending = fileDropPanel?.pendingURLs ?? []
+    var known = Set(pending.map(\.standardizedFileURL))
+    let additions = urls.filter { known.insert($0.standardizedFileURL).inserted }
+    if additions.isEmpty { return !pending.isEmpty && !urls.isEmpty }
+    guard pending.count + additions.count <= 100, let newFiles = prepareMenuFiles(additions),
+          showFileDropHint(), let fileDropPanel else { return false }
+    let batch = pending + additions
+    let files = fileDropPanel.pendingFiles + newFiles
+    let targets = menuTargets(for: batch, files: files, showPresence: true)
+    fileDropPanel.showDevices(targets, urls: batch, files: files)
     return true
   }
 
@@ -628,8 +636,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     offer.decide(id, accepted)
   }
 
-  private func menuImage() -> NSImage {
-    let image = NSImage(size: NSSize(width: 28, height: 18), flipped: false) { _ in
+  private func menuImage(width: CGFloat = 28) -> NSImage {
+    let image = NSImage(size: NSSize(width: width, height: 18), flipped: false) { _ in
       NSColor.black.setFill()
       for angle in stride(from: 0.0, to: 360.0, by: 90.0) {
         NSGraphicsContext.saveGraphicsState()

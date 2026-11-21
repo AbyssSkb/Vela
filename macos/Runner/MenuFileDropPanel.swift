@@ -11,12 +11,19 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
   private let hintFont = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
   private var visibleScreen = NSRect.zero
   private var anchorX: CGFloat = 0
-  private var compactWidth: CGFloat { ceil(hint.size(withAttributes: [.font: hintFont]).width) + 50 }
+  private let iconSide: CGFloat = 18
+  private let textGap: CGFloat = 4
+  private var compactWidth: CGFloat { hintWidth(hint, padding: 12) }
   private var icon: NSImage?
   private var hint = ""
   private var dropHint = ""
   private var choosingDevice = false
   private var dismissalMonitors: [Any] = []
+  private var outsidePress: NSPoint?
+  private weak var fileTitle: NSTextField?
+  private var fileSummary = ""
+  private(set) var pendingURLs: [URL] = []
+  private(set) var pendingFiles: [[String: Any]] = []
 
   var acceptFiles: (([URL]) -> Bool)?
   override var canBecomeKey: Bool { choosingDevice }
@@ -39,7 +46,7 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
   }
 
   func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-    guard !choosingDevice, sender.draggingSourceOperationMask.contains(.copy),
+    guard sender.draggingSourceOperationMask.contains(.copy),
           sender.draggingPasteboard.types?.contains(.fileURL) == true else { return [] }
     showDropArea(targeted: true)
     return .copy
@@ -50,7 +57,9 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
   func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
     let urls = sender.draggingPasteboard.readObjects(
       forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-    return acceptFiles?(urls) == true
+    let accepted = acceptFiles?(urls) == true
+    if choosingDevice { showDropArea(targeted: false) }
+    return accepted
   }
 
   func showHint(under button: NSStatusBarButton, icon: NSImage?, hint: String, dropHint: String) -> Bool {
@@ -70,37 +79,39 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
   }
 
   private func showDropArea(targeted: Bool) {
-    guard !choosingDevice else { return }
-    resize(width: targeted ? 280 : compactWidth, height: targeted ? 96 : 36)
-    dropArea.subviews.forEach { $0.removeFromSuperview() }
-    dropArea.layer?.borderWidth = targeted ? 1 : 0
-    dropArea.effectiveAppearance.performAsCurrentDrawingAppearance {
-      dropArea.layer?.borderColor = Self.accent.cgColor
-      dropArea.layer?.backgroundColor = targeted ? Self.accent.withAlphaComponent(0.14).cgColor : nil
+    highlightDropTarget(targeted)
+    if choosingDevice {
+      fileTitle?.stringValue = targeted ? dropHint : fileSummary
+      return
     }
-    let label = NSTextField(labelWithString: targeted ? dropHint : hint)
+    let text = targeted ? dropHint : hint
+    let width = targeted ? max(compactWidth, hintWidth(text, padding: 16)) : compactWidth
+    resize(width: width, height: targeted ? 44 : 36)
+    dropArea.subviews.forEach { $0.removeFromSuperview() }
+    let label = NSTextField(labelWithString: text)
     label.font = hintFont
     let image = NSImageView()
     image.image = targeted ? NSImage(systemSymbolName: "arrow.down.doc", accessibilityDescription: nil) : icon
     image.contentTintColor = targeted ? Self.accent : .labelColor
     let stack = NSStackView(views: [image, label])
-    stack.orientation = targeted ? .vertical : .horizontal
-    stack.alignment = targeted ? .centerX : .centerY
-    stack.spacing = 8
+    stack.orientation = .horizontal
+    stack.alignment = .centerY
+    stack.spacing = textGap
     stack.translatesAutoresizingMaskIntoConstraints = false
     dropArea.addSubview(stack)
     NSLayoutConstraint.activate([
-      image.widthAnchor.constraint(equalToConstant: targeted ? 24 : 18),
+      image.widthAnchor.constraint(equalToConstant: iconSide),
       image.heightAnchor.constraint(equalTo: image.widthAnchor),
       stack.centerXAnchor.constraint(equalTo: dropArea.centerXAnchor),
       stack.centerYAnchor.constraint(equalTo: dropArea.centerYAnchor),
     ])
   }
 
-  func showDevices(_ menu: NSMenu) {
+  func showDevices(_ menu: NSMenu, urls: [URL], files: [[String: Any]]) {
     choosingDevice = true
-    dropArea.layer?.borderWidth = 0
-    dropArea.layer?.backgroundColor = nil
+    pendingURLs = urls
+    pendingFiles = files
+    highlightDropTarget(false)
     dropArea.subviews.forEach { $0.removeFromSuperview() }
 
     let devices = Array(menu.items.dropFirst())
@@ -110,10 +121,13 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
     resize(width: 280, height: 42 + visibleHeight)
     let width = frame.width - 20
 
-    let title = NSTextField(labelWithString: menu.items[0].title)
+    fileSummary = menu.items[0].title
+    let title = NSTextField(labelWithString: fileSummary)
+    fileTitle = title
+    title.toolTip = urls.map(\.lastPathComponent).joined(separator: "\n")
     title.font = hintFont
     title.lineBreakMode = .byTruncatingMiddle
-    title.frame = NSRect(x: 14, y: frame.height - 30, width: frame.width - 28, height: 18)
+    title.frame = NSRect(x: 8, y: frame.height - 30, width: frame.width - 20, height: 18)
     dropArea.addSubview(title)
 
     let list = NSView(frame: NSRect(x: 0, y: 0, width: width, height: listHeight))
@@ -146,25 +160,59 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
     scroll.reflectScrolledClipView(scroll.contentView)
     recalculateKeyViewLoop()
 
-    let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
-    dismissalMonitors = [
-      NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak self] _ in self?.dismiss() },
-      NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
-        if event.window !== self { self?.dismiss() }
-        return event
-      },
-    ].compactMap { $0 }
+    if dismissalMonitors.isEmpty {
+      let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseUp, .rightMouseDown, .otherMouseDown]
+      dismissalMonitors = [
+        NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak self] event in
+          self?.considerDismissal(event)
+        },
+        NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
+          self?.considerDismissal(event)
+          return event
+        },
+      ].compactMap { $0 }
+    }
     DispatchQueue.main.async { [weak self] in
       if self?.choosingDevice == true { self?.makeKey() }
     }
   }
 
   func endDrag() {
-    if !choosingDevice { dismiss() }
+    if choosingDevice { showDropArea(targeted: false) } else { dismiss() }
+  }
+
+  private func considerDismissal(_ event: NSEvent) {
+    if event.window === self {
+      outsidePress = nil
+      return
+    }
+    let point = event.window?.convertPoint(toScreen: event.locationInWindow) ?? event.locationInWindow
+    switch event.type {
+    case .leftMouseDown:
+      outsidePress = point
+    case .leftMouseUp:
+      defer { outsidePress = nil }
+      if let start = outsidePress, abs(start.x - point.x) < 4, abs(start.y - point.y) < 4 {
+        dismiss()
+      }
+    default:
+      dismiss()
+    }
+  }
+
+  private func highlightDropTarget(_ targeted: Bool) {
+    dropArea.layer?.borderWidth = targeted ? 1 : 0
+    dropArea.effectiveAppearance.performAsCurrentDrawingAppearance {
+      dropArea.layer?.borderColor = Self.accent.cgColor
+      dropArea.layer?.backgroundColor = targeted ? Self.accent.withAlphaComponent(0.14).cgColor : nil
+    }
   }
 
   func dismiss() {
     choosingDevice = false
+    pendingURLs.removeAll()
+    pendingFiles.removeAll()
+    outsidePress = nil
     unregisterDraggedTypes()
     orderOut(nil)
     dismissalMonitors.forEach(NSEvent.removeMonitor)
@@ -178,6 +226,10 @@ final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
     guard let item = row.menuItem, let action = item.action else { return }
     dismiss()
     NSApp.sendAction(action, to: item.target, from: item)
+  }
+
+  private func hintWidth(_ text: String, padding: CGFloat) -> CGFloat {
+    ceil(text.size(withAttributes: [.font: hintFont]).width) + iconSide + textGap + 2 * padding
   }
 
   private func resize(width: CGFloat, height: CGFloat) {
