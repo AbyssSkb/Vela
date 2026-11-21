@@ -12,23 +12,95 @@ jobs:
   capture:
     runs-on: macos-26
     timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [source, package]
     steps:
       - name: Download the exact menu fix build
+        if: matrix.variant == 'package'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44905153340 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = abd9a264e140e88b570a4aa27223c43fa5b5703a
+          result=$(gh run view 44908142226 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 2df032f32cca3d1e4495f8dfc0577a038a7ecab4
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44905153340 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44908142226 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
           archive=(Vela-*-macos-arm64.zip)
           ditto -x -k "${archive[0]}" .
+
+      - name: Compile the exact AppKit sources with a Flutter interface stub
+        if: matrix.variant == 'source'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vela-menu/Vela.app/Contents/MacOS"
+          cd "$RUNNER_TEMP/vela-menu"
+          ref=2df032f32cca3d1e4495f8dfc0577a038a7ecab4
+          for file in AppDelegate.swift MenuFileDropPanel.swift; do
+            gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/$file?ref=$ref" |
+              sed '/^import FlutterMacOS$/d; /^@main$/d; /UNUserNotificationCenter.current().delegate = self/d' > "$file"
+          done
+          cat > Dependencies.swift <<'SWIFT'
+          import AppKit
+          class FlutterAppDelegate: NSObject, NSApplicationDelegate {
+            func applicationDidFinishLaunching(_ notification: Notification) {}
+            func application(_ application: NSApplication, open urls: [URL]) {}
+            func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool { true }
+            func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { .terminateNow }
+            func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+            func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+          }
+          struct FlutterStandardTypedData { let bytes: Data }
+          class MainFlutterWindow: NSWindow {
+            func hideWindow() {}
+            func notifyVisible() {}
+            func shareAvailable() {}
+            func openReceiveFolder() throws -> Bool { false }
+            func prepareToTerminate(_ finish: () -> Void) { finish() }
+            func sendMenuFiles(_ files: [[String: Any]], to peer: String, _ done: (String?) -> Void) { print("FINDER_SEND_TO=\(peer) PATH=\(files.first?["path"] ?? "")"); fflush(stdout); done(nil) }
+          }
+          SWIFT
+          cat > main.swift <<'SWIFT'
+          import Cocoa
+
+          let app = NSApplication.shared
+          app.setActivationPolicy(.accessory)
+          let window = MainFlutterWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
+                                         styleMask: [.titled], backing: .buffered, defer: false)
+          window.isReleasedWhenClosed = false
+          let delegate = AppDelegate()
+          app.delegate = delegate
+          delegate.setMenuLanguage("zh")
+          delegate.setNodeStatus("ready")
+          delegate.setMenuDevices([
+            ["id": "phone", "name": "工作手机", "presence": "reachable", "label": "可连接"],
+            ["id": "tablet", "name": "平板", "presence": "unavailable", "label": "暂时无法连接"],
+          ])
+          print("event=offline")
+          fflush(stdout)
+          app.run()
+          SWIFT
+          xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
+          cat > Vela.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <plist version="1.0"><dict>
+            <key>CFBundleIdentifier</key><string>com.example.vela.drop-probe</string>
+            <key>CFBundleExecutable</key><string>Vela</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>LSUIElement</key><true/>
+          </dict></plist>
+          PLIST
+          codesign --force --sign - Vela.app
       - name: Capture the AppKit status menu in the test desktop
+        env:
+          VARIANT: ${{ matrix.variant }}
         run: |
           set -euo pipefail
           sw_vers -productVersion
@@ -140,60 +212,106 @@ jobs:
             capture.waitUntilExit()
             precondition(capture.terminationStatus == 0)
           }
-          try fullCapture("vela-stage-0-idle.png")
-          let before = Set(windows().map(number))
-          mouse(.mouseMoved, source)
-          Thread.sleep(forTimeInterval: 0.1)
-          mouse(.leftMouseDown, source)
-          Thread.sleep(forTimeInterval: 0.2)
-          let beforeTarget = CGPoint(x: target.x, y: target.y + 96)
-          mouse(.leftMouseDragged, beforeTarget)
-          Thread.sleep(forTimeInterval: 0.35)
-          try fullCapture("vela-stage-1-dragging.png")
-          print("Drag source: \(source), waypoint: \(beforeTarget), Vela status target: \(target)")
-          for step in 1...24 {
-            let fraction = CGFloat(step) / 24
-            mouse(.leftMouseDragged, CGPoint(x: source.x + (target.x - source.x) * fraction,
-                                             y: source.y + (target.y - source.y) * fraction))
-            Thread.sleep(forTimeInterval: 0.04)
+          func findDrop(height: CGFloat, timeout: TimeInterval = 2) -> [String: Any]? {
+            let end = Date(timeIntervalSinceNow: timeout)
+            repeat {
+              if let panel = windows().first(where: {
+                guard ($0[kCGWindowOwnerPID as String] as? pid_t) == pid, let rect = frame($0) else { return false }
+                return abs(rect.height - height) < 2 && abs(rect.width - 280) < 2 && rect.minY < 100
+              }) { return panel }
+              Thread.sleep(forTimeInterval: 0.06)
+            } while Date() < end
+            return nil
           }
-          guard let hover = findPanel(excluding: before) else {
-            mouse(.leftMouseUp, target)
-            print("Missing Finder drag preview from \(source) to \(target)")
-            let screenshot = Process()
-            screenshot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            screenshot.arguments = ["-x", "vela-drag-debug.png"]
-            try screenshot.run()
-            screenshot.waitUntilExit()
-            exit(1)
+
+          func key(_ code: CGKeyCode) {
+            let pointer = CGEventSource(stateID: .hidSystemState)
+            for down in [true, false] {
+              CGEvent(keyboardEventSource: pointer, virtualKey: code, keyDown: down)?.post(tap: .cghidEventTap)
+            }
           }
-          let hoverRect = frame(hover)!
-          precondition(hoverRect.maxX < target.x - 8 || hoverRect.minX > target.x + 88,
-                       "Finder badge crosses the preview")
-          try fullCapture("vela-stage-2-hover.png")
-          try capture(hover, "vela-finder-hover.png", pointer: target)
+
+          let waypoint = CGPoint(x: source.x + 70, y: source.y + 25)
+          func startDrag() -> [String: Any] {
+            mouse(.mouseMoved, source)
+            Thread.sleep(forTimeInterval: 0.15)
+            mouse(.leftMouseDown, source)
+            Thread.sleep(forTimeInterval: 0.20)
+            precondition(findDrop(height: 36, timeout: 0.1) == nil, "Mouse-down alone showed the drag hint")
+            mouse(.leftMouseDragged, waypoint)
+            guard let hint = findDrop(height: 36) else {
+              mouse(.leftMouseUp, waypoint)
+              try? fullCapture("vela-finder-missing-hint.png")
+              fatalError("Dragging a file in Finder did not show the hint")
+            }
+            precondition(!frame(hint)!.contains(waypoint), "The probe must start outside the drop target")
+            return hint
+          }
+
+          func dropInPanel(from hint: [String: Any]) -> [String: Any] {
+            let frameBefore = frame(hint)!
+            let location = CGPoint(x: frameBefore.midX - 46, y: frameBefore.minY + 20)
+            mouse(.leftMouseDragged, location)
+            guard let area = findDrop(height: 96) else {
+              mouse(.leftMouseUp, location)
+              fatalError("The hint did not expand on entry")
+            }
+            precondition(number(area) == number(hint) && frame(area)!.origin == frameBefore.origin)
+            try? capture(area, "vela-finder-drop-area.png", pointer: target)
+            mouse(.leftMouseUp, location)
+            guard let choices = findDrop(height: 110) else {
+              try? fullCapture("vela-finder-missing-choices.png")
+              fatalError("Releasing in the drop panel did not show the device list")
+            }
+            precondition(number(choices) == number(hint) && frame(choices)!.origin == frameBefore.origin)
+            return choices
+          }
+
+          let first = startDrag()
+          try capture(first, "vela-finder-hint.png", pointer: target)
+          let inside = CGPoint(x: frame(first)!.midX, y: frame(first)!.minY + 15)
+          mouse(.leftMouseDragged, inside)
+          precondition(findDrop(height: 96) != nil)
+          mouse(.leftMouseDragged, waypoint)
+          precondition(findDrop(height: 36) != nil, "Moving out should restore the short hint")
+          mouse(.leftMouseUp, waypoint)
+          Thread.sleep(forTimeInterval: 0.4)
+          precondition(findDrop(height: 36, timeout: 0.1) == nil, "Releasing outside should hide the hint")
+          finder.activate()
+          Thread.sleep(forTimeInterval: 0.4)
+
+          let escape = dropInPanel(from: startDrag())
+          try capture(escape, "vela-finder-devices.png", pointer: target)
+          key(53)
+          Thread.sleep(forTimeInterval: 0.4)
+          precondition(findDrop(height: 110, timeout: 0.1) == nil, "Escape did not close the device panel")
+          finder.activate()
+          Thread.sleep(forTimeInterval: 0.4)
+
+          _ = startDrag()
+          mouse(.leftMouseDragged, target)
+          Thread.sleep(forTimeInterval: 0.25)
           mouse(.leftMouseUp, target)
-          guard let menu = findPanel(excluding: before.union([number(hover)])) else {
-            print("Missing Vela recipient menu after Finder drop")
-            exit(1)
-          }
-          try fullCapture("vela-stage-3-dropped.png")
-          try capture(menu, "vela-finder-drop.png", pointer: target)
-          let menuRect = frame(menu)!
-          print("Preview: \(hoverRect), recipient menu: \(menuRect)")
-          precondition(abs(menuRect.minX - hoverRect.minX) <= 16 && abs(menuRect.minY - hoverRect.minY) <= 16,
-                       "The recipient menu jumped when the file was dropped")
-          let pointer = CGEventSource(stateID: .hidSystemState)
-          for keyDown in [true, false] {
-            CGEvent(keyboardEventSource: pointer, virtualKey: 53, keyDown: keyDown)?.post(tap: .cghidEventTap)
-          }
-          for _ in 0..<20 {
-            if !windows().contains(where: { number($0) == number(menu) }) { break }
-            Thread.sleep(forTimeInterval: 0.1)
-          }
-          precondition(!windows().contains(where: { number($0) == number(menu) }),
-                       "Escape did not dismiss the recipient menu")
-          print("FINDER_HOVER_AND_DROP_OK")
+          precondition(findDrop(height: 110) != nil, "The status icon did not accept the file")
+          mouse(.leftMouseDown, waypoint)
+          mouse(.leftMouseUp, waypoint)
+          Thread.sleep(forTimeInterval: 0.4)
+          precondition(findDrop(height: 110, timeout: 0.1) == nil, "Clicking outside did not close the device panel")
+          finder.activate()
+          Thread.sleep(forTimeInterval: 0.4)
+
+          let choices = dropInPanel(from: startDrag())
+          let rect = frame(choices)!
+          let firstDevice = CGPoint(x: rect.midX, y: rect.minY + 51)
+          mouse(.mouseMoved, firstDevice)
+          mouse(.leftMouseDown, firstDevice)
+          Thread.sleep(forTimeInterval: 0.15)
+          mouse(.leftMouseUp, firstDevice)
+          Thread.sleep(forTimeInterval: 0.5)
+          precondition(findDrop(height: 110, timeout: 0.1) == nil, "Selecting a device did not close the panel")
+          precondition(NSWorkspace.shared.frontmostApplication?.processIdentifier == finder.processIdentifier,
+                       "The transfer took Finder's foreground focus")
+          print("FINDER_DROP_HINT_DROP_CANCEL_SEND_OK")
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
           defaults delete -g AppleInterfaceStyle 2>/dev/null || true
@@ -219,11 +337,12 @@ jobs:
           mkdir "$fixture"
           printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
           xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
-          test -s vela-finder-hover.png && test -s vela-finder-drop.png
+          test -s vela-finder-hint.png && test -s vela-finder-drop-area.png && test -s vela-finder-devices.png
+          if [[ "$VARIANT" == source ]]; then grep 'FINDER_SEND_TO=phone PATH=.*Vela drag fixture.txt' vela.log; fi
       - if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: vela-finder-drop
+          name: vela-finder-drop-${{ matrix.variant }}
           path: |
             ${{ runner.temp }}/vela-menu/vela-*.png
             ${{ runner.temp }}/vela-menu/*.log
