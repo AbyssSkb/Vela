@@ -272,7 +272,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   }
 
   func menuWillOpen(_ menu: NSMenu) {
-    fileDropPanel?.dismiss()
+    fileDropPanel?.endDrag()
     dismissReceiptPreview()
     openStatusMenu = menu
   }
@@ -328,7 +328,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     return panel.showHint(
       under: button, icon: menuImage(width: 18),
       hint: menuIsChinese ? "把文件拖到这里" : "Drag files here",
-      dropHint: menuIsChinese ? "松手添加文件" : "Release to add files")
+      dropHint: menuIsChinese ? "松手添加文件" : "Drop to add files")
   }
 
   private func acceptDroppedFiles(_ urls: [URL]) -> Bool {
@@ -341,7 +341,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     let batch = pending + additions
     let files = fileDropPanel.pendingFiles + newFiles
     let targets = menuTargets(for: batch, files: files, showPresence: true)
-    fileDropPanel.showDevices(targets, urls: batch, files: files)
+    fileDropPanel.showDevices(
+      targets, urls: batch, files: files, closeLabel: menuIsChinese ? "取消发送" : "Cancel sending")
     return true
   }
 
