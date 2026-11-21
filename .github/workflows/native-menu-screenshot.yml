@@ -18,11 +18,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44874869011 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = 7ad8c4f8c3a43d527a869ca55e406870c2d5a704
+          result=$(gh run view 44895762361 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 34b8b8c55fac70a1c59d8c8edb5076899cf87b76
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..60}; do
-            if gh run download 44874869011 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44895762361 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -47,56 +47,108 @@ jobs:
             return CGRect(dictionaryRepresentation: bounds as CFDictionary)
           }
           func number(_ item: [String: Any]) -> Int { item[kCGWindowNumber as String] as? Int ?? 0 }
-          let before = windows()
-          let originalIDs = Set(before.map(number))
-          let application = AXUIElementCreateApplication(pid)
-          var extras: CFTypeRef?
-          let extrasResult = AXUIElementCopyAttributeValue(application, "AXExtrasMenuBar" as CFString, &extras)
-          var children: CFTypeRef?
-          if extrasResult == .success, let extras {
-            AXUIElementCopyAttributeValue(extras as! AXUIElement, kAXChildrenAttribute as CFString, &children)
+          func element(_ node: AXUIElement, _ key: String) -> CFTypeRef? {
+            var value: CFTypeRef?
+            AXUIElementCopyAttributeValue(node, key as CFString, &value)
+            return value
           }
-          if let button = (children as? [AXUIElement])?.first {
-            DispatchQueue.global().async {
-              AXUIElementPerformAction(button, kAXPressAction as CFString)
+          func point(_ node: AXUIElement) -> CGPoint? {
+            guard let position = element(node, "AXPosition") as! AXValue?,
+                  let size = element(node, "AXSize") as! AXValue? else { return nil }
+            var origin = CGPoint.zero
+            var extent = CGSize.zero
+            guard AXValueGetValue(position, .cgPoint, &origin),
+                  AXValueGetValue(size, .cgSize, &extent) else { return nil }
+            return CGPoint(x: origin.x + extent.width / 2, y: origin.y + extent.height / 2)
+          }
+          func findFile(_ node: AXUIElement, depth: Int = 0) -> CGPoint? {
+            guard depth <= 12 else { return nil }
+            for key in ["AXTitle", "AXDescription", "AXValue"] {
+              if let name = element(node, key) as? String, name.contains("Vela drag fixture") {
+                if let location = point(node) { return location }
+              }
             }
-          } else if CGPreflightPostEventAccess(), let status = before.first(where: {
-            guard let rect = frame($0) else { return false }
-            return ($0[kCGWindowOwnerPID as String] as? pid_t) == pid && rect.minY < 8
-              && rect.width < 80 && rect.height > 10 && rect.height < 60
-          }), let rect = frame(status) {
-            let location = CGPoint(x: rect.midX, y: rect.midY)
-            CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: location,
+            for key in ["AXSelectedChildren", "AXChildren"] {
+              for child in element(node, key) as? [AXUIElement] ?? [] {
+                if let location = findFile(child, depth: depth + 1) { return location }
+              }
+            }
+            return nil
+          }
+          func mouse(_ type: CGEventType, _ location: CGPoint) {
+            CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: location,
                     mouseButton: .left)?.post(tap: .cghidEventTap)
-            CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: location,
-                    mouseButton: .left)?.post(tap: .cghidEventTap)
-          } else {
-            print("Could not locate Vela status item (AX \(extrasResult.rawValue), post permission \(CGPreflightPostEventAccess())).")
+          }
+          func findPanel(excluding ids: Set<Int>) -> [String: Any]? {
+            for _ in 0..<25 {
+              if let panel = windows().first(where: {
+                guard !ids.contains(number($0)), let rect = frame($0), rect.minY < 120,
+                      (100...600).contains(rect.width), (35...560).contains(rect.height)
+                else { return false }
+                return ($0[kCGWindowOwnerPID as String] as? pid_t) == pid
+                  || ($0[kCGWindowLayer as String] as? Int ?? 0) >= 25
+              }) { return panel }
+              Thread.sleep(forTimeInterval: 0.1)
+            }
+            return nil
+          }
+          func capture(_ panel: [String: Any], _ name: String) throws {
+            let rect = frame(panel)!
+            let crop = CGRect(x: max(0, rect.minX - 12), y: 0,
+                              width: rect.width + 24, height: rect.maxY + 16).integral
+            let pixels = "\(Int(crop.minX)),0,\(Int(crop.width)),\(Int(crop.height))"
+            let capture = Process()
+            capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            capture.arguments = ["-x", "-R", pixels, name]
+            try capture.run()
+            capture.waitUntilExit()
+            precondition(capture.terminationStatus == 0)
+          }
+
+          let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first!
+          let url = URL(fileURLWithPath: CommandLine.arguments[2])
+          NSWorkspace.shared.activateFileViewerSelecting([url])
+          let finderAX = AXUIElementCreateApplication(finder.processIdentifier)
+          let velaAX = AXUIElementCreateApplication(pid)
+          var source: CGPoint?
+          var target: CGPoint?
+          for _ in 0..<40 {
+            if let window = element(finderAX, "AXFocusedWindow") {
+              source = findFile(window as! AXUIElement)
+            }
+            if let extras = element(velaAX, "AXExtrasMenuBar"),
+              let button = (element(extras as! AXUIElement, "AXChildren") as? [AXUIElement])?.first {
+              target = point(button)
+            }
+            if source != nil && target != nil { break }
+            Thread.sleep(forTimeInterval: 0.15)
+          }
+          guard let source, let target, CGPreflightPostEventAccess() else {
+            print("Finder source: \(String(describing: source)), Vela target: \(String(describing: target)), CGEvent permission: \(CGPreflightPostEventAccess())")
             exit(1)
           }
-          for _ in 0..<50 {
-            let shown = windows().first {
-              guard !originalIDs.contains(number($0)), let rect = frame($0),
-                    (100...600).contains(rect.width), (48...560).contains(rect.height),
-                    rect.minY < 120 else { return false }
-              return ($0[kCGWindowOwnerPID as String] as? pid_t) == pid
-                || ($0[kCGWindowLayer as String] as? Int ?? 0) >= 25
-            }
-            if let shown, let rect = frame(shown) {
-              let crop = CGRect(x: max(0, rect.minX - 12), y: 0,
-                                width: rect.width + 24, height: rect.maxY + 16).integral
-              let pixels = "\(Int(crop.minX)),\(Int(crop.minY)),\(Int(crop.width)),\(Int(crop.height))"
-              let capture = Process()
-              capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-              capture.arguments = ["-x", "-R", pixels, "vela-native-menu.png"]
-              try capture.run()
-              capture.waitUntilExit()
-              exit(capture.terminationStatus)
-            }
-            Thread.sleep(forTimeInterval: 0.1)
+          let before = Set(windows().map(number))
+          mouse(.mouseMoved, source)
+          mouse(.leftMouseDown, source)
+          defer { mouse(.leftMouseUp, target) }
+          for step in 1...24 {
+            let fraction = CGFloat(step) / 24
+            mouse(.leftMouseDragged, CGPoint(x: source.x + (target.x - source.x) * fraction,
+                                             y: source.y + (target.y - source.y) * fraction))
+            Thread.sleep(forTimeInterval: 0.04)
           }
-          print("No newly opened menu window was found.")
-          exit(1)
+          guard let hover = findPanel(excluding: before) else {
+            print("Missing Finder drag preview at \(target)")
+            exit(1)
+          }
+          try capture(hover, "vela-finder-hover.png")
+          mouse(.leftMouseUp, target)
+          guard let menu = findPanel(excluding: before.union([number(hover)])) else {
+            print("Missing Vela recipient menu after Finder drop")
+            exit(1)
+          }
+          try capture(menu, "vela-finder-drop.png")
+          print("FINDER_HOVER_AND_DROP_OK")
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
           defaults delete -g AppleInterfaceStyle 2>/dev/null || true
@@ -118,11 +170,14 @@ jobs:
           done
           grep -E 'event=ready|event=offline' vela.log
           kill -0 "$vela_pid"
-          xcrun swift capture.swift "$vela_pid"
-          test -s vela-native-menu.png
+          fixture="$RUNNER_TEMP/finder-fixture"
+          mkdir "$fixture"
+          printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
+          xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
+          test -s vela-finder-hover.png && test -s vela-finder-drop.png
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: vela-native-menu
-          path: ${{ runner.temp }}/vela-menu/vela-native-menu.png
+          name: vela-finder-drop
+          path: ${{ runner.temp }}/vela-menu/vela-finder-*.png
           if-no-files-found: error
           retention-days: 3
