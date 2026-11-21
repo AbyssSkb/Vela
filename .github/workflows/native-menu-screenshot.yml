@@ -1,112 +1,76 @@
 name: Capture native Vela menu
+
 on:
   push:
     branches: [codex/qa-native-menu-screenshot]
+
 permissions:
   contents: read
+  actions: read
+
 jobs:
   capture:
     runs-on: macos-26
-    timeout-minutes: 8
+    timeout-minutes: 16
     steps:
-      - name: Compare AppKit drag destinations on the hosted desktop
+      - name: Download the exact menu fix build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          cd "$RUNNER_TEMP"
-          cat > DropProbe.swift <<'SWIFT'
-          import AppKit
-
-          final class DropView: NSView {
-            override func hitTest(_ point: NSPoint) -> NSView? { self }
-            override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-              NSLog("VIEW_ENTER types=%@ mask=%lu", "\(sender.draggingPasteboard.types ?? [])",
-                    sender.draggingSourceOperationMask.rawValue)
-              return .copy
-            }
-            override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-            override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-              NSLog("VIEW_DROP"); return true
-            }
-          }
-
-          final class App: NSObject, NSApplicationDelegate, NSWindowDelegate, NSDraggingDestination {
-            var items: [NSStatusItem] = []
-            var reference: NSWindow?
-            let types: [NSPasteboard.PasteboardType] = [.fileURL, .init("NSFilenamesPboardType")]
-            func applicationDidFinishLaunching(_ notification: Notification) {
-              for tag in ["View", "Window"] {
-                let item = NSStatusBar.system.statusItem(withLength: 70)
-                items.append(item)
-                let button = item.button!
-                button.title = tag
-                button.setAccessibilityLabel(tag)
-                if tag == "View" {
-                  let view = DropView(frame: button.bounds)
-                  view.autoresizingMask = [.width, .height]
-                  button.addSubview(view)
-                  view.registerForDraggedTypes(types)
-                } else {
-                  button.window?.delegate = self
-                  button.window?.registerForDraggedTypes(types)
-                }
-              }
-              let frame = NSRect(x: 16, y: NSScreen.main!.frame.height - 160, width: 230, height: 90)
-              let win = NSWindow(contentRect: frame, styleMask: [.titled], backing: .buffered, defer: false)
-              win.title = "Drop reference"
-              win.delegate = self
-              win.level = .floating
-              win.registerForDraggedTypes(types)
-              win.orderFrontRegardless()
-              reference = win
-              NSLog("PROBE_READY")
-            }
-            func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-              NSLog("WINDOW_ENTER name=%@ types=%@ mask=%lu", sender.draggingDestinationWindow?.title ?? "",
-                    "\(sender.draggingPasteboard.types ?? [])", sender.draggingSourceOperationMask.rawValue)
-              return .copy
-            }
-            func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
-            func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-              NSLog("WINDOW_DROP name=%@", sender.draggingDestinationWindow?.title ?? "")
-              return true
-            }
-          }
-
-          let app = NSApplication.shared
-          let delegate = App()
-          app.setActivationPolicy(.accessory)
-          app.delegate = delegate
-          app.run()
-          SWIFT
-          cat > Drag.swift <<'SWIFT'
+          result=$(gh run view 44896378993 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 1a03adab99d8d79cf5c11a9c76edc365e292070e
+          mkdir -p "$RUNNER_TEMP/vela-menu"
+          for attempt in {1..60}; do
+            if gh run download 44896378993 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            sleep 10
+          done
+          cd "$RUNNER_TEMP/vela-menu"
+          archive=(Vela-*-macos-arm64.zip)
+          ditto -x -k "${archive[0]}" .
+      - name: Capture the AppKit status menu in the test desktop
+        run: |
+          set -euo pipefail
+          sw_vers -productVersion
+          cd "$RUNNER_TEMP/vela-menu"
+          cat > capture.swift <<'SWIFT'
           import AppKit
           import ApplicationServices
 
-          func value(_ node: AXUIElement, _ key: String) -> CFTypeRef? {
-            var data: CFTypeRef?
-            AXUIElementCopyAttributeValue(node, key as CFString, &data)
-            return data
+          let pid = pid_t(CommandLine.arguments[1])!
+          func windows() -> [[String: Any]] {
+            CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+              as? [[String: Any]] ?? []
           }
-          func frame(_ node: AXUIElement) -> CGRect? {
-            guard let position = value(node, "AXPosition") as! AXValue?,
-                  let size = value(node, "AXSize") as! AXValue? else { return nil }
+          func frame(_ item: [String: Any]) -> CGRect? {
+            guard let bounds = item[kCGWindowBounds as String] as? [String: Any] else { return nil }
+            return CGRect(dictionaryRepresentation: bounds as CFDictionary)
+          }
+          func number(_ item: [String: Any]) -> Int { item[kCGWindowNumber as String] as? Int ?? 0 }
+          func element(_ node: AXUIElement, _ key: String) -> CFTypeRef? {
+            var value: CFTypeRef?
+            AXUIElementCopyAttributeValue(node, key as CFString, &value)
+            return value
+          }
+          func point(_ node: AXUIElement) -> CGPoint? {
+            guard let position = element(node, "AXPosition") as! AXValue?,
+                  let size = element(node, "AXSize") as! AXValue? else { return nil }
             var origin = CGPoint.zero
             var extent = CGSize.zero
-            guard AXValueGetValue(position, .cgPoint, &origin), AXValueGetValue(size, .cgSize, &extent)
-            else { return nil }
-            return CGRect(origin: origin, size: extent)
+            guard AXValueGetValue(position, .cgPoint, &origin),
+                  AXValueGetValue(size, .cgSize, &extent) else { return nil }
+            return CGPoint(x: origin.x + extent.width / 2, y: origin.y + extent.height / 2)
           }
-          func findFile(_ node: AXUIElement, depth: Int = 0) -> CGRect? {
+          func findFile(_ node: AXUIElement, depth: Int = 0) -> CGPoint? {
             guard depth <= 12 else { return nil }
-            let role = value(node, "AXRole") as? String ?? ""
-            let name = ["AXTitle", "AXDescription", "AXValue"].compactMap { value(node, $0) as? String }
-            if name.contains(where: { $0.contains("Vela drag fixture") }), let rect = frame(node) {
-              print("Finder file: \(role) \(name) \(rect)")
-              return rect
+            for key in ["AXTitle", "AXDescription", "AXValue"] {
+              if let name = element(node, key) as? String, name.contains("Vela drag fixture") {
+                if let location = point(node) { return location }
+              }
             }
             for key in ["AXSelectedChildren", "AXChildren"] {
-              for child in value(node, key) as? [AXUIElement] ?? [] {
-                if let rect = findFile(child, depth: depth + 1) { return rect }
+              for child in element(node, key) as? [AXUIElement] ?? [] {
+                if let location = findFile(child, depth: depth + 1) { return location }
               }
             }
             return nil
@@ -117,50 +81,185 @@ jobs:
             event?.setIntegerValueField(.mouseEventClickState, value: 1)
             event?.post(tap: .cghidEventTap)
           }
-          let pid = pid_t(CommandLine.arguments[1])!
-          let url = URL(fileURLWithPath: CommandLine.arguments[2])
-          let app = AXUIElementCreateApplication(pid)
-          let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first!
-          let finderAX = AXUIElementCreateApplication(finder.processIdentifier)
-          print("CGEvent access \(CGPreflightPostEventAccess())")
-          for target in ["View", "Window", "Drop reference"] {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
-            finder.activate()
-            Thread.sleep(forTimeInterval: 0.8)
-            guard let window = value(finderAX, "AXFocusedWindow"), let source = findFile(window as! AXUIElement)
-            else { print("No Finder icon"); exit(1) }
-            let elements = target == "Drop reference" ? value(app, "AXWindows") :
-              value(value(app, "AXExtrasMenuBar") as! AXUIElement, "AXChildren")
-            let item = (elements as? [AXUIElement])?.first { node in
-              ["AXTitle", "AXDescription", "AXHelp"].contains { value(node, $0) as? String == target }
+          func findPanel(excluding ids: Set<Int>) -> [String: Any]? {
+            for _ in 0..<25 {
+              if let panel = windows().first(where: {
+                guard !ids.contains(number($0)), let rect = frame($0), rect.minY < 120,
+                      (100...600).contains(rect.width), (35...560).contains(rect.height)
+                else { return false }
+                return ($0[kCGWindowOwnerPID as String] as? pid_t) == pid
+                  || ($0[kCGWindowLayer as String] as? Int ?? 0) >= 25
+              }) { return panel }
+              Thread.sleep(forTimeInterval: 0.1)
             }
-            guard let item, let dest = frame(item) else { print("No target \(target)"); exit(1) }
-            let from = CGPoint(x: source.midX, y: source.midY)
-            let to = CGPoint(x: dest.midX, y: dest.midY)
-            print("Drag \(from) -> \(target) \(to) frontmost=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "")")
-            mouse(.mouseMoved, from)
-            Thread.sleep(forTimeInterval: 0.1)
-            mouse(.leftMouseDown, from)
-            Thread.sleep(forTimeInterval: 0.2)
-            for step in 1...24 {
-              let p = CGFloat(step) / 24
-              mouse(.leftMouseDragged, CGPoint(x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p))
-              Thread.sleep(forTimeInterval: 0.04)
-            }
-            Thread.sleep(forTimeInterval: 0.5)
-            mouse(.leftMouseUp, to)
-            Thread.sleep(forTimeInterval: 0.3)
+            return nil
           }
+          func capture(_ panel: [String: Any], _ name: String) throws {
+            let rect = frame(panel)!
+            let crop = CGRect(x: max(0, rect.minX - 12), y: 0,
+                              width: rect.width + 24, height: rect.maxY + 16).integral
+            let pixels = "\(Int(crop.minX)),0,\(Int(crop.width)),\(Int(crop.height))"
+            let capture = Process()
+            capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            capture.arguments = ["-x", "-R", pixels, name]
+            try capture.run()
+            capture.waitUntilExit()
+            precondition(capture.terminationStatus == 0)
+          }
+
+          let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first!
+          let url = URL(fileURLWithPath: CommandLine.arguments[2])
+          NSWorkspace.shared.activateFileViewerSelecting([url])
+          finder.activate()
+          Thread.sleep(forTimeInterval: 0.8)
+          let finderAX = AXUIElementCreateApplication(finder.processIdentifier)
+          let velaAX = AXUIElementCreateApplication(pid)
+          var source: CGPoint?
+          var target: CGPoint?
+          for _ in 0..<40 {
+            if let window = element(finderAX, "AXFocusedWindow") {
+              source = findFile(window as! AXUIElement)
+            }
+            if let extras = element(velaAX, "AXExtrasMenuBar"),
+              let button = (element(extras as! AXUIElement, "AXChildren") as? [AXUIElement])?.first {
+              target = point(button)
+            }
+            if source != nil && target != nil { break }
+            Thread.sleep(forTimeInterval: 0.15)
+          }
+          guard let source, let target, CGPreflightPostEventAccess() else {
+            print("Finder source: \(String(describing: source)), Vela target: \(String(describing: target)), CGEvent permission: \(CGPreflightPostEventAccess())")
+            exit(1)
+          }
+          let before = Set(windows().map(number))
+          mouse(.mouseMoved, source)
+          Thread.sleep(forTimeInterval: 0.1)
+          mouse(.leftMouseDown, source)
+          Thread.sleep(forTimeInterval: 0.2)
+          for step in 1...24 {
+            let fraction = CGFloat(step) / 24
+            mouse(.leftMouseDragged, CGPoint(x: source.x + (target.x - source.x) * fraction,
+                                             y: source.y + (target.y - source.y) * fraction))
+            Thread.sleep(forTimeInterval: 0.04)
+          }
+          guard let hover = findPanel(excluding: before) else {
+            mouse(.leftMouseUp, target)
+            print("Missing Finder drag preview from \(source) to \(target)")
+            let screenshot = Process()
+            screenshot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            screenshot.arguments = ["-x", "vela-drag-debug.png"]
+            try screenshot.run()
+            screenshot.waitUntilExit()
+            exit(1)
+          }
+          try capture(hover, "vela-finder-hover.png")
+          mouse(.leftMouseUp, target)
+          guard let menu = findPanel(excluding: before.union([number(hover)])) else {
+            print("Missing Vela recipient menu after Finder drop")
+            exit(1)
+          }
+          try capture(menu, "vela-finder-drop.png")
+          print("FINDER_HOVER_AND_DROP_OK")
           SWIFT
-          xcrun swiftc DropProbe.swift -o DropProbe
-          xcrun swiftc Drag.swift -o Drag
-          ./DropProbe > probe.log 2>&1 &
-          pid=$!
-          trap 'kill "$pid" 2>/dev/null || true; cat probe.log' EXIT
-          for i in {1..15}; do
-            if grep -q PROBE_READY probe.log; then break; fi
+          defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
+          defaults delete -g AppleInterfaceStyle 2>/dev/null || true
+          defaults write -g AppleLanguages -array zh-Hans en
+          support="$HOME/Library/Containers/com.example.vela/Data/Library/Application Support/com.example.vela"
+          mkdir -p "$support"
+          sqlite3 "$support/peer_state_v2.sqlite3" <<'SQL'
+          CREATE TABLE peer_state (profile TEXT PRIMARY KEY, value TEXT NOT NULL);
+          PRAGMA user_version = 1;
+          INSERT INTO peer_state (profile, value) VALUES ('default', '{"version":2,"peers":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"Phone","3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"Tablet"},"types":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"mobile","3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"tablet"},"aliases":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"工作手机","3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"平板"}}');
+          SQL
+          "$PWD/Vela.app/Contents/MacOS/Vela" > vela.log 2>&1 &
+          vela_pid=$!
+          trap 'kill "$vela_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if grep -q 'event=offline' vela.log; then break; fi
+            kill -0 "$vela_pid"
             sleep 1
           done
-          mkdir "$RUNNER_TEMP/drag-fixture"
-          printf 'Vela drag fixture\n' > "$RUNNER_TEMP/drag-fixture/Vela drag fixture.txt"
-          ./Drag "$pid" "$RUNNER_TEMP/drag-fixture/Vela drag fixture.txt"
+          grep -E 'event=ready|event=offline' vela.log
+          kill -0 "$vela_pid"
+          fixture="$RUNNER_TEMP/finder-fixture"
+          mkdir "$fixture"
+          printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
+          xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
+          test -s vela-finder-hover.png && test -s vela-finder-drop.png
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: vela-finder-drop
+          path: |
+            ${{ runner.temp }}/vela-menu/vela-*.png
+            ${{ runner.temp }}/vela-menu/*.log
+          if-no-files-found: warn
+          retention-days: 3
+      - name: Verify the exact AppKit receipt actions in isolation
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/vela-menu"
+          gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/AppDelegate.swift?ref=dba98e5f05932e9af6daaee0266eecb2a10e7222" |
+            sed '/^import FlutterMacOS$/d; /^@main$/d' > AppDelegate.swift
+          cat > Dependencies.swift <<'SWIFT'
+          import AppKit
+          class FlutterAppDelegate: NSObject, NSApplicationDelegate {
+            func applicationDidFinishLaunching(_ notification: Notification) {}
+            func application(_ application: NSApplication, open urls: [URL]) {}
+            func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool { true }
+            func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { .terminateNow }
+            func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+            func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+          }
+          struct FlutterStandardTypedData { let bytes: Data }
+          class MainFlutterWindow: NSWindow {
+            func hideWindow() {}
+            func notifyVisible() {}
+            func shareAvailable() {}
+            func openReceiveFolder() throws -> Bool { false }
+            func prepareToTerminate(_ finish: () -> Void) { finish() }
+            func sendMenuFiles(_ files: [[String: Any]], to peer: String, _ done: (String?) -> Void) { done(nil) }
+          }
+          SWIFT
+          cat > main.swift <<'SWIFT'
+          import AppKit
+          func verifyReceipts() throws {
+              let app = AppDelegate()
+              app.setMenuLanguage("en")
+              let menu = NSMenu()
+              let board = NSPasteboard(name: NSPasteboard.Name(UUID().uuidString))
+              defer { board.releaseGlobally() }
+              let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+              let text = dir.appendingPathComponent("Vela message.txt")
+              try "https://example.com\n".write(to: text, atomically: true, encoding: .utf8)
+              let pdf = dir.appendingPathComponent("Vela report.pdf")
+              try Data().write(to: pdf)
+              let image = dir.appendingPathComponent("Vela screenshot.tiff")
+              let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2,
+                pixelsHigh: 2, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 8, bitsPerPixel: 32)!
+              try bitmap.tiffRepresentation!.write(to: image)
+              let variants: [([URL], Bool, NSPasteboard.PasteboardType)] = [
+                ([text], true, .string), ([image], false, .tiff), ([pdf], false, .fileURL),
+                ([image, pdf], false, .fileURL),
+              ]
+              for (files, isText, type) in variants {
+                app.recordMenuReceipt(["title":"Received", "paths":files.map(\.path), "isText":isText],
+                                      inBackground: false)
+                app.menuNeedsUpdate(menu)
+                precondition(Array(menu.items.prefix(3).map(\.title)) == ["Received", "Open", "Copy"])
+                precondition(menu.items[1].isEnabled && menu.items[2].isEnabled)
+                precondition(app.copyCurrentReceipt(to: board))
+                precondition(board.types?.contains(type) == true)
+                if type == .fileURL { precondition(board.pasteboardItems?.count == files.count) }
+              }
+          }
+          _ = NSApplication.shared
+          try verifyReceipts()
+          print("MACOS_NATIVE_RECEIPTS_OPEN_COPY_OK")
+          SWIFT
+          xcrun swiftc AppDelegate.swift Dependencies.swift main.swift -o VerifyReceipt
+          ./VerifyReceipt
