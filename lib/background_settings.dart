@@ -341,30 +341,40 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
               color: colors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),
               clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                leading: Icon(
-                  !restricted && exempt == true
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.info_outline_rounded,
-                  color: !restricted && exempt == true
-                      ? colors.primary
-                      : colors.onSurfaceVariant,
-                ),
-                title: SettingsRowTitle(
-                  t.backgroundBattery,
-                  value: Text(switch ((restricted, exempt)) {
-                    (true, _) => t.backgroundBatteryRestricted,
-                    (false, true) => t.backgroundBatteryExempt,
-                    (false, false) => t.backgroundBatteryOptimized,
-                    (false, null) => t.backgroundUnknown,
-                  }),
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _openSettings(
-                  !restricted && exempt == false
-                      ? 'battery_exemption'
-                      : 'battery',
-                ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: Icon(
+                      exempt == true
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.info_outline_rounded,
+                      color: exempt == true
+                          ? colors.primary
+                          : colors.onSurfaceVariant,
+                    ),
+                    title: SettingsRowTitle(
+                      t.backgroundBattery,
+                      value: Text(switch (exempt) {
+                        true => t.backgroundBatteryExempt,
+                        false => t.backgroundBatteryOptimized,
+                        null => t.backgroundUnknown,
+                      }),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _openSettings('battery_exemption'),
+                  ),
+                  if (restricted) ...[
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      title: SettingsRowTitle(
+                        t.backgroundRestricted,
+                        value: Text(t.backgroundBatteryRestricted),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => _openSettings('battery'),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 12),

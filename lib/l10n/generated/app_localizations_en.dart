@@ -788,7 +788,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundNotification => 'Notifications';
 
   @override
-  String get backgroundBattery => 'Battery optimization';
+  String get backgroundBattery => 'Battery optimization exemption';
 
   @override
   String get backgroundBatteryExempt => 'Exempt';

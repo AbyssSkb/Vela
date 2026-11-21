@@ -1451,7 +1451,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundBattery.
   ///
   /// In en, this message translates to:
-  /// **'Battery optimization'**
+  /// **'Battery optimization exemption'**
   String get backgroundBattery;
 
   /// No description provided for @backgroundBatteryExempt.
