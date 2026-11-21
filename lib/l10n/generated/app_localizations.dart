@@ -1532,6 +1532,12 @@ abstract class AppLocalizations {
   /// **'Show window after receiving'**
   String get openAfterReceive;
 
+  /// No description provided for @copyReceivedImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically copy received images'**
+  String get copyReceivedImages;
+
   /// No description provided for @autoAccept.
   ///
   /// In en, this message translates to:

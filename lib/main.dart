@@ -1641,11 +1641,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         });
       }
       if (completed && mounted) {
-        _updateDesktopStatus(
-          'transferCompleted',
-          prefs?.getBool(DesktopPlatform.openAfterReceiveKey(widget.profile)) ??
-              false,
-        );
+        if (!Platform.isMacOS) {
+          _updateDesktopStatus(
+            'transferCompleted',
+            prefs?.getBool(
+                  DesktopPlatform.openAfterReceiveKey(widget.profile),
+                ) ??
+                false,
+          );
+        }
       } else {
         _setTransferring(false);
       }
@@ -1830,6 +1834,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     required bool savedPrivately,
   }) {
     final first = files.first;
+    if (Platform.isMacOS) {
+      _updateDesktopStatus('receivedMenuContent', {
+        'title': switch (kind) {
+          TransferKind.batch => t.filesReceived(files.length),
+          _ when content.link != null => content.link!,
+          _ when content.text != null => t.textReceived,
+          _ => t.received(first.name),
+        },
+        'paths': files.map((file) => file.reference).toList(),
+        'isText': content.text != null,
+        'link': content.link,
+        'copyImage':
+            kind == TransferKind.file &&
+            (prefs?.getBool(
+                  DesktopPlatform.copyReceivedImagesKey(widget.profile),
+                ) ??
+                false),
+        'showWindow':
+            prefs?.getBool(
+              DesktopPlatform.openAfterReceiveKey(widget.profile),
+            ) ??
+            false,
+      });
+    }
     final message = !content.historySaved
         ? t.historySaveFailed
         : savedPrivately && content.clipboardFailed

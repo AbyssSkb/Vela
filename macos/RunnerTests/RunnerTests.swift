@@ -54,6 +54,47 @@ class RunnerTests: XCTestCase {
     XCTAssertNotNil(menu.items.last?.action)
   }
 
+  func testReceivedItemsOfferOpenAndCopyWithNativeClipboardTypes() throws {
+    let app = AppDelegate()
+    app.setMenuLanguage("en")
+    let menu = NSMenu()
+    let board = NSPasteboard(name: NSPasteboard.Name(UUID().uuidString))
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+      board.releaseGlobally()
+    }
+
+    let text = directory.appendingPathComponent("Message.txt")
+    try "https://example.com\n".write(to: text, atomically: true, encoding: .utf8)
+    let pdf = directory.appendingPathComponent("Report.pdf")
+    try Data().write(to: pdf)
+    let image = directory.appendingPathComponent("Screenshot.tiff")
+    let bitmap = try XCTUnwrap(NSBitmapImageRep(
+      bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2, bitsPerSample: 8,
+      samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+      bytesPerRow: 8, bitsPerPixel: 32))
+    try XCTUnwrap(bitmap.tiffRepresentation).write(to: image)
+
+    for (files, isText, type) in [
+      ([text], true, NSPasteboard.PasteboardType.string),
+      ([image], false, .tiff),
+      ([pdf], false, .fileURL),
+      ([image, pdf], false, .fileURL),
+    ] {
+      app.recordMenuReceipt(["title": "Newest receipt", "paths": files.map(\.path), "isText": isText],
+                            inBackground: true)
+      app.menuNeedsUpdate(menu)
+      XCTAssertEqual(Array(menu.items.prefix(3).map(\.title)), ["Newest receipt", "Open", "Copy"])
+      XCTAssertTrue(menu.items[1].isEnabled && menu.items[2].isEnabled)
+      XCTAssertTrue(app.copyCurrentReceipt(to: board))
+      XCTAssertTrue(board.types?.contains(type) == true)
+      if isText { XCTAssertEqual(board.string(forType: .string), "https://example.com\n") }
+      if type == .fileURL { XCTAssertEqual(board.pasteboardItems?.count, files.count) }
+    }
+  }
+
   func testMenuOfferOnlyDecidesTheCurrentRequestOnce() throws {
     let app = AppDelegate()
     let menu = NSMenu()

@@ -336,9 +336,20 @@ void main() {
             ('setNodeStatus', 'starting'),
             ('setNodeStatus', 'ready'),
             ('setTransferring', true),
-            ('transferCompleted', showWindow ?? false),
+            if (!Platform.isMacOS) ('transferCompleted', showWindow ?? false),
           ]),
         );
+        if (Platform.isMacOS) {
+          final receipt =
+              effects.menuStates
+                      .singleWhere((state) => state.$1 == 'receivedMenuContent')
+                      .$2
+                  as Map<Object?, Object?>;
+          expect(receipt['showWindow'], showWindow ?? false);
+          expect(receipt['isText'], isTrue);
+          expect(Uri.parse(receipt['link']! as String).scheme, 'https');
+          expect(receipt['paths'], hasLength(1));
+        }
         expect(
           effects.menuStates.where((state) => state.$1 == 'offer'),
           isEmpty,
@@ -363,7 +374,11 @@ void main() {
         ]),
       );
       expect(
-        effects.menuStates.where((state) => state.$1 == 'transferCompleted'),
+        effects.menuStates.where(
+          (state) =>
+              state.$1 == 'transferCompleted' ||
+              state.$1 == 'receivedMenuContent',
+        ),
         isEmpty,
       );
       await tester.pump(const Duration(seconds: 1));

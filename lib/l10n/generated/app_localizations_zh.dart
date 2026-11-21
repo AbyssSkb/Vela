@@ -779,6 +779,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get openAfterReceive => '接收完成后显示窗口';
 
   @override
+  String get copyReceivedImages => '自动复制收到的图片';
+
+  @override
   String get autoAccept => '自动接收';
 
   @override

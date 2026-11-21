@@ -333,6 +333,16 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
         app?.finishTransfer(inBackground: inBackground)
         if inBackground && showOnCompletion { app?.showWindow() }
         result(nil)
+      case "receivedMenuContent":
+        guard let args = call.arguments as? [String: Any] else {
+          result(FlutterError(code: "receipt", message: "Missing received content", details: nil))
+          return
+        }
+        let app = NSApplication.shared.delegate as? AppDelegate
+        let inBackground = !self.isVisible || self.isMiniaturized || !NSApp.isActive
+        app?.recordMenuReceipt(args, inBackground: inBackground)
+        if inBackground && args["showWindow"] as? Bool == true { app?.showWindow() }
+        result(nil)
       case "offer":
         let args = call.arguments as? [String: Any] ?? [:]
         let app = NSApplication.shared.delegate as? AppDelegate

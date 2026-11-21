@@ -396,6 +396,7 @@
   "openLink": "打开链接",
   "openLinkFailed": "无法打开链接",
   "openAfterReceive": "接收完成后显示窗口",
+  "copyReceivedImages": "自动复制收到的图片",
   "autoAccept": "自动接收",
   "retry": "重试",
   "fileUnavailable": "文件无法读取，请重新选择",
