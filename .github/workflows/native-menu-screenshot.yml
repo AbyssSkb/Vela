@@ -11,18 +11,18 @@ permissions:
 jobs:
   capture:
     runs-on: macos-26
-    timeout-minutes: 16
+    timeout-minutes: 28
     steps:
       - name: Download the exact menu fix build
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44896378993 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = 1a03adab99d8d79cf5c11a9c76edc365e292070e
+          result=$(gh run view 44901600518 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 29871d30ba8aa77e78fc648a5a35f526dfd8cf69
           mkdir -p "$RUNNER_TEMP/vela-menu"
-          for attempt in {1..60}; do
-            if gh run download 44896378993 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+          for attempt in {1..120}; do
+            if gh run download 44901600518 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -186,14 +186,28 @@ jobs:
           printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
           xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
           test -s vela-finder-hover.png && test -s vela-finder-drop.png
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: vela-finder-drop
+          path: |
+            ${{ runner.temp }}/vela-menu/vela-*.png
+            ${{ runner.temp }}/vela-menu/*.log
+          if-no-files-found: warn
+          retention-days: 3
+  receipt:
+    runs-on: macos-26
+    timeout-minutes: 8
+    steps:
       - name: Verify the exact AppKit receipt actions in isolation
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vela-menu"
           cd "$RUNNER_TEMP/vela-menu"
-          gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/AppDelegate.swift?ref=dba98e5f05932e9af6daaee0266eecb2a10e7222" |
+          gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/AppDelegate.swift?ref=29871d30ba8aa77e78fc648a5a35f526dfd8cf69" |
             sed '/^import FlutterMacOS$/d; /^@main$/d; /UNUserNotificationCenter.current().delegate = self/d' > AppDelegate.swift
           cat > Dependencies.swift <<'SWIFT'
           import AppKit
@@ -259,35 +273,60 @@ jobs:
           app.ensureStatusItem()
           let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("会议纪要.pdf")
           try Data().write(to: file)
-          app.recordMenuReceipt(["title": "已接收 会议纪要.pdf", "paths": [file.path]], inBackground: true)
-          RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
-          guard let panel = application.windows.compactMap({ $0 as? NSPanel }).first(where: { $0.isVisible }),
-                panel.styleMask.contains(.nonactivatingPanel),
-                let stack = panel.contentView as? NSStackView,
-                let copy = stack.arrangedSubviews.compactMap({ $0 as? NSButton }).first(where: { $0.title == "复制" })
-          else { fatalError("Background receipt did not create a nonactivating panel with Copy") }
-          let capture = Process()
-          capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-          capture.arguments = ["-x", "-l", String(panel.windowNumber), "vela-macos-receipt.png"]
-          try capture.run()
-          capture.waitUntilExit()
-          precondition(capture.terminationStatus == 0)
-          copy.performClick(nil)
-          precondition(!panel.isVisible)
-          let copied = NSPasteboard.general.readObjects(
-            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
-          precondition(copied == [file])
-          precondition(!application.isActive)
-          print("MACOS_RECEIPT_PANEL_VISIBLE_AND_COPY_OK")
+          let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first!
+          finder.activate()
+          RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
+          let receipt: [String: Any] = ["title": "已接收 会议纪要.pdf", "paths": [file.path]]
+          for name in [NSAppearance.Name.aqua, .darkAqua] {
+            application.appearance = NSAppearance(named: name)
+            app.recordMenuReceipt(receipt, inBackground: true)
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
+            guard let panel = application.windows.compactMap({ $0 as? NSPanel }).first(where: { $0.isVisible }),
+                  panel.styleMask.contains(.nonactivatingPanel), !panel.isOpaque,
+                  let material = panel.contentView as? NSVisualEffectView,
+                  material.material == .menu, material.maskImage != nil,
+                  let stack = material.subviews.first as? NSStackView
+            else { fatalError("Background receipt did not create a rounded, nonactivating menu preview") }
+            let actions = stack.arrangedSubviews.compactMap { $0 as? NSButton }
+            let menu = NSMenu()
+            app.menuNeedsUpdate(menu)
+            precondition(actions.map(\.title) == Array(menu.items[1...2].map(\.title)))
+            precondition(actions.map(\.action) == Array(menu.items[1...2].map(\.action)))
+            precondition(actions.allSatisfy { $0.image != nil })
+            let capture = Process()
+            capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            let appearance = name == .aqua ? "light" : "dark"
+            capture.arguments = ["-x", "-l", String(panel.windowNumber), "vela-receipt-\(appearance).png"]
+            try capture.run()
+            capture.waitUntilExit()
+            precondition(capture.terminationStatus == 0)
+            if name == .aqua {
+              actions[1].performClick(nil)
+              let copied = NSPasteboard.general.readObjects(
+                forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+              precondition(copied == [file])
+            } else {
+              precondition(CGPreflightPostEventAccess(), "Hosted desktop cannot post a mouse click")
+              let outside = CGPoint(x: 300, y: 400)
+              for kind in [CGEventType.leftMouseDown, .leftMouseUp] {
+                CGEvent(mouseEventSource: nil, mouseType: kind, mouseCursorPosition: outside,
+                        mouseButton: .left)?.post(tap: .cghidEventTap)
+              }
+              RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.7))
+            }
+            precondition(!panel.isVisible, "Menu preview should close after an action or outside click")
+            precondition(!application.isActive, "Menu preview activated Vela")
+            app.menuNeedsUpdate(menu)
+            precondition(menu.items.first?.title == "已接收 会议纪要.pdf")
+          }
+          print("MACOS_RECEIPT_PANEL_LIGHT_DARK_COPY_DISMISS_OK")
           SWIFT
           xcrun swiftc AppDelegate.swift Dependencies.swift main.swift -o VerifyReceipt
           ./VerifyReceipt
       - if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: vela-finder-drop
-          path: |
-            ${{ runner.temp }}/vela-menu/vela-*.png
-            ${{ runner.temp }}/vela-menu/*.log
+          name: vela-receipt-menu
+          path: ${{ runner.temp }}/vela-menu/vela-receipt-*.png
           if-no-files-found: warn
-          retention-days: 3
+          retention-days: 5
