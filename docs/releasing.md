@@ -81,6 +81,8 @@ Existing installations rely on the same application IDs, Android signing key, an
 
 Public desktop builds use ad-hoc macOS signing and a Windows installer without Authenticode. The Ed25519 update key verifies Vela update feeds and payloads. The macOS build retains the app sandbox and Windows bundles its compiler runtime DLLs with the app.
 
+See [release signing and publisher trust](release-signing.md) for platform registration, signing, and installation checks.
+
 Clients verify manifest targets, signatures, file sizes, and SHA-256 before installing. macOS hands Sparkle the verified ZIP through a local appcast after the user confirms. Windows runs the verified installer after shutdown. The Linux helper replaces the full AppImage. Android hands the APK to the system installer.
 
 ## Verify networking separately
