@@ -19,7 +19,7 @@ jobs:
           final class DropView: NSView {
             override func hitTest(_ point: NSPoint) -> NSView? { self }
             override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-              NSLog("VIEW_ENTER types=%@ mask=%lu", "(sender.draggingPasteboard.types ?? [])",
+              NSLog("VIEW_ENTER types=%@ mask=%lu", "\(sender.draggingPasteboard.types ?? [])",
                     sender.draggingSourceOperationMask.rawValue)
               return .copy
             }
@@ -62,7 +62,7 @@ jobs:
             }
             func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
               NSLog("WINDOW_ENTER name=%@ types=%@ mask=%lu", sender.draggingDestinationWindow?.title ?? "",
-                    "(sender.draggingPasteboard.types ?? [])", sender.draggingSourceOperationMask.rawValue)
+                    "\(sender.draggingPasteboard.types ?? [])", sender.draggingSourceOperationMask.rawValue)
               return .copy
             }
             func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
@@ -101,7 +101,7 @@ jobs:
             let role = value(node, "AXRole") as? String ?? ""
             let name = ["AXTitle", "AXDescription", "AXValue"].compactMap { value(node, $0) as? String }
             if name.contains(where: { $0.contains("Vela drag fixture") }), let rect = frame(node) {
-              print("Finder file: (role) (name) (rect)")
+              print("Finder file: \(role) \(name) \(rect)")
               return rect
             }
             for key in ["AXSelectedChildren", "AXChildren"] {
@@ -122,7 +122,7 @@ jobs:
           let app = AXUIElementCreateApplication(pid)
           let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first!
           let finderAX = AXUIElementCreateApplication(finder.processIdentifier)
-          print("CGEvent access (CGPreflightPostEventAccess())")
+          print("CGEvent access \(CGPreflightPostEventAccess())")
           for target in ["View", "Window", "Drop reference"] {
             NSWorkspace.shared.activateFileViewerSelecting([url])
             finder.activate()
@@ -134,10 +134,10 @@ jobs:
             let item = (elements as? [AXUIElement])?.first { node in
               ["AXTitle", "AXDescription", "AXHelp"].contains { value(node, $0) as? String == target }
             }
-            guard let item, let dest = frame(item) else { print("No target (target)"); exit(1) }
+            guard let item, let dest = frame(item) else { print("No target \(target)"); exit(1) }
             let from = CGPoint(x: source.midX, y: source.midY)
             let to = CGPoint(x: dest.midX, y: dest.midY)
-            print("Drag (from) -> (target) (to) frontmost=(NSWorkspace.shared.frontmostApplication?.localizedName ?? "")")
+            print("Drag \(from) -> \(target) \(to) frontmost=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "")")
             mouse(.mouseMoved, from)
             Thread.sleep(forTimeInterval: 0.1)
             mouse(.leftMouseDown, from)
