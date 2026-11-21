@@ -242,13 +242,15 @@ jobs:
             mouse(.leftMouseDown, currentSource)
             Thread.sleep(forTimeInterval: 0.20)
             precondition(findDrop(height: 36, timeout: 0.1) == nil, "Mouse-down alone showed the drag hint")
-            mouse(.leftMouseDragged, waypoint)
+            let inFinder = CGPoint(x: currentSource.x + 65, y: currentSource.y + 25)
+            print("Finder fixture at \(currentSource) and drag to \(inFinder)")
+            mouse(.leftMouseDragged, inFinder)
             guard let hint = findDrop(height: 36) else {
-              mouse(.leftMouseUp, waypoint)
+              mouse(.leftMouseUp, inFinder)
               try? fullCapture("vela-finder-missing-hint.png")
               fatalError("Dragging a file in Finder did not show the hint")
             }
-            precondition(!frame(hint)!.contains(waypoint), "The probe must start outside the drop target")
+            precondition(!frame(hint)!.contains(inFinder), "The probe must start outside the drop target")
             return hint
           }
 
