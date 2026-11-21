@@ -19,8 +19,16 @@ class ReleaseTests(unittest.TestCase):
     def test_android_release_requires_only_the_published_signer(self):
         report = f"Signer #1 certificate SHA-256 digest: {RELEASE_CERT_SHA256}\n"
         verify_release_signer(report)
-        for invalid in ("", report.replace(RELEASE_CERT_SHA256, "0" * 64),
-                        report + report.replace("#1", "#2")):
+        v2_report = report.replace("Signer #1", "V2 Signer:")
+        verify_release_signer(v2_report)
+        verify_release_signer(v2_report + v2_report.replace("V2", "V3.0"))
+        source_stamp = report.replace("Signer #1", "Source Stamp Signer:")
+        verify_release_signer(v2_report + source_stamp.replace(RELEASE_CERT_SHA256, "0" * 64))
+        other_signer = report.replace(RELEASE_CERT_SHA256, "0" * 64)
+        for invalid in (
+            "", source_stamp, other_signer, report + other_signer.replace("#1", "#2"),
+            v2_report + other_signer.replace("Signer #1", "V3.0 Signer:"),
+        ):
             with self.assertRaises(ValueError):
                 verify_release_signer(invalid)
 

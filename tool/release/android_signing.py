@@ -11,8 +11,13 @@ RELEASE_CERT_SHA256 = "e77c9a0b8c47ac70c4aee4b223c464e3b393cce438a9835542b2b489a
 
 
 def verify_release_signer(report: str) -> None:
-    digests = re.findall(r"^Signer #\d+ certificate SHA-256 digest: (\S+)$", report, re.MULTILINE)
-    if digests != [RELEASE_CERT_SHA256]:
+    # Recent apksigner versions report the same certificate once per signature scheme.
+    digests = {
+        digest
+        for label, digest in re.findall(r"^(.+?) certificate SHA-256 digest: (\S+)$", report, re.MULTILINE)
+        if label.removesuffix(":") != "Source Stamp Signer"
+    }
+    if digests != {RELEASE_CERT_SHA256}:
         raise ValueError("APK signer must match the published Android signing certificate")
 
 
