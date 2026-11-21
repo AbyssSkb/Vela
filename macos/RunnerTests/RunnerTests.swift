@@ -14,7 +14,7 @@ class RunnerTests: XCTestCase {
 
     app.menuNeedsUpdate(menu)
 
-    XCTAssertEqual(menu.items.map(\.title), ["Open received folder", "Open Vela", "Quit Vela"])
+    XCTAssertEqual(menu.items.map(\.title), ["Send files…", "Open received folder", "Open Vela", "Quit Vela"])
     XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
   }
 
@@ -39,7 +39,19 @@ class RunnerTests: XCTestCase {
     app.setIncoming(false)
     app.setNodeStatus("starting")
     app.menuNeedsUpdate(menu)
-    XCTAssertEqual(menu.items.first?.title, "Open received folder")
+    XCTAssertEqual(menu.items.first?.title, "Send files…")
+  }
+
+  func testFileTargetMenuShowsTheFileAndOffersPairedDevices() {
+    let app = AppDelegate()
+    app.setMenuLanguage("en")
+    let url = URL(fileURLWithPath: "/tmp/Report.pdf")
+    let files = [["path": url.path]]
+    XCTAssertEqual(app.menuTargets(for: [url], files: files).items.last?.title, "Add a device…")
+    app.setMenuDevices([["id": "phone", "name": "Phone", "label": "Reachable"]])
+    let menu = app.menuTargets(for: [url], files: files)
+    XCTAssertEqual(menu.items.map(\.title), ["Send “Report.pdf” to", "Phone"])
+    XCTAssertNotNil(menu.items.last?.action)
   }
 
   func testMenuOfferOnlyDecidesTheCurrentRequestOnce() throws {

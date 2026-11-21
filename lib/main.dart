@@ -594,6 +594,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         } else if (call.method == 'confirmedAvailable') {
           _confirmedShareAvailable = true;
           unawaited(_sendNextConfirmedShare());
+        } else if (call.method == 'sendMenuFiles' && Platform.isMacOS) {
+          await _sendMenuFiles(call.arguments);
         }
       });
       if (Platform.isAndroid) unawaited(_showPendingReceipt());
@@ -896,8 +898,53 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _queueDrop(List<DropItem> items, String? recipient) async {
-    if (items.isEmpty) return;
+  Future<void> _sendMenuFiles(Object? arguments) async {
+    if (arguments is! Map ||
+        arguments['peer'] is! String ||
+        arguments['files'] is! List) {
+      throw PlatformException(code: 'files', message: t.fileUnavailable);
+    }
+    final recipient = arguments['peer'] as String;
+    if (!peers.containsKey(recipient)) {
+      throw PlatformException(code: 'peer', message: t.sendDeviceChanged);
+    }
+    if (!mounted ||
+        !_canResumeSend ||
+        activeSendOperations != 0 ||
+        incomingOffersPending != 0 ||
+        _dropsInProgress != 0) {
+      throw PlatformException(code: 'busy', message: t.transferBusy);
+    }
+    final items = <DropItemFile>[];
+    for (final file in arguments['files'] as List) {
+      if (file is! Map || file['path'] is! String) {
+        throw PlatformException(code: 'files', message: t.fileUnavailable);
+      }
+      items.add(
+        DropItemFile(
+          file['path'] as String,
+          extraAppleBookmark: file['bookmark'] as Uint8List?,
+        ),
+      );
+    }
+    _dropsInProgress++;
+    try {
+      final error = await _queueDrop(items, recipient, confirmed: true);
+      if (error != null) throw PlatformException(code: 'send', message: error);
+    } finally {
+      _dropsInProgress--;
+    }
+  }
+
+  Future<String?> _queueDrop(
+    List<DropItem> items,
+    String? recipient, {
+    bool confirmed = false,
+  }) async {
+    if (items.isEmpty) return confirmed ? t.fileUnavailable : null;
+    final revision = confirmed
+        ? pairedDevices?.pairingRevisionFor(recipient!)
+        : null;
     final files = [
       for (final item in items)
         if (item.fromPromise) item.path,
@@ -906,15 +953,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       if (!mounted || shuttingDown || updates.installing) {
         await _releaseDrop(bookmarks, files);
-        return;
+        return null;
       }
       if (items.length > 100 || items.any((item) => item is! DropItemFile)) {
-        _message(
-          items.length > 100 ? t.tooManyFiles : t.dropFilesOnly,
-          kind: NoticeKind.error,
-        );
+        final error = items.length > 100 ? t.tooManyFiles : t.dropFilesOnly;
         await _releaseDrop(bookmarks, files);
-        return;
+        if (confirmed) return error;
+        _message(error, kind: NoticeKind.error);
+        return null;
       }
       for (final item in items) {
         final bookmark = item.extraAppleBookmark;
@@ -931,7 +977,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       if (!mounted || shuttingDown || updates.installing) {
         await _releaseDrop(bookmarks, files);
-        return;
+        return null;
+      }
+      if (confirmed && !_canSendTo(recipient!, revision)) {
+        await _releaseDrop(bookmarks, files);
+        return t.sendDeviceChanged;
       }
       final share = PendingShare(
         paths: items.map((item) => item.path).toList(),
@@ -939,13 +989,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         preferredPeer: recipient,
       );
       _dropResources[share] = (bookmarks: bookmarks, files: files);
+      if (confirmed) {
+        final content = await _prepareShare(share);
+        final session = _createSendSession(content);
+        String? error;
+        await _send(
+          recipient!,
+          _sendDeviceName(recipient),
+          session,
+          confirmedShare: true,
+          onFailure: (message) => error = message,
+        );
+        if (!identical(_failedSend?.content, content)) {
+          await _releaseSendSession(session);
+        }
+        return error;
+      }
       _queuedLocalShares.addLast(share);
       await _takePendingShare();
     } catch (e) {
       debugPrint('Could not receive dropped files: $e');
       await _releaseDrop(bookmarks, files);
+      if (confirmed) return mounted ? t.fileUnavailable : null;
       if (mounted) _message(t.fileUnavailable, kind: NoticeKind.error);
     }
+    return null;
   }
 
   Future<void> _showPendingReceipt() async {
@@ -1343,6 +1411,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Map<String, String> _macMenuDevice(String id) {
     final (:value, :label, checking: _) = _visiblePresence(id);
     return {
+      'id': id,
       'name': _sendDeviceName(id),
       'presence': value?.name ?? 'unknown',
       'label': label,
@@ -3526,6 +3595,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String name,
     SendSession session, {
     bool confirmedShare = false,
+    void Function(String)? onFailure,
   }) async {
     final content = session.content;
     final share = content.share;
@@ -3658,6 +3728,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _finishSystemTransfer(resultMessage, completed: sendCompleted);
         }
         if (resultMessage != null) {
+          if (!sendCompleted) onFailure?.call(resultMessage);
           if (!sendCompleted && !declined && retryOffer == null) {
             _message(resultMessage, kind: resultKind);
           } else {
