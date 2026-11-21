@@ -382,7 +382,7 @@
   "userGuide": "使用指南",
   "backgroundUnavailable": "无法更改后台接收，请检查系统设置。",
   "backgroundNotification": "通知",
-  "backgroundBattery": "电池优化",
+  "backgroundBattery": "电池优化豁免",
   "backgroundBatteryExempt": "已豁免",
   "backgroundBatteryRestricted": "受限",
   "backgroundBatteryOptimized": "未豁免",

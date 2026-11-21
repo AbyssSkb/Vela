@@ -737,7 +737,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backgroundNotification => '通知';
 
   @override
-  String get backgroundBattery => '电池优化';
+  String get backgroundBattery => '电池优化豁免';
 
   @override
   String get backgroundBatteryExempt => '已豁免';

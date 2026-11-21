@@ -9,6 +9,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.provider.Settings
@@ -184,6 +185,7 @@ class MainActivity : FlutterActivity() {
         NotificationChannels.ensure(this)
         val uri = Uri.fromParts("package", packageName, null)
         val appSettings = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+        val batteryExemptions = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
         val intent =
             when (section) {
                 "notifications" ->
@@ -232,8 +234,13 @@ class MainActivity : FlutterActivity() {
                         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                 "battery" -> appSettings
-                "battery_exemption" ->
-                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                "battery_exemption" -> {
+                    val power = getSystemService(PowerManager::class.java)
+                    if (power.isIgnoringBatteryOptimizations(packageName))
+                        batteryExemptions
+                    else
+                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, uri)
+                }
                 "autostart" -> Intent(Settings.ACTION_SETTINGS)
                 "guide" -> {
                     val guide =
@@ -249,7 +256,8 @@ class MainActivity : FlutterActivity() {
             }
         val fallbacks =
             when (section) {
-                "battery", "battery_exemption", "autostart", "guide" -> listOf(appSettings)
+                "battery_exemption" -> listOf(batteryExemptions)
+                "battery", "autostart", "guide" -> listOf(appSettings)
                 else ->
                     listOf(
                         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)

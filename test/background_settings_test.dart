@@ -350,41 +350,66 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final (state, label, section) in [
-    ('battery', 'Battery optimization', 'battery_exemption'),
-    ('restricted', 'Battery optimization', 'battery'),
+  for (final (restricted, exempt) in [
+    (false, false),
+    (true, false),
+    (false, true),
   ]) {
-    testWidgets('blocked Android receiving opens the $state settings', (
-      tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({'background_receive_test': true});
-      final messenger = tester.binding.defaultBinaryMessenger;
-      String? opened;
-      messenger.setMockMethodCallHandler(channel, (call) async {
-        if (call.method == 'status') {
-          return {
-            'running': state != 'restricted',
-            'nodeReady': state != 'restricted',
-            'allNotifications': state != 'app',
-            'notifications': state == 'battery' || state == 'restricted',
-            'batteryExempt': false,
-            'restricted': state == 'restricted',
-          };
+    testWidgets(
+      'Android battery controls keep the two settings distinct ($restricted, $exempt)',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'background_receive_test': true,
+        });
+        final messenger = tester.binding.defaultBinaryMessenger;
+        String? opened;
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'status') {
+            return {
+              'running': !restricted,
+              'nodeReady': !restricted,
+              'allNotifications': false,
+              'notifications': false,
+              'batteryExempt': exempt,
+              'restricted': restricted,
+            };
+          }
+          if (call.method == 'settings') {
+            opened = (call.arguments as Map)['section'] as String;
+          }
+          return null;
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+        await showPage(tester, () async {});
+        final battery = find.widgetWithText(
+          ListTile,
+          'Battery optimization exemption',
+        );
+        final restriction = find.widgetWithText(
+          ListTile,
+          'System background restrictions',
+        );
+        expect(find.text('Incoming request notifications'), findsNothing);
+        expect(
+          find.descendant(
+            of: battery,
+            matching: find.text(exempt ? 'Exempt' : 'Not exempt'),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(battery);
+        await tester.pump();
+        expect(opened, 'battery_exemption');
+        if (restricted) {
+          await tester.tap(restriction);
+          await tester.pump();
+          expect(opened, 'battery');
+        } else {
+          expect(restriction, findsNothing);
         }
-        if (call.method == 'settings') {
-          opened = (call.arguments as Map)['section'] as String;
-        }
-        return null;
-      });
-      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-      await showPage(tester, () async {});
-      final action = find.widgetWithText(ListTile, label);
-      expect(find.text('Incoming request notifications'), findsNothing);
-      expect(action.hitTestable(), findsOneWidget);
-      await tester.tap(action);
-      await tester.pump();
-      expect(opened, section);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.android),
+    );
   }
 
   testWidgets(
@@ -883,7 +908,10 @@ void main() {
       );
       await showPage(tester, () async {});
       expect(find.text('Low Power Standby exemption'), findsNothing);
-      expect(find.text('Battery optimization').hitTestable(), findsOneWidget);
+      expect(
+        find.text('Battery optimization exemption').hitTestable(),
+        findsOneWidget,
+      );
       expect(find.text('Incoming request notifications'), findsNothing);
       expect(find.text('Low Power Standby exemption'), findsNothing);
       expect(find.text('Receiving service'), findsNothing);
