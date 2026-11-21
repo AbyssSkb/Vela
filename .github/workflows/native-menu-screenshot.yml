@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [source]
+        variant: [source, package, dark]
     steps:
       - name: Download the exact menu fix build
         if: matrix.variant != 'source'
@@ -87,21 +87,6 @@ jobs:
           fflush(stdout)
           app.run()
           SWIFT
-          python3 - <<'PY2'
-          from pathlib import Path
-          p = Path("AppDelegate.swift")
-          s = p.read_text()
-          marker = "    let count = pasteboard.changeCount"
-          diag = r"""    let trace = "\(count) / \(NSEvent.pressedMouseButtons) / \(pasteboard.types ?? []) / \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "-")"
-              if trace != Self.dropTrace {
-                Self.dropTrace = trace
-                print("DROP_TRACE \(trace) old=\(dragChangeCount) active=\(finderDragActive)")
-                fflush(stdout)
-              }"""
-          s = s.replace(marker, marker + "\n" + diag)
-          s = s.replace("  private func observeFinderDrag(", "  private static var dropTrace = \"\"\n\n  private func observeFinderDrag(")
-          p.write_text(s)
-          PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
           cat > Vela.app/Contents/Info.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -267,14 +252,19 @@ jobs:
               fatalError("Dragging a file in Finder did not show the hint")
             }
             precondition(!frame(hint)!.contains(inFinder), "The probe must start outside the drop target")
+            Thread.sleep(forTimeInterval: 0.30)
             return hint
           }
 
           func dropInPanel(from hint: [String: Any]) -> [String: Any] {
             let frameBefore = frame(hint)!
             let location = CGPoint(x: frameBefore.midX - 46, y: frameBefore.minY + 20)
-            mouse(.leftMouseDragged, location)
+            for offset in [0, 4, -3, 0] {
+              mouse(.leftMouseDragged, CGPoint(x: location.x + CGFloat(offset), y: location.y))
+              Thread.sleep(forTimeInterval: 0.09)
+            }
             guard let area = findDrop(height: 96) else {
+              try? fullCapture("vela-finder-missing-drop-area.png")
               mouse(.leftMouseUp, location)
               fatalError("The hint did not expand on entry")
             }
