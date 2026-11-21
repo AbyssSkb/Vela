@@ -306,6 +306,18 @@ jobs:
           calculator.arguments = ["-a", "Calculator"]
           try calculator.run()
           calculator.waitUntilExit()
+          for _ in 0..<30 {
+            if let alternate = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.calculator").first,
+               let surface = windows().first(where: {
+                 guard ($0[kCGWindowOwnerPID as String] as? pid_t) == alternate.processIdentifier,
+                       let rect = frame($0) else { return false }
+                 return rect.width > 120 && rect.height > 140
+               }), let rect = frame(surface) {
+              click(CGPoint(x: rect.midX, y: rect.minY + 14))
+              break
+            }
+            Thread.sleep(forTimeInterval: 0.12)
+          }
           waitForApp("com.apple.calculator")
           precondition(findDrop(height: 110).map(number) == number(first), "Switching apps dismissed the batch")
           try capture(first, "vela-finder-panel-while-calculator-front.png", pointer: target)
