@@ -27,6 +27,8 @@ Android 的接收服务可启动共享 FlutterEngine，即使前台没有 Activi
 
 先用标准电源模式测试。ColorOS 15 起的省电模式可以限制后台运行。进入 Vela 的应用详情，在耗电管理里检查后台运行和自启动。不同固件的名称可能变化。澎湃 OS 和 One UI 的入口见[使用说明](user-guide.zh-CN.md#后台接收)。 [OPPO 省电模式](https://support.oppo.com/cn/answer/?aid=SI2105920) · [OPPO 耗电管理设置示例](https://consumer.huawei.com/cn/support/content/zh-cn15848664/)
 
+收到 Doze 豁免后，仍要核对 ColorOS 的「耗电行为控制」。`isBackgroundRestricted()` 只报告 Android API 可见的后台限制。它返回 `false` 时，Vela 仍无法由此读取 ColorOS 的「智能优化后台运行」选项。对比测试时，保留 Doze 豁免，分别在「智能优化后台运行」和「完全允许后台行为」下锁屏收件。记录进程和接收服务是否还在，以及同一发送端的实际收件结果。如果进程退出，核查 `adb shell dumpsys activity exit-info com.example.vela`。 [Android 后台限制 API](https://developer.android.com/reference/android/app/ActivityManager#isBackgroundRestricted()) · [ColorOS 设置实录](https://gsxnj.cn/help/android/background-running-oppo/) · [Don’t Kill My App 的 OPPO 指南](https://dontkillmyapp.com/oppo)
+
 ## macOS 的系统限制
 
 App Nap 会影响不可见应用的计时与资源调度。菜单栏存在时也应测试实际收件。另行记录显示器关闭、空闲系统睡眠、手动睡眠和合盖。防空闲睡眠的 activity 针对空闲睡眠。使用 `SMAppService.mainApp` 的登录项在用户下次登录时生效，由系统设置控制。 [App Nap](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/power_efficiency_guidelines_osx/AppNap.html) · [睡眠与电源断言](https://developer.apple.com/library/archive/qa/qa1340/_index.html) · [SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)

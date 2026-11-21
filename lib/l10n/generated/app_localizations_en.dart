@@ -803,6 +803,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backgroundRestricted => 'System background restrictions';
 
   @override
+  String get backgroundBatteryManagement => 'Battery usage and auto-start';
+
+  @override
   String get backgroundBatteryHint =>
       'If the device frequently goes offline, allow unrestricted battery use in system settings.';
 

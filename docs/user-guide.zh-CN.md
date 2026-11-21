@@ -64,9 +64,11 @@ Vela 一次处理一项传输。在 Vela 内可以查看进度或取消。发送
 | macOS | 关闭窗口后，Vela 会留在菜单栏。「设置 → 接收 → 后台接收」让 Mac 在窗口关闭后保持唤醒和可接收。在「设置 → 通知」开启后，Vela 可以通过系统通知提醒接收请求。合盖和手动睡眠仍会中断连接。macOS 13 起可在设置首页开启「登录时启动」。 |
 | Windows 和 Linux | 后台接收开启且托盘可用时，关闭窗口后 Vela 会留在系统托盘。可从托盘菜单打开或退出。托盘不可用时请保持窗口打开。系统睡眠或退出登录会停止接收。 |
 
-**ColorOS** 在 Vela 的应用详情中查看「耗电管理」，开启后台运行和自启动。**澎湃 OS** 检查 Vela 的「后台自启动」和应用省电设置里的「无限制」。**One UI** 检查「从不自动休眠的应用」列表。菜单名称和位置随系统版本变化。 [ColorOS 设置示例](https://consumer.huawei.com/cn/support/content/zh-cn15848664/) · [澎湃 OS 自启动](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [澎湃 OS 电池设置](https://www.mi.com/global/support/faq/details/KA-538010/) · [三星应用管理](https://developer.samsung.com/mobile/app-management.html)
+**ColorOS** 从 Vela 的「后台接收 → 耗电管理与自启动」打开应用详情。依次进入「耗电管理 → 耗电行为控制」，选择「完全允许后台行为」。部分版本显示为「允许后台活动」开关。需要重启后恢复接收时，再开启「允许应用自启动」。Vela 的「电池优化豁免」只显示 Android 的 Doze 豁免状态，耗电行为控制由 ColorOS 单独管理。 [ColorOS 设置实录](https://gsxnj.cn/help/android/background-running-oppo/#设置后台运行) · [Don’t Kill My App 的 OPPO 指南](https://dontkillmyapp.com/oppo)
 
-「后台接收」里的「自启动设置」会打开 Android 的相关系统设置。验证重启后能否接收时，请先重启并解锁手机，再从已配对设备发一个文件，最后打开 Vela 查看结果。
+**澎湃 OS** 检查 Vela 的「后台自启动」和应用省电设置里的「无限制」。**One UI** 检查「从不自动休眠的应用」列表。菜单名称和位置随系统版本变化。 [澎湃 OS 自启动](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=1624) · [澎湃 OS 电池设置](https://www.mi.com/global/support/faq/details/KA-538010/) · [三星应用管理](https://developer.samsung.com/mobile/app-management.html)
+
+验证重启后能否接收时，请先重启并解锁手机，再从已配对设备发一个文件，最后打开 Vela 查看结果。
 
 支持实时更新的 Android 系统可能在状态栏胶囊中显示传输进度。保持后台可用会增加耗电。强制停止 Vela 后，重新打开应用以恢复接收。 [Android 后台接收细节](background-execution-research.zh-CN.md)
 
