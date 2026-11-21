@@ -91,17 +91,9 @@ jobs:
           from pathlib import Path
           p = Path("MenuFileDropPanel.swift")
           s = p.read_text()
-          s = s.replace("[.borderless, .nonactivatingPanel]", "[.titled, .fullSizeContentView, .nonactivatingPanel]")
-          s = s.replace("    isOpaque = false\n    backgroundColor = .clear", r"""    titleVisibility = .hidden
-              titlebarAppearsTransparent = true
-              for control in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-                standardWindowButton(control)?.isHidden = true
-              }
-              backgroundColor = .windowBackgroundColor""")
-          s = s.replace("    level = .popUpMenu", "    level = .statusBar\n    hidesOnDeactivate = false")
-          s = s.replace("    guard !choosingDevice, sender.draggingSourceOperationMask", r"""    print("DROP_ENTER id=\(windowNumber) location=\(sender.draggingLocation)")
-              fflush(stdout)
-              guard !choosingDevice, sender.draggingSourceOperationMask""")
+          s = s.replace("    registerForDraggedTypes([.fileURL])\n", "")
+          s = s.replace("    orderFrontRegardless()", "    orderFrontRegardless()\n    registerForDraggedTypes([.fileURL])")
+          s = s.replace("    orderOut(nil)","    unregisterDraggedTypes()\n    orderOut(nil)")
           p.write_text(s)
           PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
@@ -259,7 +251,7 @@ jobs:
             }
           }
 
-          let waypoint = CGPoint(x: target.x - 320, y: 390)
+          let waypoint = CGPoint(x: target.x - 320, y: 350)
           func startDrag() -> [String: Any] {
             guard let focused = element(finderAX, "AXFocusedWindow"),
                   let currentSource = findFile(focused as! AXUIElement) else {
@@ -287,7 +279,8 @@ jobs:
 
           func dropInPanel(from hint: [String: Any]) -> [String: Any] {
             let frameBefore = frame(hint)!
-            let location = CGPoint(x: frameBefore.midX - 46, y: frameBefore.minY + 20)
+            let location = CGPoint(x: frameBefore.midX - 46, y: frameBefore.minY + 15)
+            glide(to: CGPoint(x: location.x - 120, y: location.y + 100))
             glide(to: location)
             guard let area = findDrop(height: 96) else {
               try? fullCapture("vela-finder-missing-drop-area.png")
@@ -315,16 +308,18 @@ jobs:
           mouse(.leftMouseUp, waypoint)
           Thread.sleep(forTimeInterval: 0.4)
           precondition(findDrop(height: 36, timeout: 0.1) == nil, "Releasing outside should hide the hint")
+          NSWorkspace.shared.activateFileViewerSelecting([url])
           finder.activate()
-          Thread.sleep(forTimeInterval: 0.4)
+          Thread.sleep(forTimeInterval: 0.9)
 
           let escape = dropInPanel(from: startDrag())
           try capture(escape, "vela-finder-devices.png", pointer: target)
           key(53)
           Thread.sleep(forTimeInterval: 0.4)
           precondition(findDrop(height: 110, timeout: 0.1) == nil, "Escape did not close the device panel")
+          NSWorkspace.shared.activateFileViewerSelecting([url])
           finder.activate()
-          Thread.sleep(forTimeInterval: 0.4)
+          Thread.sleep(forTimeInterval: 0.9)
 
           _ = startDrag()
           glide(to: target)
@@ -335,8 +330,9 @@ jobs:
           mouse(.leftMouseUp, waypoint)
           Thread.sleep(forTimeInterval: 0.4)
           precondition(findDrop(height: 110, timeout: 0.1) == nil, "Clicking outside did not close the device panel")
+          NSWorkspace.shared.activateFileViewerSelecting([url])
           finder.activate()
-          Thread.sleep(forTimeInterval: 0.4)
+          Thread.sleep(forTimeInterval: 0.9)
 
           let choices = dropInPanel(from: startDrag())
           let rect = frame(choices)!
