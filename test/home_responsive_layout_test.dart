@@ -64,7 +64,10 @@ void main() {
         expect(find.text('Request notifications are off'), findsOneWidget);
         await tester.tap(find.widgetWithText(TextButton, 'Notifications'));
         await tester.pumpAndSettle();
-        expect(find.text('Incoming request notifications'), findsOneWidget);
+        expect(
+          find.widgetWithText(SwitchListTile, 'Incoming requests'),
+          findsOneWidget,
+        );
         permission = true;
         await tester.pageBack();
         await tester.pump();
