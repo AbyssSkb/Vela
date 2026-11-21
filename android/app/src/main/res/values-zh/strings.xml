@@ -8,6 +8,10 @@
     <string name="notification_results">传输结果</string>
     <string name="notification_service">后台接收</string>
     <string name="background_starting">正在启动 Vela…</string>
-    <string name="background_ready">接收服务已启动</string>
-    <string name="background_failed">Vela 启动失败，点击打开</string>
+    <string name="background_ready">后台接收运行中</string>
+    <string name="background_failed">后台接收不可用</string>
+    <string name="background_network_blocked">联网受限</string>
+    <string name="background_tile_ready">可接收</string>
+    <string name="background_tile_off">接收已关闭</string>
+    <string name="background_tile_unready">接收未就绪</string>
 </resources>

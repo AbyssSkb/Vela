@@ -373,7 +373,7 @@
   "notificationLive": "Live updates",
   "notificationCompleted": "Transfer complete",
   "notificationCompletedShort": "Done",
-  "backgroundReady": "Receiving service started",
+  "backgroundReady": "Background receiving is running",
   "backgroundStartHint": "Off",
   "backgroundMacMaySleep": "Receives while awake",
   "backgroundMacInactive": "Idle sleep is still allowed",

@@ -729,7 +729,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationCompletedShort => 'Done';
 
   @override
-  String get backgroundReady => 'Receiving service started';
+  String get backgroundReady => 'Background receiving is running';
 
   @override
   String get backgroundStartHint => 'Off';

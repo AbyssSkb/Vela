@@ -204,6 +204,7 @@ class _BackgroundSettingsPageState extends State<BackgroundSettingsPage>
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
+      if (setting == BackgroundReceiving.androidService) await prefs.reload();
       current = await setting.readStatus();
     } catch (error) {
       if (strict) rethrow;

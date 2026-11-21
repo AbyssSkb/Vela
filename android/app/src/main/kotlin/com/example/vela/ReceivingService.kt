@@ -16,31 +16,49 @@ class ReceivingService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var engineRetryDelay = 1000L
     private val retryEngine = Runnable { startEngine() }
+    private var message: String? = null
+    private var readyMessage: String? = null
 
     companion object {
         const val CHANNEL = "receiving_service"
         const val OFFERS = "incoming_offers"
         const val SERVICE_ID = 31
         const val OFFER_ID = 32
+        private const val ENABLED_KEY = "flutter.background_receive_default"
         @Volatile var running = false
+            private set
         private var active: ReceivingService? = null
 
         fun isEnabled(context: Context): Boolean =
+            preferences(context).getBoolean(ENABLED_KEY, true)
+
+        fun setEnabled(context: Context, enabled: Boolean) {
+            preferences(context).edit().putBoolean(ENABLED_KEY, enabled).apply()
+        }
+
+        private fun preferences(context: Context) =
             context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                .getBoolean("flutter.background_receive_default", true)
+
+        fun ready(app: VelaApplication): Boolean =
+            running && app.nodeReady && !app.networkBlocked
 
         fun markStarting() {
-            active?.let { it.showForeground(it.getString(R.string.background_starting)) }
+            active?.updateStatus(R.string.background_starting)
         }
 
         fun markReady(message: String?) {
             active?.let {
-                it.showForeground(message ?: it.getString(R.string.background_ready))
+                if (message != null) it.readyMessage = message
+                it.updateStatus(R.string.background_ready)
             }
         }
 
         fun markFailed() {
-            active?.let { it.showForeground(it.getString(R.string.background_failed)) }
+            active?.updateStatus(R.string.background_failed)
+        }
+
+        fun networkChanged(app: VelaApplication) {
+            if (app.nodeReady) markReady(null)
         }
     }
 
@@ -62,6 +80,22 @@ class ReceivingService : Service() {
             handler.postDelayed(retryEngine, engineRetryDelay)
             engineRetryDelay = (engineRetryDelay * 2).coerceAtMost(60000L)
         }
+    }
+
+    private fun updateStatus(status: Int) {
+        val app = application as VelaApplication
+        val display = when {
+            app.networkBlocked && status == R.string.background_ready ->
+                getString(R.string.background_network_blocked)
+            status == R.string.background_ready ->
+                readyMessage ?: getString(R.string.background_ready)
+            else -> getString(status)
+        }
+        if (message != display) {
+            showForeground(display)
+            message = display
+        }
+        ReceivingTileService.refresh()
     }
 
     private fun showForeground(message: String) {
@@ -94,12 +128,9 @@ class ReceivingService : Service() {
             return START_NOT_STICKY
         }
         val application = application as VelaApplication
-        val message =
-            if (application.nodeReady)
-                intent?.getStringExtra("message") ?: getString(R.string.background_ready)
-            else getString(R.string.background_starting)
-        showForeground(message)
+        intent?.getStringExtra("message")?.let { readyMessage = it }
         running = true
+        if (application.nodeReady) markReady(null) else markStarting()
         if (wakeLock == null) {
             wakeLock =
                 getSystemService(PowerManager::class.java)
@@ -120,6 +151,8 @@ class ReceivingService : Service() {
         wakeLock = null
         if (active === this) active = null
         running = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        ReceivingTileService.refresh()
         super.onDestroy()
     }
 
