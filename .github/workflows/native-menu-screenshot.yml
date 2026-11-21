@@ -320,10 +320,17 @@ jobs:
           }
           waitForApp("com.apple.calculator")
           precondition(findDrop(height: 110).map(number) == number(first), "Switching apps dismissed the batch")
-          try capture(first, "vela-finder-panel-while-calculator-front.png", pointer: target)
+          try fullCapture("vela-finder-panel-while-calculator-front.png")
 
           NSWorkspace.shared.activateFileViewerSelecting([url])
-          finder.activate()
+          guard let finderWindow = windows().first(where: {
+            guard ($0[kCGWindowOwnerPID as String] as? pid_t) == finder.processIdentifier,
+                  let rect = frame($0) else { return false }
+            return rect.width > 480 && rect.height > 240
+          }), let finderRect = frame(finderWindow) else {
+            fatalError("The hosted Finder window was unavailable")
+          }
+          click(CGPoint(x: finderRect.maxX - 36, y: finderRect.minY + 150))
           waitForApp("com.apple.finder")
           click(waypoint)
           precondition(findDrop(height: 110).map(number) == number(first), "Clicking Finder dismissed the batch")
