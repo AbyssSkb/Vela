@@ -32,6 +32,11 @@ internal class ShareTransferService : Service() {
                 it.stopSelf()
             }
         }
+
+        fun hideProgress() {
+            val service = active ?: return
+            if (service.requests.isNotEmpty()) service.showForeground(showProgress = false)
+        }
     }
 
     override fun onCreate() {
@@ -44,18 +49,7 @@ internal class ShareTransferService : Service() {
         NotificationChannels.ensure(this)
         if (requests.isEmpty()) {
             try {
-                startForeground(
-                    NotificationChannels.TRANSFER_ID,
-                    notification(NotificationChannels.PROGRESS)
-                        .setContentTitle(getString(R.string.share_transfer_connecting))
-                        .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                        .setOngoing(true)
-                        .setOnlyAlertOnce(true)
-                        .setRequestPromotedOngoing(true)
-                        .setShortCriticalText(getString(R.string.share_transfer_connecting))
-                        .setProgress(100, 0, true)
-                        .build(),
-                )
+                showForeground(NotificationChannels.enabled(this, NotificationChannels.SHOW_TRANSFERS))
             } catch (_: IllegalStateException) {
                 showFailure()
                 stopSelf(startId)
@@ -103,7 +97,25 @@ internal class ShareTransferService : Service() {
                 )
             )
 
+    private fun showForeground(showProgress: Boolean) {
+        val channel = if (showProgress) NotificationChannels.PROGRESS else ReceivingService.CHANNEL
+        val builder = notification(channel).setOngoing(true).setOnlyAlertOnce(true)
+        if (showProgress) {
+            val connecting = getString(R.string.share_transfer_connecting)
+            builder
+                .setContentTitle(connecting)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+                .setRequestPromotedOngoing(NotificationChannels.promote(this))
+                .setShortCriticalText(connecting)
+                .setProgress(100, 0, true)
+        } else {
+            builder.setContentTitle("Vela").setSilent(true)
+        }
+        startForeground(NotificationChannels.TRANSFER_ID, builder.build())
+    }
+
     private fun showFailure() {
+        if (!NotificationChannels.enabled(this, NotificationChannels.SHOW_TRANSFERS)) return
         try {
             NotificationManagerCompat.from(this).notify(
                 "share",

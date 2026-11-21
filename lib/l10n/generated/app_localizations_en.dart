@@ -702,22 +702,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSettings => 'Notifications';
 
   @override
-  String get notificationSystemSettings => 'System notification settings';
+  String get notificationPersistent => 'Persistent notification';
 
   @override
-  String get notificationOn => 'On';
+  String get notificationRequests => 'Incoming requests';
 
   @override
-  String get notificationOff => 'Off';
-
-  @override
-  String get notificationRequests => 'Incoming request notifications';
-
-  @override
-  String get notificationProgress => 'Transfer progress';
-
-  @override
-  String get notificationResults => 'Transfer results';
+  String get notificationTransfers => 'Transfer progress and results';
 
   @override
   String get notificationLive => 'Live updates';

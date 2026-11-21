@@ -397,7 +397,7 @@ void main() {
           ListTile,
           'Battery usage and auto-start',
         );
-        expect(find.text('Incoming request notifications'), findsNothing);
+        expect(find.text('Incoming requests'), findsNothing);
         expect(
           find.descendant(
             of: battery,
@@ -830,7 +830,7 @@ void main() {
       );
       expect(active, isTrue);
       expect(changes, 1);
-      expect(find.text('Incoming request notifications'), findsNothing);
+      expect(find.text('Incoming requests'), findsNothing);
       final loginSwitch = find.widgetWithText(SwitchListTile, 'Open at login');
       expect(tester.widget<SwitchListTile>(loginSwitch).onChanged, isNotNull);
       expect(tester.widget<SwitchListTile>(loginSwitch).subtitle, isNull);
@@ -927,7 +927,7 @@ void main() {
         find.text('Battery optimization exemption').hitTestable(),
         findsOneWidget,
       );
-      expect(find.text('Incoming request notifications'), findsNothing);
+      expect(find.text('Incoming requests'), findsNothing);
       expect(find.text('Low Power Standby exemption'), findsNothing);
       expect(find.text('Receiving service'), findsNothing);
       expect(find.text('Receiving node'), findsNothing);

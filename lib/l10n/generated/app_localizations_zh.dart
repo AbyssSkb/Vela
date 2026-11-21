@@ -653,22 +653,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationSettings => '通知';
 
   @override
-  String get notificationSystemSettings => '系统通知设置';
+  String get notificationPersistent => '常驻通知栏';
 
   @override
-  String get notificationOn => '已开启';
+  String get notificationRequests => '接收请求';
 
   @override
-  String get notificationOff => '已关闭';
-
-  @override
-  String get notificationRequests => '接收请求通知';
-
-  @override
-  String get notificationProgress => '传输进度';
-
-  @override
-  String get notificationResults => '传输结果';
+  String get notificationTransfers => '传输进度和结果';
 
   @override
   String get notificationLive => '实时活动';

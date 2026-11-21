@@ -209,6 +209,7 @@ class MainActivity : FlutterActivity() {
                         .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                 "notification_progress",
                 "notification_results",
+                "notification_service",
                 "notification_requests" ->
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                         Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
@@ -220,6 +221,7 @@ class MainActivity : FlutterActivity() {
                                         NotificationChannels.PROGRESS
                                     "notification_results" ->
                                         NotificationChannels.RESULTS
+                                    "notification_service" -> ReceivingService.CHANNEL
                                     else -> ReceivingService.OFFERS
                                 },
                             )
