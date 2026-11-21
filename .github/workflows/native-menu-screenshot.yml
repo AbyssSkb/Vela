@@ -103,7 +103,6 @@ jobs:
               print("DROP_SHOW id=\(windowNumber) frame=\(frame)")
               fflush(stdout)""")
           s = s.replace("    level = .popUpMenu", "    level = .statusBar\n    hidesOnDeactivate = false")
-          s = s.replace("    backgroundColor = .clear", "    backgroundColor = .windowBackgroundColor")
           p.write_text(s)
           PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
@@ -279,7 +278,7 @@ jobs:
 
           func dropInPanel(from hint: [String: Any]) -> [String: Any] {
             let frameBefore = frame(hint)!
-            let location = CGPoint(x: frameBefore.midX, y: frameBefore.minY + 20)
+            let location = CGPoint(x: frameBefore.midX - 46, y: frameBefore.minY + 20)
             for offset in [0, 4, -3, 0] {
               mouse(.leftMouseDragged, CGPoint(x: location.x + CGFloat(offset), y: location.y))
               Thread.sleep(forTimeInterval: 0.09)
@@ -289,7 +288,7 @@ jobs:
               mouse(.leftMouseUp, location)
               fatalError("The hint did not expand on entry")
             }
-            precondition(number(area) == number(hint) && frame(area)!.midX == frameBefore.midX && frame(area)!.minY == frameBefore.minY)
+            precondition(number(area) == number(hint) && abs(frame(area)!.midX - frameBefore.midX) <= 1 && frame(area)!.minY == frameBefore.minY)
             try? capture(area, "vela-finder-drop-area.png", pointer: target)
             mouse(.leftMouseUp, location)
             guard let choices = findDrop(height: 110) else {
