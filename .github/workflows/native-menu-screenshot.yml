@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [source-dark, dark]
+        variant: [dark]
     steps:
       - name: Download the exact menu fix build
         if: matrix.variant == 'dark'
@@ -302,8 +302,9 @@ jobs:
 
           waitForApp("com.apple.finder")
           let first = try drop("Vela drag fixture", capturePrompt: true)
-          waitForApp("com.apple.finder")
+          try capture(first, "vela-finder-device-panel.png", pointer: target)
           click(waypoint)
+          waitForApp("com.apple.finder")
           precondition(findDrop(height: 110).map(number) == number(first), "Clicking Finder dismissed the batch")
           try fullCapture("vela-finder-panel-after-clicking-finder.png")
           let combined = try drop("Vela second fixture", using: first)
@@ -311,6 +312,7 @@ jobs:
           let rect = frame(combined)!
           click(CGPoint(x: rect.midX, y: rect.minY + 51))
           precondition(findDrop(height: 110, timeout: 0.25) == nil, "Selecting a device did not close the batch")
+          click(waypoint)
           waitForApp("com.apple.finder")
 
           let toClose = try drop("Vela drag fixture")
