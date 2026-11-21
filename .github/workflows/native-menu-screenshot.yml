@@ -15,10 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [source, package]
+        variant: [source, package, dark]
     steps:
       - name: Download the exact menu fix build
-        if: matrix.variant == 'package'
+        if: matrix.variant != 'source'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -231,11 +231,15 @@ jobs:
             }
           }
 
-          let waypoint = CGPoint(x: source.x + 70, y: source.y + 25)
+          let waypoint = CGPoint(x: target.x - 320, y: 390)
           func startDrag() -> [String: Any] {
-            mouse(.mouseMoved, source)
+            guard let focused = element(finderAX, "AXFocusedWindow"),
+                  let currentSource = findFile(focused as! AXUIElement) else {
+              fatalError("Could not locate the Finder fixture for the next drag")
+            }
+            mouse(.mouseMoved, currentSource)
             Thread.sleep(forTimeInterval: 0.15)
-            mouse(.leftMouseDown, source)
+            mouse(.leftMouseDown, currentSource)
             Thread.sleep(forTimeInterval: 0.20)
             precondition(findDrop(height: 36, timeout: 0.1) == nil, "Mouse-down alone showed the drag hint")
             mouse(.leftMouseDragged, waypoint)
@@ -314,7 +318,11 @@ jobs:
           print("FINDER_DROP_HINT_DROP_CANCEL_SEND_OK")
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
-          defaults delete -g AppleInterfaceStyle 2>/dev/null || true
+          if [[ "$VARIANT" == dark ]]; then
+            defaults write -g AppleInterfaceStyle -string Dark
+          else
+            defaults delete -g AppleInterfaceStyle 2>/dev/null || true
+          fi
           defaults write -g AppleLanguages -array zh-Hans en
           support="$HOME/Library/Containers/com.example.vela/Data/Library/Application Support/com.example.vela"
           mkdir -p "$support"
