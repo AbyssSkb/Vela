@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   smoke:
-    name: Clean install (${{ matrix.arch }})
+    name: LaunchServices upgrade (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -42,7 +42,7 @@ jobs:
             sleep 10
           done
           test -f "candidate/Vela-0.1.0-beta.12-macos-$TARGET_ARCH.dmg"
-      - name: Verify, install, and launch
+      - name: Verify, install, and upgrade through LaunchServices
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
@@ -93,8 +93,15 @@ jobs:
             test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist")" = 0.1.0
             test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$plist")" = "$build"
             local executable="$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$plist")"
-            "$app/Contents/MacOS/$executable" >"$RUNNER_TEMP/vela-$version.log" 2>&1 &
-            pid=$!
+            local logfile="$RUNNER_TEMP/vela-$version.log"
+            touch "$logfile"
+            open -n --stdout "$logfile" --stderr "$logfile" "$app"
+            for attempt in {1..15}; do
+              pid="$(pgrep -f "^$app/Contents/MacOS/$executable" | head -1 || true)"
+              if [[ -n "$pid" ]]; then break; fi
+              sleep 1
+            done
+            test -n "$pid"
             for attempt in {1..30}; do
               kill -0 "$pid"
               if grep -q 'event=ready' "$RUNNER_TEMP/vela-$version.log"; then
@@ -105,7 +112,17 @@ jobs:
             done
             return 1
           }
-          launch candidate 0.1.0-beta.12 17
+          launch previous 0.1.0-beta.11 16
           database="$(find "$HOME/Library/Containers/com.example.vela" -name peer_state_v2.sqlite3 -print -quit)"
           test -f "$database"
-          echo "Clean install initialized the receive node and data store."
+          identity="$(stat -f %i "$database")"
+          kill "$pid"
+          for attempt in {1..20}; do
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          ! kill -0 "$pid" 2>/dev/null
+          pid=""
+          launch candidate 0.1.0-beta.12 17
+          test "$(stat -f %i "$database")" = "$identity"
+          echo "Upgraded in place and reused the existing data store."
