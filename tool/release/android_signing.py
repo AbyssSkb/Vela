@@ -1,8 +1,19 @@
-"""Materialize release signing only on the protected GitHub runner."""
+"""Configure and verify the Android release signer."""
 
 import base64
 import os
 from pathlib import Path
+import re
+import sys
+
+
+RELEASE_CERT_SHA256 = "e77c9a0b8c47ac70c4aee4b223c464e3b393cce438a9835542b2b489acb8210b"
+
+
+def verify_release_signer(report: str) -> None:
+    digests = re.findall(r"^Signer #\d+ certificate SHA-256 digest: (\S+)$", report, re.MULTILINE)
+    if digests != [RELEASE_CERT_SHA256]:
+        raise ValueError("APK signer must match the published Android signing certificate")
 
 
 def configure(environment: dict, android: Path) -> None:
@@ -26,4 +37,12 @@ def configure(environment: dict, android: Path) -> None:
 
 
 if __name__ == "__main__":
-    configure(os.environ, Path("android"))
+    if sys.argv[1:] == ["verify-signer"]:
+        try:
+            verify_release_signer(sys.stdin.read())
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
+    elif len(sys.argv) == 1:
+        configure(os.environ, Path("android"))
+    else:
+        raise SystemExit("Usage: android_signing.py [verify-signer]")
