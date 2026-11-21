@@ -57,11 +57,17 @@ void main() {
     await tester.pump();
     expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 12);
     expect(tester.getRect(button).bottom, 628);
+    const shallowInset = FakeViewPadding(left: 18, right: 18, bottom: 6);
+    tester.view.viewPadding = shallowInset;
+    tester.view.padding = shallowInset;
+    await tester.pump();
+    expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 12);
+    expect(tester.getRect(button).bottom, 628);
     tester.view.physicalSize = const Size(640, 320);
     tester.view.viewPadding = insets;
     tester.view.padding = insets;
     await tester.pump();
-    expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 12);
+    expect(tester.getRect(button).top - tester.getTopLeft(panel).dy, 24);
     expect(tester.getRect(button).bottom, 296);
     await tester.tap(find.byIcon(Icons.close));
     expect(cancelled, isTrue);
@@ -159,6 +165,8 @@ void main() {
     for (final (inset, top, bottom) in [
       (24.0, 24.0, 24.0),
       (40.0, 40.0, 40.0),
+      (12.0, 12.0, 12.0),
+      (6.0, 12.0, 12.0),
       (0.0, 12.0, 12.0),
     ]) {
       tester.view.viewPadding = FakeViewPadding(bottom: inset);
@@ -179,7 +187,7 @@ void main() {
     tester.view.viewPadding = const FakeViewPadding(bottom: 24);
     tester.view.padding = const FakeViewPadding(bottom: 24);
     await tester.pump();
-    expect(tester.getRect(open).top - tester.getTopLeft(panel).dy, 12);
+    expect(tester.getRect(open).top - tester.getTopLeft(panel).dy, 24);
     expect(tester.getRect(open).bottom, 336);
     await tester.tap(open);
     expect(opened, isTrue);

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 enum NoticeKind { info, success, error }
@@ -11,9 +13,12 @@ const _noticeHorizontalPadding = EdgeInsets.symmetric(horizontal: 16);
 
 EdgeInsets _noticeVerticalPadding(BuildContext context) {
   final bottomInset = MediaQuery.paddingOf(context).bottom;
-  if (bottomInset == 0) return const EdgeInsets.symmetric(vertical: 12);
-  final landscape = MediaQuery.orientationOf(context) == Orientation.landscape;
-  return EdgeInsets.only(top: landscape && bottomInset > 12 ? 12 : bottomInset);
+  const minimum = 12.0;
+  // The surrounding safe area already contributes bottomInset below the content.
+  return EdgeInsets.only(
+    top: math.max(minimum, bottomInset),
+    bottom: math.max(0, minimum - bottomInset),
+  );
 }
 
 class ActivityNotice extends StatelessWidget {
