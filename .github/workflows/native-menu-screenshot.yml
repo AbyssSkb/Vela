@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [source]
+        variant: [source, package, dark]
     steps:
       - name: Download the exact menu fix build
         if: matrix.variant != 'source'
@@ -23,11 +23,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44909313307 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = b891b8b94a4e285b84dcffeb91b9324c7e766bc5
+          result=$(gh run view 44910514550 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 5af149e86304a3864e00d94f4308e29d16822e90
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44909313307 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44910514550 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/vela-menu/Vela.app/Contents/MacOS"
           cd "$RUNNER_TEMP/vela-menu"
-          ref=b891b8b94a4e285b84dcffeb91b9324c7e766bc5
+          ref=5af149e86304a3864e00d94f4308e29d16822e90
           for file in AppDelegate.swift MenuFileDropPanel.swift; do
             gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/$file?ref=$ref" |
               sed '/^import FlutterMacOS$/d; /^@main$/d; /UNUserNotificationCenter.current().delegate = self/d' > "$file"
@@ -87,15 +87,6 @@ jobs:
           fflush(stdout)
           app.run()
           SWIFT
-          python3 - <<'PY2'
-          from pathlib import Path
-          p = Path("MenuFileDropPanel.swift")
-          s = p.read_text()
-          s = s.replace("    registerForDraggedTypes([.fileURL])\n", "")
-          s = s.replace("    orderFrontRegardless()", "    orderFrontRegardless()\n    registerForDraggedTypes([.fileURL])")
-          s = s.replace("    orderOut(nil)","    unregisterDraggedTypes()\n    orderOut(nil)")
-          p.write_text(s)
-          PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
           cat > Vela.app/Contents/Info.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -288,8 +279,13 @@ jobs:
               fatalError("The hint did not expand on entry")
             }
             precondition(number(area) == number(hint) && abs(frame(area)!.midX - frameBefore.midX) <= 1 && frame(area)!.minY == frameBefore.minY)
+            let dropRect = frame(area)!
+            let edge = CGPoint(x: dropRect.minX + 28, y: dropRect.minY + 16)
+            precondition(!frameBefore.contains(edge), "The edge test must be outside the original compact hint")
+            glide(to: edge)
+            precondition(findDrop(height: 96) != nil, "Moving inside the expanded target collapsed it")
             try? capture(area, "vela-finder-drop-area.png", pointer: target)
-            mouse(.leftMouseUp, location)
+            mouse(.leftMouseUp, edge)
             guard let choices = findDrop(height: 110) else {
               try? fullCapture("vela-finder-missing-choices.png")
               fatalError("Releasing in the drop panel did not show the device list")
