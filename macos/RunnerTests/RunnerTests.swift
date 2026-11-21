@@ -18,6 +18,30 @@ class RunnerTests: XCTestCase {
     XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
   }
 
+  func testPairedDevicesAppearUnderRequestsAndClearOnNodeRestart() {
+    let app = AppDelegate()
+    app.setMenuLanguage("en")
+    let menu = NSMenu()
+    app.menuWillOpen(menu)
+    app.setMenuDevices([
+      ["name": "Phone", "presence": "reachable", "label": "Reachable"],
+      ["name": "Tablet", "presence": "unavailable", "label": "Temporarily unreachable"],
+      ["name": "Laptop", "presence": "unknown", "label": "Checking"],
+    ])
+    XCTAssertEqual(Array(menu.items.prefix(3).map(\.title)), ["Phone", "Tablet", "Laptop"])
+    XCTAssertEqual(menu.items.first?.view?.accessibilityLabel(), "Phone, Reachable")
+    XCTAssertTrue(menu.items.prefix(3).allSatisfy { $0.view != nil && $0.action == nil })
+    XCTAssertTrue(menu.items[3].isSeparatorItem)
+    app.setMenuOffer(["id": "request", "title": "Incoming file"]) { _, _ in }
+    app.menuNeedsUpdate(menu)
+    XCTAssertEqual(menu.items.first?.title, "Incoming file")
+    app.menuDidClose(menu)
+    app.setIncoming(false)
+    app.setNodeStatus("starting")
+    app.menuNeedsUpdate(menu)
+    XCTAssertEqual(menu.items.first?.title, "Open received folder")
+  }
+
   func testMenuOfferOnlyDecidesTheCurrentRequestOnce() throws {
     let app = AppDelegate()
     let menu = NSMenu()

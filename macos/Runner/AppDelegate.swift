@@ -33,9 +33,10 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private var statusItem: NSStatusItem?
   private let statusLight = MenuStatusLight()
   private let statusMenu = NSMenu()
-  private var statusMenuOpen = false
+  private weak var openStatusMenu: NSMenu?
   private var folderOpenFailed = false
   private var menuOffer: MenuOffer?
+  private var menuDevices: [[String: String]] = []
   private var backgroundActivity: NSObjectProtocol?
   private var menuLanguage: String?
   private var menuIsChinese: Bool {
@@ -91,7 +92,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       let button = statusItem?.button
       return [
         "exists": statusItem != nil, "visible": statusItem?.isVisible ?? false,
-        "status": menuStatus, "panelVisible": statusMenuOpen,
+        "status": menuStatus, "panelVisible": openStatusMenu != nil,
         "panelHasOffer": menuOffer != nil,
         "hasImage": button?.image != nil, "windowVisible": button?.window?.isVisible ?? false,
         "lightColor": statusLight.superview != nil ? statusLight.color.description : "",
@@ -145,6 +146,41 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       menu.addItem(.separator())
     }
 
+    for device in menuDevices {
+      guard let name = device["name"], let status = device["label"] else { continue }
+      let item = menuItem(shortMenuTitle(name))
+      let color: NSColor = switch device["presence"] {
+      case "reachable": .systemGreen
+      case "unavailable": .systemRed
+      default: .systemGray
+      }
+      let image = NSImage(size: NSSize(width: 13, height: 13), flipped: false) { rect in
+        color.setFill()
+        NSBezierPath(ovalIn: rect.insetBy(dx: 3.5, dy: 3.5)).fill()
+        return true
+      }
+      // A read-only NSMenuItem title uses the disabled text color.
+      let label = NSTextField(labelWithString: item.title)
+      label.font = NSFont.menuFont(ofSize: 0)
+      label.lineBreakMode = .byTruncatingMiddle
+      let size = label.fittingSize
+      label.frame = NSRect(x: 36, y: (24 - size.height) / 2,
+                           width: min(size.width, 280), height: size.height)
+      let light = NSImageView(image: image)
+      light.frame = NSRect(origin: NSPoint(x: 17, y: 5.5), size: image.size)
+      let row = NSView(frame: NSRect(x: 0, y: 0, width: label.frame.maxX + 16, height: 24))
+      row.addSubview(light)
+      row.addSubview(label)
+      row.setAccessibilityElement(true)
+      row.setAccessibilityRole(.staticText)
+      row.setAccessibilityLabel("\(name), \(status)")
+      label.setAccessibilityElement(false)
+      light.setAccessibilityElement(false)
+      item.view = row
+      menu.addItem(item)
+    }
+    if !menuDevices.isEmpty { menu.addItem(.separator()) }
+
     menu.addItem(menuItem(
       chinese ? "打开接收文件夹" : "Open received folder", icon: "folder",
       action: #selector(openReceivedFolderFromMenu)))
@@ -159,8 +195,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     menu.addItem(quit)
   }
 
-  func menuWillOpen(_ menu: NSMenu) { statusMenuOpen = true }
-  func menuDidClose(_ menu: NSMenu) { statusMenuOpen = false }
+  func menuWillOpen(_ menu: NSMenu) { openStatusMenu = menu }
+  func menuDidClose(_ menu: NSMenu) { openStatusMenu = nil }
 
   private func shortMenuTitle(_ text: String) -> String {
     let line = text.components(separatedBy: .newlines).joined(separator: " ")
@@ -247,7 +283,14 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   func setNodeStatus(_ status: String) {
     guard ["starting", "ready", "failed"].contains(status) else { return }
     nodeStatus = status
+    if status != "ready" { menuDevices = [] }
     updateMenuLight()
+  }
+
+  func setMenuDevices(_ devices: [[String: String]]) {
+    guard devices != menuDevices else { return }
+    menuDevices = devices
+    if let openStatusMenu { menuNeedsUpdate(openStatusMenu) }
   }
 
   func setTransferring(_ transferring: Bool) {
@@ -292,7 +335,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     statusLight.color = menuStatusColor
     button.toolTip = description
     button.setAccessibilityLabel(description)
-    if statusMenuOpen { statusMenu.update() }
+    if let openStatusMenu { menuNeedsUpdate(openStatusMenu) }
   }
 
   @objc func showWindow() {

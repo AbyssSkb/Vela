@@ -41,6 +41,23 @@ void main() {
       const secureChannel = MethodChannel(
         'plugins.it_nomads.com/flutter_secure_storage',
       );
+      const backgroundChannel = MethodChannel('vela/background');
+      List<Object?> menuDevices = [];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        backgroundChannel,
+        (call) async {
+          if (call.method == 'setMenuDevices') {
+            menuDevices = call.arguments as List<Object?>;
+          }
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          backgroundChannel,
+          null,
+        );
+      });
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         pathChannel,
         (call) async => dir.path,
@@ -123,6 +140,11 @@ void main() {
           reason: 'an event should update the indicator without waiting for a 250 ms polling tick',
         );
         expect(find.text('Reachable'), findsNothing);
+        if (Platform.isMacOS) {
+          expect(menuDevices, [
+            {'name': 'Phone', 'presence': 'reachable', 'label': 'Reachable'},
+          ]);
+        }
 
         // A temporarily unavailable proof clock must not leave the device
         // offline forever when no new snapshot revision arrives.
@@ -206,6 +228,15 @@ void main() {
           findsOneWidget,
           reason: 'fresh completion must read the newest snapshot before removing the spinner, even when the watch is delayed',
         );
+        if (Platform.isMacOS) {
+          expect(menuDevices, [
+            {
+              'name': 'Phone',
+              'presence': 'unavailable',
+              'label': 'Temporarily unreachable',
+            },
+          ]);
+        }
         node.holdWatch = false;
         node.releaseWatch.complete();
         await tester.pump();
