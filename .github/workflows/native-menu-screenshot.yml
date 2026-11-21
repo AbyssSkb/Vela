@@ -18,11 +18,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44867002282 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = 170d3886a4493dd5d3e6c4198dcf59fa034ed9c3
+          result=$(gh run view 44868640185 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = ecff4109260814f13a6a718da7c5f8d24ff63af1
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..36}; do
-            if gh run download 44867002282 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44868640185 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
