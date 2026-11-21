@@ -13,7 +13,7 @@ private final class MenuStatusLight: NSView {
   override func draw(_ dirtyRect: NSRect) {
     color.setFill()
     NSBezierPath(
-      ovalIn: NSRect(x: bounds.midX + 2.5, y: bounds.midY + 2.5, width: 6, height: 6)
+      ovalIn: NSRect(x: bounds.midX + 5, y: bounds.midY - 3, width: 6, height: 6)
     ).fill()
   }
 }
@@ -113,7 +113,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   func ensureStatusItem() {
     guard statusItem == nil else { return }
     UNUserNotificationCenter.current().delegate = self
-    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     statusMenu.delegate = self
     statusMenu.autoenablesItems = false
     menuNeedsUpdate(statusMenu)
@@ -131,10 +131,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   func menuNeedsUpdate(_ menu: NSMenu) {
     let chinese = menuIsChinese
     menu.removeAllItems()
-    menu.addItem(menuItem(menuDescription(menuStatus)))
-
     if let offer = menuOffer {
-      menu.addItem(.separator())
       menu.addItem(menuItem(shortMenuTitle(offer.sender)))
       if !offer.detail.isEmpty { menu.addItem(menuItem(shortMenuTitle(offer.detail))) }
       if let hint = offer.clipboardHint { menu.addItem(menuItem(hint)) }
@@ -145,9 +142,9 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       let decline = menuItem(offer.decline, action: #selector(decideMenuOfferFromItem(_:)))
       decline.representedObject = offer.id
       menu.addItem(decline)
+      menu.addItem(.separator())
     }
 
-    menu.addItem(.separator())
     menu.addItem(menuItem(
       chinese ? "打开接收文件夹" : "Open received folder", icon: "folder",
       action: #selector(openReceivedFolderFromMenu)))
@@ -211,7 +208,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   }
 
   private func menuImage() -> NSImage {
-    let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+    let image = NSImage(size: NSSize(width: 28, height: 18), flipped: false) { _ in
       NSColor.black.setFill()
       for angle in stride(from: 0.0, to: 360.0, by: 90.0) {
         NSGraphicsContext.saveGraphicsState()
@@ -234,9 +231,6 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
         blade.fill()
         NSGraphicsContext.restoreGraphicsState()
       }
-      let cutout = NSRect(x: 10.5, y: 10.5, width: 8, height: 8)
-      NSGraphicsContext.current?.compositingOperation = .clear
-      NSBezierPath(ovalIn: cutout).fill()
       return true
     }
     image.isTemplate = true
