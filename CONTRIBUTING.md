@@ -35,7 +35,7 @@ Run `flutter run -d DEVICE_ID` with an ID from the list. Build Windows, Linux, a
 
 ### iPhone and iPad preview
 
-The iOS runner targets foreground pairing and transfers with iOS and iPadOS 15 or later. To build on a Mac with the iOS simulator tools installed, run `flutter build ios --simulator --debug --no-codesign`. For personal device testing, open `ios/Runner.xcworkspace` in Xcode and select your Personal Team and a unique bundle identifier. Free device provisioning expires after seven days. The simulator workflow checks startup on an iPad without a signing account. [Apple developer accounts](https://developer.apple.com/help/account/basics/about-your-developer-account)
+The iOS runner targets foreground pairing and transfers with iOS and iPadOS 15 or later. To build on a Mac with the iOS simulator tools installed, run `flutter build ios --simulator --debug`. Xcode signs the simulator build locally so Vela can access Keychain. For personal device testing, open `ios/Runner.xcworkspace` in Xcode and select your Personal Team and a unique bundle identifier. Free device provisioning expires after seven days. The simulator workflow checks startup on an iPad without a signing account. [Apple developer accounts](https://developer.apple.com/help/account/basics/about-your-developer-account)
 
 ### Local signing on macOS
 

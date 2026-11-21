@@ -35,7 +35,7 @@ flutter devices
 
 ### iPhone 和 iPad 预览
 
-iOS 工程面向 iOS 和 iPadOS 15 或更新版本的前台配对和传输。在装有 iOS 模拟器工具的 Mac 上运行 `flutter build ios --simulator --debug --no-codesign`，即可为模拟器构建。要在自己的设备上试用，在 Xcode 打开 `ios/Runner.xcworkspace`，选择 Personal Team 并使用唯一的应用标识。免费签名的描述文件七天后到期。模拟器工作流无需签名账号即可验证 iPad 启动。[Apple 开发者账号](https://developer.apple.com/help/account/basics/about-your-developer-account)
+iOS 工程面向 iOS 和 iPadOS 15 或更新版本的前台配对和传输。在装有 iOS 模拟器工具的 Mac 上运行 `flutter build ios --simulator --debug`，即可为模拟器构建。Xcode 会在本地为模拟器应用签名，使 Vela 可以访问钥匙串。要在自己的设备上试用，在 Xcode 打开 `ios/Runner.xcworkspace`，选择 Personal Team 并使用唯一的应用标识。免费签名的描述文件七天后到期。模拟器工作流无需签名账号即可验证 iPad 启动。[Apple 开发者账号](https://developer.apple.com/help/account/basics/about-your-developer-account)
 
 ### macOS 本地签名
 
