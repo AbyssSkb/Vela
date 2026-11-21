@@ -1,33 +1,17 @@
 import Cocoa
 
-private final class MenuFileDropArea: NSVisualEffectView {
-  var targetChanged: ((Bool) -> Void)?
-  var acceptFiles: (([URL]) -> Bool)?
-
-  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-    guard sender.draggingSourceOperationMask.contains(.copy),
-          sender.draggingPasteboard.types?.contains(.fileURL) == true else { return [] }
-    targetChanged?(true)
-    return .copy
-  }
-
-  override func draggingExited(_ sender: NSDraggingInfo?) { targetChanged?(false) }
-
-  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-    let urls = sender.draggingPasteboard.readObjects(
-      forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-    return acceptFiles?(urls) == true
-  }
-}
-
-final class MenuFileDropPanel: NSPanel {
+final class MenuFileDropPanel: NSPanel, NSDraggingDestination {
   private static let accent = NSColor(name: nil) { appearance in
     if appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua {
       return NSColor(srgbRed: 0.73, green: 0.77, blue: 1, alpha: 1)
     }
     return NSColor(srgbRed: 0.33, green: 0.40, blue: 0.79, alpha: 1)
   }
-  private let dropArea = MenuFileDropArea()
+  private let dropArea = NSVisualEffectView()
+  private let hintFont = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+  private var visibleScreen = NSRect.zero
+  private var anchorX: CGFloat = 0
+  private var compactWidth: CGFloat { ceil(hint.size(withAttributes: [.font: hintFont]).width) + 50 }
   private var icon: NSImage?
   private var hint = ""
   private var dropHint = ""
@@ -51,10 +35,23 @@ final class MenuFileDropPanel: NSPanel {
     dropArea.state = .active
     dropArea.wantsLayer = true
     dropArea.layer?.cornerRadius = 13
-    dropArea.registerForDraggedTypes([.fileURL])
-    dropArea.targetChanged = { [weak self] targeted in self?.showDropArea(targeted: targeted) }
-    dropArea.acceptFiles = { [weak self] urls in self?.acceptFiles?(urls) == true }
     contentView = dropArea
+    registerForDraggedTypes([.fileURL])
+  }
+
+  func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    guard !choosingDevice, sender.draggingSourceOperationMask.contains(.copy),
+          sender.draggingPasteboard.types?.contains(.fileURL) == true else { return [] }
+    showDropArea(targeted: true)
+    return .copy
+  }
+
+  func draggingExited(_ sender: NSDraggingInfo?) { showDropArea(targeted: false) }
+
+  func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    let urls = sender.draggingPasteboard.readObjects(
+      forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    return acceptFiles?(urls) == true
   }
 
   func showHint(under button: NSStatusBarButton, icon: NSImage?, hint: String, dropHint: String) -> Bool {
@@ -64,10 +61,9 @@ final class MenuFileDropPanel: NSPanel {
     self.hint = hint
     self.dropHint = dropHint
     let anchor = window.convertToScreen(button.convert(button.bounds, to: nil))
-    let visible = screen.visibleFrame
-    let width = min(280, visible.width)
-    let x = max(visible.minX, min(anchor.midX - width / 2, visible.maxX - width))
-    setFrame(NSRect(x: x, y: anchor.minY - 40, width: width, height: 36), display: false)
+    visibleScreen = screen.visibleFrame
+    anchorX = anchor.midX
+    setFrame(NSRect(x: anchor.minX, y: anchor.minY - 40, width: compactWidth, height: 36), display: false)
     showDropArea(targeted: false)
     orderFrontRegardless()
     return true
@@ -75,7 +71,7 @@ final class MenuFileDropPanel: NSPanel {
 
   private func showDropArea(targeted: Bool) {
     guard !choosingDevice else { return }
-    resize(height: targeted ? 96 : 36)
+    resize(width: targeted ? 280 : compactWidth, height: targeted ? 96 : 36)
     dropArea.subviews.forEach { $0.removeFromSuperview() }
     dropArea.layer?.borderWidth = targeted ? 1 : 0
     dropArea.effectiveAppearance.performAsCurrentDrawingAppearance {
@@ -83,7 +79,7 @@ final class MenuFileDropPanel: NSPanel {
       dropArea.layer?.backgroundColor = targeted ? Self.accent.withAlphaComponent(0.14).cgColor : nil
     }
     let label = NSTextField(labelWithString: targeted ? dropHint : hint)
-    label.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+    label.font = hintFont
     let image = NSImageView()
     image.image = targeted ? NSImage(systemSymbolName: "arrow.down.doc", accessibilityDescription: nil) : icon
     image.contentTintColor = targeted ? Self.accent : .labelColor
@@ -111,11 +107,11 @@ final class MenuFileDropPanel: NSPanel {
     let rowHeight: CGFloat = 34
     let listHeight = CGFloat(devices.count) * rowHeight
     let visibleHeight = min(listHeight, rowHeight * 6)
+    resize(width: 280, height: 42 + visibleHeight)
     let width = frame.width - 20
-    resize(height: 42 + visibleHeight)
 
     let title = NSTextField(labelWithString: menu.items[0].title)
-    title.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+    title.font = hintFont
     title.lineBreakMode = .byTruncatingMiddle
     title.frame = NSRect(x: 14, y: frame.height - 30, width: frame.width - 28, height: 18)
     dropArea.addSubview(title)
@@ -183,14 +179,15 @@ final class MenuFileDropPanel: NSPanel {
     NSApp.sendAction(action, to: item.target, from: item)
   }
 
-  private func resize(height: CGFloat) {
+  private func resize(width: CGFloat, height: CGFloat) {
     let top = frame.maxY
-    let size = NSSize(width: frame.width, height: height)
+    let size = NSSize(width: min(width, visibleScreen.width), height: height)
+    let x = max(visibleScreen.minX, min(anchorX - size.width / 2, visibleScreen.maxX - size.width))
     dropArea.maskImage = NSImage(size: size, flipped: false) { rect in
       NSColor.black.setFill()
       NSBezierPath(roundedRect: rect, xRadius: 13, yRadius: 13).fill()
       return true
     }
-    setFrame(NSRect(x: frame.minX, y: top - height, width: size.width, height: size.height), display: true)
+    setFrame(NSRect(x: x, y: top - height, width: size.width, height: size.height), display: true)
   }
 }

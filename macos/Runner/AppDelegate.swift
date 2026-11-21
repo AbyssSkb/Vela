@@ -114,6 +114,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   var menuStatus: String {
     if incoming { return "notification" }
     if transferring { return "transferring" }
+    if menuSendError != nil { return "sendFailed" }
     if completed { return "completed" }
     if nodeStatus == "ready", !backgroundActive,
       let window = NSApp?.windows.compactMap({ $0 as? MainFlutterWindow }).first,
@@ -125,7 +126,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   var menuStatusColor: NSColor {
     switch menuStatus {
     case "starting", "paused": return .systemGray
-    case "failed": return .systemRed
+    case "failed", "sendFailed": return .systemRed
     case "notification": return .systemOrange
     case "transferring": return .systemBlue
     case "completed": return .systemPurple
@@ -316,7 +317,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
 
   private func showFileDropHint() -> Bool {
     guard let button = statusItem?.button else { return false }
-    let panel = fileDropPanel ?? MenuFileDropPanel()
+    if fileDropPanel?.isVisible == true { return true }
+    let panel = MenuFileDropPanel()
     fileDropPanel = panel
     panel.acceptFiles = { [weak self] urls in self?.acceptDroppedFiles(urls) == true }
     dismissReceiptPreview()
@@ -509,7 +511,6 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       urls.allSatisfy({ url in
         url.isFileURL && (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
       }) else { return nil }
-    menuSendError = nil
     return urls.map { url in
       var file: [String: Any] = ["path": url.path]
       if let bookmark = try? url.bookmarkData(
@@ -544,6 +545,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   @objc private func sendMenuSelection(_ item: NSMenuItem) {
     guard let selection = item.representedObject as? MenuFileSelection,
       let window = NSApp.windows.compactMap({ $0 as? MainFlutterWindow }).first else { return }
+    menuSendError = nil
+    updateMenuLight()
     window.sendMenuFiles(selection.files, to: selection.peer) { [weak self] error in
       guard let self else { return }
       menuSendError = error
@@ -674,12 +677,16 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
 
   func setTransferring(_ transferring: Bool) {
     self.transferring = transferring
-    if transferring { completed = false }
+    if transferring {
+      completed = false
+      menuSendError = nil
+    }
     updateMenuLight()
   }
 
   func finishTransfer(inBackground: Bool) {
     transferring = false
+    menuSendError = nil
     completed = inBackground
     updateMenuLight()
   }
@@ -701,6 +708,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     case "starting": return chinese ? "Vela — 正在启动" : "Vela — Starting"
     case "paused": return chinese ? "Vela — 接收已暂停" : "Vela — Receiving paused"
     case "failed": return chinese ? "Vela — 启动失败" : "Vela — Could not start"
+    case "sendFailed": return chinese ? "Vela — 发送失败" : "Vela — Send failed"
     case "transferring": return chinese ? "Vela — 正在传输" : "Vela — Transferring"
     case "completed": return chinese ? "Vela — 传输完成" : "Vela — Transfer complete"
     case "notification": return chinese ? "Vela — 接收请求" : "Vela — Incoming request"
