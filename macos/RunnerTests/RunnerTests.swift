@@ -29,8 +29,8 @@ class RunnerTests: XCTestCase {
       ["name": "Laptop", "presence": "unknown", "label": "Checking"],
     ])
     XCTAssertEqual(Array(menu.items.prefix(3).map(\.title)), ["Phone", "Tablet", "Laptop"])
-    XCTAssertEqual(menu.items.first?.accessibilityLabel(), "Phone, Reachable")
-    XCTAssertTrue(menu.items.prefix(3).allSatisfy { $0.image != nil && $0.action == nil })
+    XCTAssertEqual(menu.items.first?.view?.accessibilityLabel(), "Phone, Reachable")
+    XCTAssertTrue(menu.items.prefix(3).allSatisfy { $0.view != nil && $0.action == nil })
     XCTAssertTrue(menu.items[3].isSeparatorItem)
     app.setMenuOffer(["id": "request", "title": "Incoming file"]) { _, _ in }
     app.menuNeedsUpdate(menu)

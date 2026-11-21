@@ -149,19 +149,34 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     for device in menuDevices {
       guard let name = device["name"], let status = device["label"] else { continue }
       let item = menuItem(shortMenuTitle(name))
-      item.attributedTitle = NSAttributedString(
-        string: item.title, attributes: [.foregroundColor: NSColor.labelColor])
-      item.setAccessibilityLabel("\(name), \(status)")
       let color: NSColor = switch device["presence"] {
       case "reachable": .systemGreen
       case "unavailable": .systemRed
       default: .systemGray
       }
-      item.image = NSImage(size: NSSize(width: 13, height: 13), flipped: false) { rect in
+      let image = NSImage(size: NSSize(width: 13, height: 13), flipped: false) { rect in
         color.setFill()
         NSBezierPath(ovalIn: rect.insetBy(dx: 3.5, dy: 3.5)).fill()
         return true
       }
+      // A read-only NSMenuItem title uses the disabled text color.
+      let label = NSTextField(labelWithString: item.title)
+      label.font = NSFont.menuFont(ofSize: 0)
+      label.lineBreakMode = .byTruncatingMiddle
+      let size = label.fittingSize
+      label.frame = NSRect(x: 36, y: (24 - size.height) / 2,
+                           width: min(size.width, 280), height: size.height)
+      let light = NSImageView(image: image)
+      light.frame = NSRect(origin: NSPoint(x: 17, y: 5.5), size: image.size)
+      let row = NSView(frame: NSRect(x: 0, y: 0, width: label.frame.maxX + 16, height: 24))
+      row.addSubview(light)
+      row.addSubview(label)
+      row.setAccessibilityElement(true)
+      row.setAccessibilityRole(.staticText)
+      row.setAccessibilityLabel("\(name), \(status)")
+      label.setAccessibilityElement(false)
+      light.setAccessibilityElement(false)
+      item.view = row
       menu.addItem(item)
     }
     if !menuDevices.isEmpty { menu.addItem(.separator()) }
