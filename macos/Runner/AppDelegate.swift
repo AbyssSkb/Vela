@@ -42,6 +42,32 @@ private final class MenuStatusLight: NSView {
   }
 }
 
+private final class MenuPreviewButton: NSButton {
+  private var hoverArea: NSTrackingArea?
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    if let hoverArea { removeTrackingArea(hoverArea) }
+    let area = NSTrackingArea(
+      rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+      owner: self, userInfo: nil)
+    addTrackingArea(area)
+    hoverArea = area
+  }
+
+  func setHovered(_ hovered: Bool) {
+    let foreground: NSColor = hovered ? .alternateSelectedControlTextColor : .labelColor
+    attributedTitle = NSAttributedString(string: title, attributes: [
+      .font: NSFont.menuFont(ofSize: 0), .foregroundColor: foreground,
+    ])
+    contentTintColor = foreground
+    layer?.backgroundColor = (hovered ? NSColor.selectedContentBackgroundColor : .clear).cgColor
+  }
+
+  override func mouseEntered(with event: NSEvent) { setHovered(true) }
+  override func mouseExited(with event: NSEvent) { setHovered(false) }
+}
+
 private struct MenuOffer {
   let id: String
   let sender: String
@@ -279,7 +305,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private func receiptMenuItems() -> [NSMenuItem] {
     guard let receipt else { return [] }
     var items = [
-      menuItem(shortMenuTitle(receipt.title)),
+      menuHeading(shortMenuTitle(receipt.title)),
       menuItem(menuIsChinese ? "打开" : "Open", icon: "arrow.up.right.square",
                action: #selector(openMenuReceipt)),
       menuItem(menuIsChinese ? "复制" : "Copy", icon: "document.on.document",
@@ -296,13 +322,15 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       let screen = window.screen else { return nil }
     let rows: [NSView] = items.enumerated().map { index, item in
       if interactive, let action = item.action {
-        let command = NSButton(title: item.title, target: item.target, action: action)
+        let command = MenuPreviewButton(title: item.title, target: item.target, action: action)
         command.image = item.image
         command.imagePosition = .imageLeading
-        command.font = .menuFont(ofSize: 0)
         command.alignment = .left
         command.isBordered = false
-        command.heightAnchor.constraint(greaterThanOrEqualToConstant: 24).isActive = true
+        command.wantsLayer = true
+        command.layer?.cornerRadius = 5
+        command.setHovered(false)
+        command.heightAnchor.constraint(greaterThanOrEqualToConstant: 26).isActive = true
         return command
       }
       let label = NSTextField(labelWithString: item.title)
@@ -320,9 +348,26 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     stack.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
     let anchor = window.convertToScreen(button.convert(button.bounds, to: nil))
     let size = stack.fittingSize
-    let width = max(size.width, 160)
-    let frame = NSRect(x: min(anchor.minX, screen.visibleFrame.maxX - width),
-                       y: anchor.minY - size.height - 4, width: width, height: size.height)
+    let width = max(size.width, 220)
+    for case let command as MenuPreviewButton in rows {
+      command.widthAnchor.constraint(equalToConstant: width - 28).isActive = true
+    }
+    let visible = screen.visibleFrame
+    var x = max(visible.minX, min(anchor.minX, visible.maxX - width))
+    var y = anchor.minY - size.height - 4
+    if !interactive {
+      // Finder draws its dragged filename below and to the right of the pointer.
+      let left = anchor.minX - width - 12
+      let right = anchor.maxX + 88
+      if left >= visible.minX {
+        x = left
+      } else if right + width <= visible.maxX {
+        x = right
+      } else {
+        y -= 56
+      }
+    }
+    let frame = NSRect(x: x, y: y, width: width, height: size.height)
     let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel],
                         backing: .buffered, defer: false)
     let material = NSVisualEffectView(frame: NSRect(origin: .zero, size: frame.size))
@@ -461,7 +506,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   func menuTargets(for urls: [URL], files: [[String: Any]]) -> NSMenu {
     let targets = NSMenu()
     targets.autoenablesItems = false
-    targets.addItem(menuItem(menuFileTitle(urls)))
+    targets.addItem(menuHeading(menuFileTitle(urls)))
     for device in menuDevices {
       guard let name = device["name"], let peer = device["id"] else { continue }
       let item = menuItem(shortMenuTitle(name), action: #selector(sendMenuSelection(_:)))
@@ -497,6 +542,19 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     if let icon {
       item.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)
     }
+    return item
+  }
+
+  private func menuHeading(_ title: String) -> NSMenuItem {
+    let item = menuItem(title)
+    let label = NSTextField(labelWithString: title)
+    label.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+    label.lineBreakMode = .byTruncatingMiddle
+    let size = label.fittingSize
+    label.frame = NSRect(x: 14, y: (25 - size.height) / 2, width: min(size.width, 328), height: size.height)
+    let row = NSView(frame: NSRect(x: 0, y: 0, width: label.frame.maxX + 14, height: 25))
+    row.addSubview(label)
+    item.view = row
     return item
   }
 
