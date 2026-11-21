@@ -76,7 +76,7 @@ jobs:
             pid=$!
             for attempt in {1..30}; do
               kill -0 "$pid"
-              if grep -q 'event=offline' "$RUNNER_TEMP/vela-$version.log"; then
+              if grep -q 'event=ready' "$RUNNER_TEMP/vela-$version.log"; then
                 echo "$version started its receive node on $TARGET_ARCH"
                 return
               fi
@@ -98,7 +98,10 @@ jobs:
           wait "$pid" || true
           pid=""
           mv "$app" "$RUNNER_TEMP/upgraded-install.app"
-          mv "$HOME/Library/Containers/com.example.vela" "$RUNNER_TEMP/vela-upgrade-data"
+          mkdir "$RUNNER_TEMP/vela-upgrade-data"
+          for file in "$database" "$database-wal" "$database-shm"; do
+            if [[ -f "$file" ]]; then mv "$file" "$RUNNER_TEMP/vela-upgrade-data"; fi
+          done
           launch candidate 0.1.0-beta.12 17
           test -f "$database"
           echo "Candidate also started with a fresh data store."
