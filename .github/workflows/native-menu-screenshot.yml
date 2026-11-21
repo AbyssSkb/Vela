@@ -102,6 +102,8 @@ jobs:
           s = s.replace("    orderFrontRegardless()", r"""    orderFrontRegardless()
               print("DROP_SHOW id=\(windowNumber) frame=\(frame)")
               fflush(stdout)""")
+          s = s.replace("    level = .popUpMenu", "    level = .statusBar\n    hidesOnDeactivate = false")
+          s = s.replace("    backgroundColor = .clear", "    backgroundColor = .windowBackgroundColor")
           p.write_text(s)
           PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
@@ -301,7 +303,12 @@ jobs:
           let first = startDrag()
           try capture(first, "vela-finder-hint.png", pointer: target)
           let inside = CGPoint(x: frame(first)!.midX - 46, y: frame(first)!.minY + 15)
-          mouse(.leftMouseDragged, inside)
+          for step in 1...14 {
+            let fraction = CGFloat(step) / 14
+            let mousePoint = CGPoint(x: inside.x - 120 * (1 - fraction), y: inside.y + 100 * (1 - fraction))
+            mouse(.leftMouseDragged, mousePoint)
+            Thread.sleep(forTimeInterval: 0.06)
+          }
           if findDrop(height: 96) == nil {
             try? fullCapture("vela-finder-edge-entry.png")
             mouse(.leftMouseUp, inside)
