@@ -1408,8 +1408,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         confirm: (closed) => showPeerConfirmation(
           context,
           peerClosed: closed,
-          builder: (context) => NoticePrompt(
-            title: t.pairRequest,
+          asDialog: true,
+          builder: (context) => AlertDialog(
+            title: Text(t.pairRequest),
+            scrollable: true,
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
