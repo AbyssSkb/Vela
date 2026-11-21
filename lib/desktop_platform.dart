@@ -7,4 +7,7 @@ class DesktopPlatform {
 
   static String openAfterReceiveKey(String profile) =>
       'desktop_open_after_receive_$profile';
+
+  static String copyReceivedImagesKey(String profile) =>
+      'macos_copy_received_images_$profile';
 }

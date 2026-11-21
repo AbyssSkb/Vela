@@ -114,6 +114,7 @@ class _SettingsPageState extends State<SettingsPage>
   late String name = widget.deviceName;
   ReceivedStorage get receivedStorage => widget.receivedStorage;
   bool openAfterReceive = false, autoAccept = false;
+  bool copyReceivedImages = false;
   bool defaultSaveLocation = true, saveLocationAvailable = true;
   String? saveLocationLabel;
   BackgroundReceiving? get background =>
@@ -136,6 +137,11 @@ class _SettingsPageState extends State<SettingsPage>
               ) ??
               false;
           autoAccept = prefs.getBool('auto_accept_${widget.profile}') ?? false;
+          copyReceivedImages =
+              prefs.getBool(
+                DesktopPlatform.copyReceivedImagesKey(widget.profile),
+              ) ??
+              false;
         });
       }
     });
@@ -561,6 +567,24 @@ class _SettingsPageState extends State<SettingsPage>
                       ) &&
                       mounted) {
                     setState(() => openAfterReceive = value);
+                  }
+                },
+              ),
+            ],
+            if (Platform.isMacOS) ...[
+              divider(),
+              switchRow(
+                Icons.content_copy_rounded,
+                t.copyReceivedImages,
+                copyReceivedImages,
+                (value) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  if (await prefs.setBool(
+                        DesktopPlatform.copyReceivedImagesKey(widget.profile),
+                        value,
+                      ) &&
+                      mounted) {
+                    setState(() => copyReceivedImages = value);
                   }
                 },
               ),

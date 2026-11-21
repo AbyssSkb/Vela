@@ -1,6 +1,7 @@
 import Carbon
 import Cocoa
 import FlutterMacOS
+import UniformTypeIdentifiers
 import UserNotifications
 
 private final class MenuStatusLight: NSView {
@@ -66,6 +67,9 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private var menuOffer: MenuOffer?
   private var menuDevices: [[String: String]] = []
   private var dropPreview: NSPanel?
+  private var receiptPanel: NSPanel?
+  private var receipt: (title: String, files: [URL], text: Bool, link: URL?)?
+  private var receiptError: String?
   private var menuSendError: String?
   private var backgroundActivity: NSObjectProtocol?
   private var menuLanguage: String?
@@ -178,6 +182,13 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       menu.addItem(decline)
       menu.addItem(.separator())
     }
+    if let receipt {
+      menu.addItem(menuItem(shortMenuTitle(receipt.title)))
+      menu.addItem(menuItem(chinese ? "打开" : "Open", action: #selector(openMenuReceipt)))
+      menu.addItem(menuItem(chinese ? "复制" : "Copy", action: #selector(copyMenuReceipt)))
+      if let receiptError { menu.addItem(menuItem(receiptError)) }
+      menu.addItem(.separator())
+    }
 
     for device in menuDevices {
       guard let name = device["name"], let status = device["label"] else { continue }
@@ -232,7 +243,11 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     menu.addItem(quit)
   }
 
-  func menuWillOpen(_ menu: NSMenu) { openStatusMenu = menu }
+  func menuWillOpen(_ menu: NSMenu) {
+    receiptPanel?.orderOut(nil)
+    receiptPanel = nil
+    openStatusMenu = menu
+  }
   func menuDidClose(_ menu: NSMenu) { openStatusMenu = nil }
 
   @objc private func pickMenuFiles() {
@@ -258,8 +273,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private func previewMenuDrop(_ urls: [URL]) {
     dropPreview?.orderOut(nil)
     dropPreview = nil
-    guard !urls.isEmpty, let button = statusItem?.button, let window = button.window,
-      let screen = window.screen else { return }
+    guard !urls.isEmpty else { return }
     let title = NSTextField(labelWithString: menuFileTitle(urls))
     title.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
     title.lineBreakMode = .byTruncatingMiddle
@@ -269,6 +283,12 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     stack.orientation = .vertical
     stack.alignment = .leading
     stack.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+    dropPreview = showStatusPanel(stack, acceptsClicks: false)
+  }
+
+  private func showStatusPanel(_ stack: NSStackView, acceptsClicks: Bool) -> NSPanel? {
+    guard let button = statusItem?.button, let window = button.window,
+      let screen = window.screen else { return nil }
     let anchor = window.convertToScreen(button.convert(button.bounds, to: nil))
     let size = stack.fittingSize
     let width = min(size.width, 360)
@@ -280,9 +300,99 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     panel.backgroundColor = .windowBackgroundColor
     panel.hasShadow = true
     panel.level = .popUpMenu
-    panel.ignoresMouseEvents = true
+    panel.ignoresMouseEvents = !acceptsClicks
     panel.orderFrontRegardless()
-    dropPreview = panel
+    return panel
+  }
+
+  func recordMenuReceipt(_ args: [String: Any], inBackground: Bool) {
+    finishTransfer(inBackground: inBackground)
+    guard let title = args["title"] as? String, let paths = args["paths"] as? [String],
+      !paths.isEmpty, paths.allSatisfy({ $0.hasPrefix("/") }) else { return }
+    let link = (args["link"] as? String).flatMap(URL.init(string:)).flatMap { url in
+      (url.scheme == "https" || url.scheme == "http") && url.host != nil ? url : nil
+    }
+    receipt = (title, paths.map { URL(fileURLWithPath: $0) }, args["isText"] as? Bool == true, link)
+    receiptError = nil
+    if args["copyImage"] as? Bool == true {
+      _ = copyCurrentReceipt(to: .general, imagesOnly: true)
+    }
+    receiptPanel?.orderOut(nil)
+    receiptPanel = nil
+    if let openStatusMenu {
+      menuNeedsUpdate(openStatusMenu)
+      return
+    }
+    guard inBackground, args["showWindow"] as? Bool != true else { return }
+
+    let titleLabel = NSTextField(labelWithString: shortMenuTitle(title))
+    titleLabel.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+    titleLabel.lineBreakMode = .byTruncatingMiddle
+    titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    let open = NSButton(title: menuIsChinese ? "打开" : "Open", target: self,
+                        action: #selector(openMenuReceipt))
+    let copy = NSButton(title: menuIsChinese ? "复制" : "Copy", target: self,
+                        action: #selector(copyMenuReceipt))
+    let stack = NSStackView(views: [titleLabel, open, copy])
+    stack.orientation = .horizontal
+    stack.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+    guard let panel = showStatusPanel(stack, acceptsClicks: true) else { return }
+    receiptPanel = panel
+    DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self, weak panel] in
+      guard let self, let panel, receiptPanel === panel else { return }
+      panel.orderOut(nil)
+      receiptPanel = nil
+    }
+  }
+
+  @objc private func openMenuReceipt() {
+    guard let receipt else { return }
+    if let link = receipt.link {
+      finishReceiptAction(NSWorkspace.shared.open(link))
+    } else if receipt.files.count == 1 {
+      finishReceiptAction(NSWorkspace.shared.open(receipt.files[0]))
+    } else {
+      let existing = receipt.files.filter { FileManager.default.fileExists(atPath: $0.path) }
+      if !existing.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(existing) }
+      finishReceiptAction(!existing.isEmpty)
+    }
+  }
+
+  func copyCurrentReceipt(to pasteboard: NSPasteboard, imagesOnly: Bool = false) -> Bool {
+    guard let receipt else { return false }
+    let first = receipt.files[0]
+    if receipt.text && !imagesOnly {
+      guard let text = try? String(contentsOf: first, encoding: .utf8) else { return false }
+      pasteboard.clearContents()
+      return pasteboard.setString(text, forType: .string)
+    }
+    guard receipt.files.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else {
+      return false
+    }
+    if receipt.files.count == 1,
+      UTType(filenameExtension: first.pathExtension)?.conforms(to: .image) == true,
+      let image = NSImage(contentsOf: first) {
+      pasteboard.clearContents()
+      return pasteboard.writeObjects([image])
+    }
+    guard !imagesOnly else { return false }
+    pasteboard.clearContents()
+    return pasteboard.writeObjects(receipt.files.map { $0 as NSURL })
+  }
+
+  @objc private func copyMenuReceipt() {
+    finishReceiptAction(copyCurrentReceipt(to: .general))
+  }
+
+  private func finishReceiptAction(_ success: Bool) {
+    receiptPanel?.orderOut(nil)
+    receiptPanel = nil
+    receiptError = success ? nil : (menuIsChinese ? "无法处理接收内容" : "Could not access received content")
+    if !success, let button = statusItem?.button {
+      DispatchQueue.main.async { [weak self] in
+        self?.statusMenu.popUp(positioning: nil, at: .zero, in: button)
+      }
+    }
   }
 
   @discardableResult

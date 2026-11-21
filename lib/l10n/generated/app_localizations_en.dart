@@ -837,6 +837,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openAfterReceive => 'Show window after receiving';
 
   @override
+  String get copyReceivedImages => 'Automatically copy received images';
+
+  @override
   String get autoAccept => 'Auto accept';
 
   @override

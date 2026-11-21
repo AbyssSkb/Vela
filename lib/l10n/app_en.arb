@@ -408,6 +408,7 @@
   "openLink": "Open link",
   "openLinkFailed": "Could not open link",
   "openAfterReceive": "Show window after receiving",
+  "copyReceivedImages": "Automatically copy received images",
   "autoAccept": "Auto accept",
   "retry": "Retry",
   "fileUnavailable": "Cannot read the file. Select it again.",
