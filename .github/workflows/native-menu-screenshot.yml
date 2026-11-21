@@ -18,11 +18,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44895762361 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = 34b8b8c55fac70a1c59d8c8edb5076899cf87b76
+          result=$(gh run view 44896378993 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 1a03adab99d8d79cf5c11a9c76edc365e292070e
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..60}; do
-            if gh run download 44895762361 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44896378993 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -38,6 +38,7 @@ jobs:
           import ApplicationServices
 
           let pid = pid_t(CommandLine.arguments[1])!
+          let receiver = pid_t(CommandLine.arguments[3])!
           func windows() -> [[String: Any]] {
             CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
               as? [[String: Any]] ?? []
@@ -149,35 +150,86 @@ jobs:
           }
           try capture(menu, "vela-finder-drop.png")
           print("FINDER_HOVER_AND_DROP_OK")
+          let menuRect = frame(menu)!
+          let row = CGPoint(x: menuRect.midX, y: menuRect.maxY - 14)
+          mouse(.mouseMoved, row)
+          Thread.sleep(forTimeInterval: 0.25)
+          mouse(.leftMouseDown, row)
+          mouse(.leftMouseUp, row)
+          for _ in 0..<450 {
+            if let receipt = windows().first(where: {
+              guard let rect = frame($0), !before.contains(number($0)),
+                    rect.minY < 120, (110...420).contains(rect.width),
+                    (34...90).contains(rect.height) else { return false }
+              return ($0[kCGWindowOwnerPID as String] as? pid_t) == receiver
+            }), let rect = frame(receipt) {
+              try capture(receipt, "vela-file-receipt.png")
+              let copy = CGPoint(x: rect.maxX - 36, y: rect.midY)
+              mouse(.mouseMoved, copy)
+              mouse(.leftMouseDown, copy)
+              mouse(.leftMouseUp, copy)
+              Thread.sleep(forTimeInterval: 0.5)
+              let paths = NSPasteboard.general.readObjects(
+                forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+              guard paths.first?.lastPathComponent == url.lastPathComponent else {
+                print("File receipt opened, but Copy did not put the received URL on the pasteboard")
+                exit(1)
+              }
+              guard NSWorkspace.shared.frontmostApplication?.processIdentifier == finder.processIdentifier else {
+                print("The file receipt activated Vela")
+                exit(1)
+              }
+              print("MACOS_RECEIPT_COPY_WITHOUT_ACTIVATION_OK")
+              exit(0)
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+          }
+          print("No file receipt was shown by the receiving instance")
+          exit(1)
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
           defaults delete -g AppleInterfaceStyle 2>/dev/null || true
           defaults write -g AppleLanguages -array zh-Hans en
           support="$HOME/Library/Containers/com.example.vela/Data/Library/Application Support/com.example.vela"
           mkdir -p "$support"
+          bundle="$PWD/Vela.app/Contents/MacOS/Vela"
+          # RFC 8032 fixture identities used only by this hosted test.
+          first=9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60
+          second=4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb
+          security add-generic-password -U -a identity_default -s Vela -T "$bundle" -w "$(printf '%s' "$first" | xxd -r -p | base64)"
+          security add-generic-password -U -a identity_qa-sender -s Vela -T "$bundle" -w "$(printf '%s' "$second" | xxd -r -p | base64)"
+          prefs="$HOME/Library/Containers/com.example.vela/Data/Library/Preferences"
+          mkdir -p "$prefs"
+          defaults write "$prefs/com.example.vela" flutter.auto_accept_default -bool true
           sqlite3 "$support/peer_state_v2.sqlite3" <<'SQL'
           CREATE TABLE peer_state (profile TEXT PRIMARY KEY, value TEXT NOT NULL);
           PRAGMA user_version = 1;
-          INSERT INTO peer_state (profile, value) VALUES ('default', '{"version":2,"peers":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"Phone","3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"Tablet"},"types":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"mobile","3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"tablet"},"aliases":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"工作手机","3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"平板"}}');
+          INSERT INTO peer_state (profile, value) VALUES ('default', '{"version":2,"peers":{"3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"Sender"},"types":{"3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c":"desktop"},"aliases":{}}');
+          INSERT INTO peer_state (profile, value) VALUES ('qa-sender', '{"version":2,"peers":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"Receiver"},"types":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"desktop"},"aliases":{"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a":"工作 Mac"}}');
           SQL
-          "$PWD/Vela.app/Contents/MacOS/Vela" > vela.log 2>&1 &
+          "$bundle" > receiver.log 2>&1 &
+          receiver_pid=$!
+          "$bundle" --device=qa-sender > vela.log 2>&1 &
           vela_pid=$!
-          trap 'kill "$vela_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..30}; do
-            if grep -q 'event=offline' vela.log; then break; fi
-            kill -0 "$vela_pid"
+          trap 'kill "$vela_pid" "$receiver_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..35}; do
+            if grep -q 'event=ready' vela.log && grep -q 'event=ready' receiver.log; then break; fi
+            kill -0 "$vela_pid" "$receiver_pid"
             sleep 1
           done
-          grep -E 'event=ready|event=offline' vela.log
-          kill -0 "$vela_pid"
+          grep -E 'event=ready|event=offline' vela.log receiver.log
+          kill -0 "$vela_pid" "$receiver_pid"
           fixture="$RUNNER_TEMP/finder-fixture"
           mkdir "$fixture"
           printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
-          xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
+          xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt" "$receiver_pid"
           test -s vela-finder-hover.png && test -s vela-finder-drop.png
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: vela-finder-drop
-          path: ${{ runner.temp }}/vela-menu/vela-finder-*.png
-          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/vela-menu/vela-*.png
+            ${{ runner.temp }}/vela-menu/*.log
+          if-no-files-found: warn
           retention-days: 3
