@@ -720,7 +720,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationCompletedShort => 'Done';
 
   @override
-  String get backgroundReady => 'Receiving service started';
+  String get backgroundReady => 'Background receiving is running';
 
   @override
   String get backgroundStartHint => 'Off';
@@ -792,6 +792,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundRestricted => 'System background restrictions';
+
+  @override
+  String get backgroundBatteryManagement => 'Battery usage and auto-start';
 
   @override
   String get backgroundBatteryHint =>

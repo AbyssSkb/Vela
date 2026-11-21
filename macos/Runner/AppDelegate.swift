@@ -4,11 +4,34 @@ import FlutterMacOS
 import UserNotifications
 
 private final class MenuStatusLight: NSView {
+  var previewDrop: (([URL]) -> Void)?
+  var acceptDrop: (([URL]) -> Bool)?
   var color = NSColor.systemGray {
     didSet { needsDisplay = true }
   }
 
-  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+  override func mouseDown(with event: NSEvent) { superview?.mouseDown(with: event) }
+  override func rightMouseDown(with event: NSEvent) { superview?.rightMouseDown(with: event) }
+
+  private func files(from sender: NSDraggingInfo) -> [URL] {
+    sender.draggingPasteboard.readObjects(
+      forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+  }
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    let urls = files(from: sender)
+    guard !urls.isEmpty, sender.draggingSourceOperationMask.contains(.copy) else { return [] }
+    previewDrop?(urls)
+    return .copy
+  }
+
+  override func draggingExited(_ sender: NSDraggingInfo?) { previewDrop?([]) }
+  override func draggingEnded(_ sender: NSDraggingInfo) { previewDrop?([]) }
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    previewDrop?([])
+    return acceptDrop?(files(from: sender)) == true
+  }
 
   override func draw(_ dirtyRect: NSRect) {
     color.setFill()
@@ -28,6 +51,11 @@ private struct MenuOffer {
   let decide: (String, Bool) -> Void
 }
 
+private struct MenuFileSelection {
+  let peer: String
+  let files: [[String: Any]]
+}
+
 @main
 class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuDelegate {
   private var statusItem: NSStatusItem?
@@ -37,6 +65,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private var folderOpenFailed = false
   private var menuOffer: MenuOffer?
   private var menuDevices: [[String: String]] = []
+  private var dropPreview: NSPanel?
+  private var menuSendError: String?
   private var backgroundActivity: NSObjectProtocol?
   private var menuLanguage: String?
   private var menuIsChinese: Bool {
@@ -124,6 +154,9 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       button.image = menuImage()
       statusLight.frame = button.bounds
       statusLight.autoresizingMask = [.width, .height]
+      statusLight.registerForDraggedTypes([.fileURL])
+      statusLight.previewDrop = { [weak self] urls in self?.previewMenuDrop(urls) }
+      statusLight.acceptDrop = { [weak self] urls in self?.chooseMenuRecipient(for: urls) == true }
       button.addSubview(statusLight)
     }
     updateMenuLight()
@@ -182,6 +215,10 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     if !menuDevices.isEmpty { menu.addItem(.separator()) }
 
     menu.addItem(menuItem(
+      chinese ? "发送文件…" : "Send files…", icon: "paperplane",
+      action: #selector(pickMenuFiles)))
+    if let menuSendError { menu.addItem(menuItem(shortMenuTitle(menuSendError))) }
+    menu.addItem(menuItem(
       chinese ? "打开接收文件夹" : "Open received folder", icon: "folder",
       action: #selector(openReceivedFolderFromMenu)))
     if folderOpenFailed {
@@ -197,6 +234,105 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
 
   func menuWillOpen(_ menu: NSMenu) { openStatusMenu = menu }
   func menuDidClose(_ menu: NSMenu) { openStatusMenu = nil }
+
+  @objc private func pickMenuFiles() {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = false
+    panel.allowsMultipleSelection = true
+    NSApp.activate(ignoringOtherApps: true)
+    panel.begin { [weak self] result in
+      if result == .OK { _ = self?.chooseMenuRecipient(for: panel.urls) }
+    }
+  }
+
+  private func menuFileTitle(_ urls: [URL]) -> String {
+    let name = shortMenuTitle(urls[0].lastPathComponent)
+    if menuIsChinese {
+      let files = urls.count == 1 ? "「\(name)」" : "\(urls.count) 个文件"
+      return "把\(files)发送到"
+    }
+    let files = urls.count == 1 ? "“\(name)”" : "\(urls.count) files"
+    return "Send \(files) to"
+  }
+
+  private func previewMenuDrop(_ urls: [URL]) {
+    dropPreview?.orderOut(nil)
+    dropPreview = nil
+    guard !urls.isEmpty, let button = statusItem?.button, let window = button.window,
+      let screen = window.screen else { return }
+    let title = NSTextField(labelWithString: menuFileTitle(urls))
+    title.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+    title.lineBreakMode = .byTruncatingMiddle
+    let stack = NSStackView(views: [title] + menuDevices.compactMap { device in
+      device["name"].map { NSTextField(labelWithString: shortMenuTitle($0)) }
+    })
+    stack.orientation = .vertical
+    stack.alignment = .leading
+    stack.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+    let anchor = window.convertToScreen(button.convert(button.bounds, to: nil))
+    let size = stack.fittingSize
+    let width = min(size.width, 360)
+    let frame = NSRect(x: min(anchor.minX, screen.visibleFrame.maxX - width),
+                       y: anchor.minY - size.height - 4, width: width, height: size.height)
+    let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel],
+                        backing: .buffered, defer: false)
+    panel.contentView = stack
+    panel.backgroundColor = .windowBackgroundColor
+    panel.hasShadow = true
+    panel.level = .popUpMenu
+    panel.ignoresMouseEvents = true
+    panel.orderFrontRegardless()
+    dropPreview = panel
+  }
+
+  @discardableResult
+  func chooseMenuRecipient(for urls: [URL]) -> Bool {
+    guard !urls.isEmpty, urls.count <= 100,
+      urls.allSatisfy({ url in
+        url.isFileURL && (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+      }), let button = statusItem?.button else { return false }
+    let files: [[String: Any]] = urls.map { url in
+      var file: [String: Any] = ["path": url.path]
+      if let bookmark = try? url.bookmarkData(
+        options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+        includingResourceValuesForKeys: nil, relativeTo: nil) {
+        file["bookmark"] = FlutterStandardTypedData(bytes: bookmark)
+      }
+      return file
+    }
+    menuSendError = nil
+    let targets = menuTargets(for: urls, files: files)
+    DispatchQueue.main.async {
+      targets.popUp(positioning: nil, at: NSPoint(x: 0, y: 0), in: button)
+    }
+    return true
+  }
+
+  func menuTargets(for urls: [URL], files: [[String: Any]]) -> NSMenu {
+    let targets = NSMenu()
+    targets.autoenablesItems = false
+    targets.addItem(menuItem(menuFileTitle(urls)))
+    for device in menuDevices {
+      guard let name = device["name"], let peer = device["id"] else { continue }
+      let item = menuItem(shortMenuTitle(name), action: #selector(sendMenuSelection(_:)))
+      item.representedObject = MenuFileSelection(peer: peer, files: files)
+      targets.addItem(item)
+    }
+    if targets.items.count == 1 {
+      targets.addItem(menuItem(menuIsChinese ? "添加设备…" : "Add a device…", action: #selector(showWindow)))
+    }
+    return targets
+  }
+
+  @objc private func sendMenuSelection(_ item: NSMenuItem) {
+    guard let selection = item.representedObject as? MenuFileSelection,
+      let window = NSApp.windows.compactMap({ $0 as? MainFlutterWindow }).first else { return }
+    window.sendMenuFiles(selection.files, to: selection.peer) { [weak self] error in
+      guard let self else { return }
+      menuSendError = error
+      updateMenuLight()
+    }
+  }
 
   private func shortMenuTitle(_ text: String) -> String {
     let line = text.components(separatedBy: .newlines).joined(separator: " ")

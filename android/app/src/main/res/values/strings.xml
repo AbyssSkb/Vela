@@ -8,6 +8,10 @@
     <string name="notification_results">Transfer results</string>
     <string name="notification_service">Background receiving</string>
     <string name="background_starting">Starting Vela…</string>
-    <string name="background_ready">Receiving service started</string>
-    <string name="background_failed">Could not start Vela. Tap to open.</string>
+    <string name="background_ready">Background receiving is running</string>
+    <string name="background_failed">Background receiving unavailable</string>
+    <string name="background_network_blocked">Network access restricted</string>
+    <string name="background_tile_ready">Receiving ready</string>
+    <string name="background_tile_off">Receiving off</string>
+    <string name="background_tile_unready">Receiving not ready</string>
 </resources>

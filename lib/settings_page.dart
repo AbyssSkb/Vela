@@ -160,10 +160,9 @@ class _SettingsPageState extends State<SettingsPage>
     bool? enabled;
     Map<Object?, Object?> status = {};
     try {
-      enabled = setting.enabled(
-        await SharedPreferences.getInstance(),
-        widget.profile,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      if (setting == BackgroundReceiving.androidService) await prefs.reload();
+      enabled = setting.enabled(prefs, widget.profile);
       status = await setting.readStatus();
     } catch (error) {
       debugPrint('Could not read background status: $error');

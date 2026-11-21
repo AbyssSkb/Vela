@@ -111,6 +111,10 @@ void main() {
         final accept = find.byKey(const ValueKey('accept-pair'));
         await waitForHome(tester, () => accept.evaluate().isNotEmpty);
         await tester.pumpAndSettle();
+        expect(
+          find.ancestor(of: accept, matching: find.byType(AlertDialog)),
+          findsOneWidget,
+        );
         await tester.tap(accept);
         await waitForHome(tester, () => offer.accepted);
         await tester.pumpAndSettle();

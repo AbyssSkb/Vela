@@ -671,7 +671,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationCompletedShort => '已完成';
 
   @override
-  String get backgroundReady => '接收服务已启动';
+  String get backgroundReady => '后台接收运行中';
 
   @override
   String get backgroundStartHint => '未开启';
@@ -741,6 +741,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundRestricted => '系统后台限制';
+
+  @override
+  String get backgroundBatteryManagement => '耗电管理与自启动';
 
   @override
   String get backgroundBatteryHint => '若后台经常离线，可在系统设置中允许不受限制的电池使用。';

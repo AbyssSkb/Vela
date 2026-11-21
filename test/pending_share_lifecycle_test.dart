@@ -46,6 +46,52 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
 
+  testWidgets('Mac menu sends the selected file to the selected peer', (
+    tester,
+  ) async {
+    final node = SharedTextNode();
+    await withHomeTestEnvironment(
+      tester,
+      devices: PeerState(peers: {peerId: 'Phone'}),
+      api: FakeRustApi(node),
+      run: (directory) async {
+        final file = File('${directory.path}/Report.txt')
+          ..writeAsStringSync('From Finder');
+        await tester.pumpWidget(
+          const VelaApp(
+            profile: 'test',
+            initialLanguage: 'en',
+            initialAppearance: 'light',
+            initialDiagnosticsEnabled: false,
+          ),
+        );
+        await waitForHome(tester, () => node.trustCalls > 0);
+        const codec = StandardMethodCodec();
+        final result = Completer<ByteData?>();
+        unawaited(
+          tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+            'vela/share',
+            codec.encodeMethodCall(
+              MethodCall('sendMenuFiles', {
+                'peer': peerId,
+                'files': [
+                  {'path': file.path},
+                ],
+              }),
+            ),
+            result.complete,
+          ),
+        );
+        await waitForHome(tester, () => result.isCompleted);
+        expect(codec.decodeEnvelope((await result.future)!), isNull);
+        expect(node.job.sends, 1);
+        expect(node.job.peer, peerId);
+        expect(node.job.text, 'From Finder');
+        expect(file.existsSync(), isTrue);
+      },
+    );
+  }, skip: !Platform.isMacOS);
+
   testWidgets('a device share shortcut waits for a named confirmation', (
     tester,
   ) async {

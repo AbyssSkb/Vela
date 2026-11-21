@@ -142,7 +142,12 @@ void main() {
         expect(find.text('Reachable'), findsNothing);
         if (Platform.isMacOS) {
           expect(menuDevices, [
-            {'name': 'Phone', 'presence': 'reachable', 'label': 'Reachable'},
+            {
+              'id': peerId,
+              'name': 'Phone',
+              'presence': 'reachable',
+              'label': 'Reachable',
+            },
           ]);
         }
 
@@ -231,6 +236,7 @@ void main() {
         if (Platform.isMacOS) {
           expect(menuDevices, [
             {
+              'id': peerId,
               'name': 'Phone',
               'presence': 'unavailable',
               'label': 'Temporarily unreachable',

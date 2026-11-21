@@ -350,13 +350,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final (restricted, exempt) in [
-    (false, false),
-    (true, false),
-    (false, true),
+  for (final (restricted, exempt, manufacturer) in [
+    (false, false, 'Google'),
+    (true, false, 'Google'),
+    (false, true, 'Google'),
+    (false, true, 'OnePlus'),
+    (true, true, 'OPPO'),
+    (false, false, 'realme'),
   ]) {
     testWidgets(
-      'Android battery controls keep the two settings distinct ($restricted, $exempt)',
+      'Android battery controls keep the two settings distinct ($restricted, $exempt, $manufacturer)',
       (tester) async {
         SharedPreferences.setMockInitialValues({
           'background_receive_test': true,
@@ -372,6 +375,7 @@ void main() {
               'notifications': false,
               'batteryExempt': exempt,
               'restricted': restricted,
+              'manufacturer': manufacturer,
             };
           }
           if (call.method == 'settings') {
@@ -389,6 +393,10 @@ void main() {
           ListTile,
           'System background restrictions',
         );
+        final oplusBattery = find.widgetWithText(
+          ListTile,
+          'Battery usage and auto-start',
+        );
         expect(find.text('Incoming requests'), findsNothing);
         expect(
           find.descendant(
@@ -400,7 +408,13 @@ void main() {
         await tester.tap(battery);
         await tester.pump();
         expect(opened, 'battery_exemption');
-        if (restricted) {
+        if (manufacturer != 'Google') {
+          expect(restriction, findsNothing);
+          expect(find.text('Auto-start settings'), findsNothing);
+          await tester.tap(oplusBattery);
+          await tester.pump();
+          expect(opened, 'battery');
+        } else if (restricted) {
           await tester.tap(restriction);
           await tester.pump();
           expect(opened, 'battery');
@@ -471,7 +485,7 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
-  testWidgets('auto-start opens OnePlus settings without a status check', (
+  testWidgets('OnePlus battery and auto-start settings do not guess status', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -494,10 +508,11 @@ void main() {
       ),
     );
     await showPage(tester, () async {});
-    expect(find.text('Auto-start settings').hitTestable(), findsOneWidget);
+    final settings = find.text('Battery usage and auto-start');
+    expect(settings.hitTestable(), findsOneWidget);
     expect(find.text('Boot signal received'), findsNothing);
     expect(find.text('Unverified'), findsNothing);
-    await tester.tap(find.text('Auto-start settings'));
+    await tester.tap(settings);
     await tester.pump();
     expect(section, 'battery');
   });

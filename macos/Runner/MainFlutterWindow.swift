@@ -50,6 +50,12 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
   }
 
   func shareAvailable() { shareChannel?.invokeMethod("available", arguments: nil) }
+
+  func sendMenuFiles(_ files: [[String: Any]], to peer: String, completion: @escaping (String?) -> Void) {
+    shareChannel?.invokeMethod("sendMenuFiles", arguments: ["peer": peer, "files": files]) { result in
+      completion((result as? FlutterError)?.message)
+    }
+  }
   func notifyVisible() {
     if let app = NSApplication.shared.delegate as? AppDelegate {
       app.clearTransferCompletion()
