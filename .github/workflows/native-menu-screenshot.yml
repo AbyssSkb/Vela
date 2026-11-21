@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [source, package, dark]
+        variant: [source]
     steps:
       - name: Download the exact menu fix build
         if: matrix.variant != 'source'
@@ -87,6 +87,25 @@ jobs:
           fflush(stdout)
           app.run()
           SWIFT
+          python3 - <<'PY2'
+          from pathlib import Path
+          p = Path("MenuFileDropPanel.swift")
+          s = p.read_text()
+          for marker, label in [
+              ("    showDropArea(targeted: true)", "ENTER"),
+              ("    let urls = sender.draggingPasteboard.readObjects(", "PERFORM"),
+              ("    choosingDevice = true", "CHOOSE"),
+              ("    if !choosingDevice { dismiss() }", "END"),
+              ("    choosingDevice = false", "DISMISS"),
+          ]:
+              s = s.replace(marker, '    print("DROP_LIFECYCLE '+label+'"); fflush(stdout)\n'+marker)
+          p.write_text(s)
+          p = Path("AppDelegate.swift")
+          s = p.read_text().replace("        fileDropPanel?.endDrag()", """        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self, weak panel = fileDropPanel] in
+                  if self?.finderDragActive == false { panel?.endDrag() }
+                }""")
+          p.write_text(s)
+          PY2
           xcrun swiftc AppDelegate.swift MenuFileDropPanel.swift Dependencies.swift main.swift -o Vela.app/Contents/MacOS/Vela
           cat > Vela.app/Contents/Info.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
