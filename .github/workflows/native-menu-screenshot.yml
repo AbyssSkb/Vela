@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           result=$(gh run view 44911065416 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = b69b11ce80ff5fa56b2955b15778267a23e8e687
+          test "$result" = 74f4976ccc40f61c8aa8963b44adce006b99d2da
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
             if gh run download 44911065416 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/vela-menu/Vela.app/Contents/MacOS"
           cd "$RUNNER_TEMP/vela-menu"
-          ref=b69b11ce80ff5fa56b2955b15778267a23e8e687
+          ref=74f4976ccc40f61c8aa8963b44adce006b99d2da
           for file in AppDelegate.swift MenuFileDropPanel.swift; do
             gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/$file?ref=$ref" |
               sed '/^import FlutterMacOS$/d; /^@main$/d; /UNUserNotificationCenter.current().delegate = self/d' > "$file"
@@ -64,7 +64,7 @@ jobs:
             func shareAvailable() {}
             func openReceiveFolder() throws -> Bool { false }
             func prepareToTerminate(_ finish: () -> Void) { finish() }
-            func sendMenuFiles(_ files: [[String: Any]], to peer: String, _ done: (String?) -> Void) { print("FINDER_SEND_TO=\(peer) PATH=\(files.first?["path"] ?? "")"); fflush(stdout); done(nil) }
+            func sendMenuFiles(_ files: [[String: Any]], to peer: String, _ done: (String?) -> Void) { print("FINDER_SEND_TO=\(peer) COUNT=\(files.count) PATH=\(files.compactMap { $0["path"] as? String }.joined(separator: ","))"); fflush(stdout); done(nil) }
           }
           SWIFT
           cat > main.swift <<'SWIFT'
@@ -133,16 +133,16 @@ jobs:
                   AXValueGetValue(size, .cgSize, &extent) else { return nil }
             return CGPoint(x: origin.x + extent.width / 2, y: origin.y + extent.height / 2)
           }
-          func findFile(_ node: AXUIElement, depth: Int = 0) -> CGPoint? {
+          func findFile(_ node: AXUIElement, name term: String = "Vela drag fixture", depth: Int = 0) -> CGPoint? {
             guard depth <= 12 else { return nil }
             for key in ["AXTitle", "AXDescription", "AXValue"] {
-              if let name = element(node, key) as? String, name.contains("Vela drag fixture") {
+              if let name = element(node, key) as? String, name.contains(term) {
                 if let location = point(node) { return location }
               }
             }
             for key in ["AXSelectedChildren", "AXChildren"] {
               for child in element(node, key) as? [AXUIElement] ?? [] {
-                if let location = findFile(child, depth: depth + 1) { return location }
+                if let location = findFile(child, name: term, depth: depth + 1) { return location }
               }
             }
             return nil
@@ -243,112 +243,94 @@ jobs:
           }
 
           let waypoint = CGPoint(x: target.x - 320, y: 350)
-          func startDrag() -> [String: Any] {
+          func waitForApp(_ id: String) {
+            for _ in 0..<36 {
+              if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == id { return }
+              Thread.sleep(forTimeInterval: 0.12)
+            }
+            fatalError("Could not switch to \(id)")
+          }
+
+          func click(_ point: CGPoint) {
+            mouse(.mouseMoved, point)
+            mouse(.leftMouseDown, point)
+            Thread.sleep(forTimeInterval: 0.14)
+            mouse(.leftMouseUp, point)
+            Thread.sleep(forTimeInterval: 0.32)
+          }
+
+          func startDrag(_ name: String) -> CGPoint {
             guard let focused = element(finderAX, "AXFocusedWindow"),
-                  let currentSource = findFile(focused as! AXUIElement) else {
-              fatalError("Could not locate the Finder fixture for the next drag")
+                  let source = findFile(focused as! AXUIElement, name: name) else {
+              fatalError("Could not locate \(name) in Finder")
             }
-            mouse(.mouseMoved, currentSource)
-            Thread.sleep(forTimeInterval: 0.15)
-            mouse(.leftMouseDown, currentSource)
-            Thread.sleep(forTimeInterval: 0.20)
-            precondition(findDrop(height: 36, timeout: 0.1) == nil, "Mouse-down alone showed the drag hint")
-            let inFinder = CGPoint(x: currentSource.x + 65, y: currentSource.y + 25)
-            print("Finder fixture at \(currentSource) and drag to \(inFinder)")
-            fflush(stdout)
+            mouse(.mouseMoved, source)
+            Thread.sleep(forTimeInterval: 0.12)
+            mouse(.leftMouseDown, source)
+            Thread.sleep(forTimeInterval: 0.18)
+            let inFinder = CGPoint(x: source.x + 43, y: source.y + 21)
             mouse(.leftMouseDragged, inFinder)
-            guard let hint = findDrop(height: 36) else {
+            Thread.sleep(forTimeInterval: 0.35)
+            return inFinder
+          }
+
+          func drop(_ name: String, using panel: [String: Any]? = nil, capturePrompt: Bool = false) throws -> [String: Any] {
+            let inFinder = startDrag(name)
+            guard let targetPanel = panel ?? findDrop(height: 36) else {
               mouse(.leftMouseUp, inFinder)
-              try? fullCapture("vela-finder-missing-hint.png")
-              fatalError("Dragging a file in Finder did not show the hint")
+              throw NSError(domain: "Finder test did not show the initial hint", code: 1)
             }
-            precondition(!frame(hint)!.contains(inFinder), "The probe must start outside the drop target")
-            print("Compact hint: \(frame(hint)!)")
-            Thread.sleep(forTimeInterval: 0.30)
-            return hint
+            let rect = frame(targetPanel)!
+            precondition(!rect.contains(inFinder))
+            if capturePrompt { try capture(targetPanel, "vela-finder-hint.png", pointer: target) }
+            let point = CGPoint(x: rect.minX + 14, y: rect.minY + 13)
+            glide(to: CGPoint(x: point.x - 100, y: point.y + 95))
+            glide(to: point)
+            precondition(findDrop(height: panel == nil ? 36 : 110).flatMap(frame) == rect,
+                         "Hover changed the drop panel frame")
+            if capturePrompt { try capture(targetPanel, "vela-finder-highlight.png", pointer: target) }
+            mouse(.leftMouseUp, point)
+            guard let chooser = findDrop(height: 110) else {
+              try? fullCapture("vela-finder-missing-chooser.png")
+              fatalError("Dropping the file did not display devices")
+            }
+            precondition(number(chooser) == number(targetPanel))
+            Thread.sleep(forTimeInterval: 0.35)
+            return chooser
           }
 
-          func dropInPanel(from hint: [String: Any]) -> [String: Any] {
-            let frameBefore = frame(hint)!
-            let location = CGPoint(x: frameBefore.midX - 46, y: frameBefore.minY + 15)
-            glide(to: CGPoint(x: location.x - 120, y: location.y + 100))
-            glide(to: location)
-            guard let area = findDrop(height: 96) else {
-              try? fullCapture("vela-finder-missing-drop-area.png")
-              mouse(.leftMouseUp, location)
-              fatalError("The hint did not expand on entry")
-            }
-            precondition(number(area) == number(hint) && abs(frame(area)!.midX - frameBefore.midX) <= 1 && frame(area)!.minY == frameBefore.minY)
-            let dropRect = frame(area)!
-            let edge = CGPoint(x: dropRect.minX + 28, y: dropRect.minY + 16)
-            precondition(!frameBefore.contains(edge), "The edge test must be outside the original compact hint")
-            glide(to: edge)
-            precondition(findDrop(height: 96) != nil, "Moving inside the expanded target collapsed it")
-            try? capture(area, "vela-finder-drop-area.png", pointer: target)
-            mouse(.leftMouseUp, edge)
-            guard let choices = findDrop(height: 110) else {
-              try? fullCapture("vela-finder-missing-choices.png")
-              fatalError("Releasing in the drop panel did not show the device list")
-            }
-            precondition(number(choices) == number(hint) && frame(choices)!.origin == frame(area)!.origin)
-            return choices
-          }
+          waitForApp("com.apple.finder")
+          let first = try drop("Vela drag fixture", capturePrompt: true)
+          let calculator = Process()
+          calculator.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+          calculator.arguments = ["-a", "Calculator"]
+          try calculator.run()
+          calculator.waitUntilExit()
+          waitForApp("com.apple.calculator")
+          precondition(findDrop(height: 110).map(number) == number(first), "Switching apps dismissed the batch")
+          try capture(first, "vela-finder-panel-while-calculator-front.png", pointer: target)
 
-          let first = startDrag()
-          try capture(first, "vela-finder-hint.png", pointer: target)
-          let inside = CGPoint(x: frame(first)!.midX - 46, y: frame(first)!.minY + 15)
-          glide(to: inside)
-          precondition(findDrop(height: 96) != nil)
-          glide(to: waypoint)
-          precondition(findDrop(height: 36) != nil, "Moving out should restore the short hint")
-          mouse(.leftMouseUp, waypoint)
-          Thread.sleep(forTimeInterval: 0.4)
-          precondition(findDrop(height: 36, timeout: 0.1) == nil, "Releasing outside should hide the hint")
           NSWorkspace.shared.activateFileViewerSelecting([url])
           finder.activate()
-          Thread.sleep(forTimeInterval: 0.9)
+          waitForApp("com.apple.finder")
+          click(waypoint)
+          precondition(findDrop(height: 110).map(number) == number(first), "Clicking Finder dismissed the batch")
+          let combined = try drop("Vela second fixture", using: first)
+          try capture(combined, "vela-finder-two-files.png", pointer: target)
+          let rect = frame(combined)!
+          click(CGPoint(x: rect.midX, y: rect.minY + 51))
+          precondition(findDrop(height: 110, timeout: 0.25) == nil, "Selecting a device did not close the batch")
+          waitForApp("com.apple.finder")
 
-          let escape = dropInPanel(from: startDrag())
-          try capture(escape, "vela-finder-devices.png", pointer: target)
-          key(53)
-          Thread.sleep(forTimeInterval: 0.4)
-          precondition(findDrop(height: 110, timeout: 0.1) == nil, "Escape did not close the device panel")
-          NSWorkspace.shared.activateFileViewerSelecting([url])
-          finder.activate()
-          Thread.sleep(forTimeInterval: 0.9)
-
-          _ = startDrag()
-          glide(to: target)
-          Thread.sleep(forTimeInterval: 0.25)
-          mouse(.leftMouseUp, target)
-          precondition(findDrop(height: 110) != nil, "The status icon did not accept the file")
-          mouse(.leftMouseDown, waypoint)
-          mouse(.leftMouseUp, waypoint)
-          Thread.sleep(forTimeInterval: 0.4)
-          precondition(findDrop(height: 110, timeout: 0.1) == nil, "Clicking outside did not close the device panel")
-          NSWorkspace.shared.activateFileViewerSelecting([url])
-          finder.activate()
-          Thread.sleep(forTimeInterval: 0.9)
-
-          let choices = dropInPanel(from: startDrag())
-          let rect = frame(choices)!
-          let firstDevice = CGPoint(x: rect.midX, y: rect.minY + 51)
-          mouse(.mouseMoved, firstDevice)
-          mouse(.leftMouseDown, firstDevice)
-          Thread.sleep(forTimeInterval: 0.15)
-          mouse(.leftMouseUp, firstDevice)
-          Thread.sleep(forTimeInterval: 0.5)
-          precondition(findDrop(height: 110, timeout: 0.1) == nil, "Selecting a device did not close the panel")
-          precondition(NSWorkspace.shared.frontmostApplication?.processIdentifier == finder.processIdentifier,
-                       "The transfer took Finder's foreground focus")
-          let finderBlank = CGPoint(x: target.x - 470, y: 440)
-          mouse(.mouseMoved, finderBlank)
-          mouse(.leftMouseDown, finderBlank)
-          Thread.sleep(forTimeInterval: 0.15)
-          glide(to: CGPoint(x: finderBlank.x + 50, y: finderBlank.y + 25))
-          precondition(findDrop(height: 36, timeout: 0.25) == nil, "Selecting Finder space showed a stale drop hint")
-          mouse(.leftMouseUp, finderBlank)
-          print("FINDER_DROP_HINT_DROP_CANCEL_SEND_OK")
+          let toClose = try drop("Vela drag fixture")
+          let closeRect = frame(toClose)!
+          click(CGPoint(x: closeRect.maxX - 22, y: closeRect.minY + 21))
+          precondition(findDrop(height: 110, timeout: 0.25) == nil, "Close should dismiss the batch")
+          let newBatch = try drop("Vela second fixture")
+          let newRect = frame(newBatch)!
+          click(CGPoint(x: newRect.midX, y: newRect.minY + 51))
+          precondition(findDrop(height: 110, timeout: 0.25) == nil)
+          print("FINDER_PERSIST_APPEND_CLOSE_SEND_OK")
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
           if [[ "$VARIANT" == dark ]]; then
@@ -377,9 +359,14 @@ jobs:
           fixture="$RUNNER_TEMP/finder-fixture"
           mkdir "$fixture"
           printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
+          printf 'Second file for Vela\n' > "$fixture/Vela second fixture.txt"
           xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
-          test -s vela-finder-hint.png && test -s vela-finder-drop-area.png && test -s vela-finder-devices.png
-          if [[ "$VARIANT" == source ]]; then grep 'FINDER_SEND_TO=phone PATH=.*Vela drag fixture.txt' vela.log; fi
+          test -s vela-finder-hint.png && test -s vela-finder-highlight.png && test -s vela-finder-two-files.png
+          if [[ "$VARIANT" == source ]]; then
+            grep 'FINDER_SEND_TO=phone COUNT=2 PATH=.*Vela drag fixture.txt,.*Vela second fixture.txt' vela.log
+            grep 'FINDER_SEND_TO=phone COUNT=1 PATH=.*Vela second fixture.txt' vela.log
+            test "$(grep -c 'FINDER_SEND_TO=' vela.log)" = 2
+          fi
       - if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
