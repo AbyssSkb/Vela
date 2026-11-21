@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   smoke:
-    name: LaunchServices upgrade (${{ matrix.arch }})
+    name: Keychain prompt (upgrade) (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -79,6 +79,21 @@ jobs:
                       print(image.get("name"), hex(frame["imageOffset"]), frame.get("symbol"))
           PYTHON
           mkdir -p "$mount" "$(dirname "$app")"
+          cat > "$RUNNER_TEMP/check-prompt.swift" <<'SWIFT'
+          import Foundation
+          import Vision
+          let url = URL(fileURLWithPath: CommandLine.arguments[1])
+          let request = VNRecognizeTextRequest()
+          try VNImageRequestHandler(url: url).perform([request])
+          let strings = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+          let dialog = strings.joined(separator: " ").lowercased()
+          if dialog.contains("vela") && dialog.contains("keychain") && dialog.contains("allow") {
+              print("Confirmed the Vela Keychain authorization prompt.")
+              exit(0)
+          }
+          exit(1)
+          SWIFT
+          xcrun swiftc "$RUNNER_TEMP/check-prompt.swift" -o "$RUNNER_TEMP/check-prompt"
           launch() {
             local directory="$1" version="$2" build="$3"
             local dmg="$directory/Vela-$version-macos-$TARGET_ARCH.dmg"
@@ -107,6 +122,13 @@ jobs:
               if grep -q 'event=ready' "$RUNNER_TEMP/vela-$version.log"; then
                 echo "$version started its receive node on $TARGET_ARCH"
                 return
+              fi
+              if [[ "$version" == 0.1.0-beta.12 && "$attempt" =~ ^(5|10|20)$ ]]; then
+                if screencapture -x "$RUNNER_TEMP/keychain-prompt.png" &&
+                    "$RUNNER_TEMP/check-prompt" "$RUNNER_TEMP/keychain-prompt.png"; then
+                  echo "The previous device identity requires user authorization."
+                  exit 0
+                fi
               fi
               sleep 2
             done
