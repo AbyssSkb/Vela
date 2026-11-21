@@ -303,7 +303,10 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       dragChangeCount = count
       if finderDragActive {
         finderDragActive = false
-        fileDropPanel?.endDrag()
+        // AppKit can deliver the accepted drop after the mouse button is released.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self, weak panel = fileDropPanel] in
+          if self?.finderDragActive == false { panel?.endDrag() }
+        }
       }
       return
     }
