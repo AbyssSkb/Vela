@@ -282,10 +282,10 @@ jobs:
           finder.activate()
           RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.7))
           let receipt: [String: Any] = ["title": "已接收 会议纪要.pdf", "paths": [file.path]]
-          for name in [NSAppearance.Name.aqua, .darkAqua] {
+          for name in [CommandLine.arguments[1] == "light" ? NSAppearance.Name.aqua : .darkAqua] {
             application.appearance = NSAppearance(named: name)
             let activeBefore = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            precondition(activeBefore != nil && activeBefore != ProcessInfo.processInfo.processIdentifier)
+            precondition(activeBefore != nil && activeBefore != ProcessInfo.processInfo.processIdentifier, "The test needs another foreground app")
             app.recordMenuReceipt(receipt, inBackground: true)
             RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
             guard let panel = application.windows.compactMap({ $0 as? NSPanel }).first(where: { $0.isVisible }),
@@ -352,7 +352,8 @@ jobs:
           print("MACOS_RECEIPT_PANEL_LIGHT_DARK_COPY_DISMISS_OK")
           SWIFT
           xcrun swiftc AppDelegate.swift Dependencies.swift main.swift -o VerifyReceipt
-          ./VerifyReceipt
+          ./VerifyReceipt light
+          ./VerifyReceipt dark
       - if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
