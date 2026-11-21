@@ -1,0 +1,115 @@
+name: Capture native Vela menu
+
+on:
+  push:
+    branches: [codex/qa-native-menu-screenshot]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  capture:
+    runs-on: macos-26
+    timeout-minutes: 12
+    steps:
+      - name: Download the exact menu fix build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          result=$(gh run view 44867002282 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 170d3886a4493dd5d3e6c4198dcf59fa034ed9c3
+          mkdir -p "$RUNNER_TEMP/vela-menu"
+          for attempt in {1..36}; do
+            if gh run download 44867002282 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            sleep 10
+          done
+          cd "$RUNNER_TEMP/vela-menu"
+          archive=(Vela-*-macos-arm64.zip)
+          ditto -x -k "${archive[0]}" .
+      - name: Capture the AppKit status menu in the test desktop
+        run: |
+          set -euo pipefail
+          sw_vers -productVersion
+          cd "$RUNNER_TEMP/vela-menu"
+          cat > capture.swift <<'SWIFT'
+          import AppKit
+          import ApplicationServices
+
+          let pid = pid_t(CommandLine.arguments[1])!
+          func windows() -> [[String: Any]] {
+            CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+              as? [[String: Any]] ?? []
+          }
+          func frame(_ item: [String: Any]) -> CGRect? {
+            guard let bounds = item[kCGWindowBounds as String] as? [String: Any] else { return nil }
+            return CGRect(dictionaryRepresentation: bounds as CFDictionary)
+          }
+          func number(_ item: [String: Any]) -> Int { item[kCGWindowNumber as String] as? Int ?? 0 }
+          let before = windows()
+          let originalIDs = Set(before.map(number))
+          let application = AXUIElementCreateApplication(pid)
+          var extras: CFTypeRef?
+          let extrasResult = AXUIElementCopyAttributeValue(application, "AXExtrasMenuBar" as CFString, &extras)
+          var children: CFTypeRef?
+          if extrasResult == .success, let extras {
+            AXUIElementCopyAttributeValue(extras as! AXUIElement, kAXChildrenAttribute as CFString, &children)
+          }
+          if let button = (children as? [AXUIElement])?.first {
+            DispatchQueue.global().async {
+              AXUIElementPerformAction(button, kAXPressAction as CFString)
+            }
+          } else if CGPreflightPostEventAccess(), let status = before.first(where: {
+            guard let rect = frame($0) else { return false }
+            return ($0[kCGWindowOwnerPID as String] as? pid_t) == pid && rect.minY < 8
+              && rect.width < 80 && rect.height > 10 && rect.height < 60
+          }), let rect = frame(status) {
+            let location = CGPoint(x: rect.midX, y: rect.midY)
+            CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: location,
+                    mouseButton: .left)?.post(tap: .cghidEventTap)
+            CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: location,
+                    mouseButton: .left)?.post(tap: .cghidEventTap)
+          } else {
+            print("Could not locate Vela status item (AX \(extrasResult.rawValue), post permission \(CGPreflightPostEventAccess())).")
+            exit(1)
+          }
+          for _ in 0..<50 {
+            let shown = windows().first {
+              guard !originalIDs.contains(number($0)), let rect = frame($0),
+                    (100...600).contains(rect.width), (48...560).contains(rect.height),
+                    rect.minY < 120 else { return false }
+              return ($0[kCGWindowOwnerPID as String] as? pid_t) == pid
+                || ($0[kCGWindowLayer as String] as? Int ?? 0) >= 25
+            }
+            if let shown, let rect = frame(shown) {
+              let crop = CGRect(x: max(0, rect.minX - 12), y: 0,
+                                width: rect.width + 24, height: rect.maxY + 16).integral
+              let pixels = "\(Int(crop.minX)),\(Int(crop.minY)),\(Int(crop.width)),\(Int(crop.height))"
+              let capture = Process()
+              capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+              capture.arguments = ["-x", "-R", pixels, "vela-native-menu.png"]
+              try capture.run()
+              capture.waitUntilExit()
+              exit(capture.terminationStatus)
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+          }
+          print("No newly opened menu window was found.")
+          exit(1)
+          SWIFT
+          defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
+          defaults delete -g AppleInterfaceStyle 2>/dev/null || true
+          "$PWD/Vela.app/Contents/MacOS/Vela" > vela.log 2>&1 &
+          vela_pid=$!
+          trap 'kill "$vela_pid" 2>/dev/null || true' EXIT
+          sleep 8
+          kill -0 "$vela_pid"
+          xcrun swift capture.swift "$vela_pid"
+          test -s vela-native-menu.png
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: vela-native-menu
+          path: ${{ runner.temp }}/vela-menu/vela-native-menu.png
+          if-no-files-found: error
+          retention-days: 3
