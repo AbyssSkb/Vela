@@ -84,9 +84,14 @@ case "$PLATFORM" in
     suffix=''
     if [[ "${VELA_PREVIEW_BUILD:-true}" == true ]]; then suffix=-preview; fi
     if [[ "$ARCH" == x64 ]]; then suffix=-test; fi
-    cp build/app/outputs/flutter-apk/app-release.apk "dist/Vela-$VERSION-android-$ARCH$suffix.apk"
+    apk="dist/Vela-$VERSION-android-$ARCH$suffix.apk"
+    cp build/app/outputs/flutter-apk/app-release.apk "$apk"
     signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
-    "$signer" verify "dist/Vela-$VERSION-android-$ARCH$suffix.apk"
+    if [[ "${VELA_PREVIEW_BUILD:-true}" == true ]]; then
+      "$signer" verify "$apk"
+    else
+      "$signer" verify --print-certs "$apk" | python tool/release/android_signing.py verify-signer
+    fi
     if [[ "$ARCH" == arm64 ]]; then
       (cd android && ./gradlew -Pandroid.onlyEnableUnitTestForTheTestedBuildType=false \
         "-Ptarget-platform=$android_target" :app:testReleaseUnitTest)

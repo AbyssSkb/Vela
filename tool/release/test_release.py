@@ -10,12 +10,20 @@ from textwrap import dedent
 import unittest
 
 from feeds import generate, public_key, required_artifacts
-from android_signing import configure
+from android_signing import RELEASE_CERT_SHA256, configure, verify_release_signer
 from macos_entitlements import validate as validate_macos_entitlements
 from version import precedence, read_version
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_android_release_requires_only_the_published_signer(self):
+        report = f"Signer #1 certificate SHA-256 digest: {RELEASE_CERT_SHA256}\n"
+        verify_release_signer(report)
+        for invalid in ("", report.replace(RELEASE_CERT_SHA256, "0" * 64),
+                        report + report.replace("#1", "#2")):
+            with self.assertRaises(ValueError):
+                verify_release_signer(invalid)
+
     def test_macos_package_rejects_unexpanded_or_missing_sandbox_entitlements(self):
         info = {'CFBundleIdentifier': 'com.example.vela'}
         entitlements = {
