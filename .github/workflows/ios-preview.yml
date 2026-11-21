@@ -47,17 +47,49 @@ jobs:
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
           echo "id=$device" >> "$GITHUB_OUTPUT"
-      - name: Build and verify node startup without a signing account
+      - name: Build the iPad startup test
         env:
           DEVICE_ID: ${{ steps.ipad.outputs.id }}
         run: |
-          flutter drive --no-pub --debug --verbose -d "$DEVICE_ID" \
-            --driver=test_driver/integration_test.dart \
+          flutter build ios --config-only --simulator --debug --no-pub \
             --target=integration_test/ios_startup_test.dart \
             --dart-define=VELA_SIMULATOR_DEVICE=tablet
+          # Simulator signing supplies the application identifier Keychain requires.
+          xcodebuild build-for-testing -quiet -workspace ios/Runner.xcworkspace \
+            -scheme Runner -configuration Debug -destination "id=$DEVICE_ID" \
+            -derivedDataPath "$RUNNER_TEMP/ipad-tests"
+      - name: Verify node startup with XCTest
+        timeout-minutes: 5
+        env:
+          DEVICE_ID: ${{ steps.ipad.outputs.id }}
+        run: |
+          xcodebuild test-without-building -workspace ios/Runner.xcworkspace \
+            -scheme Runner -configuration Debug -destination "id=$DEVICE_ID" \
+            -derivedDataPath "$RUNNER_TEMP/ipad-tests" -parallel-testing-enabled NO \
+            -resultBundlePath "$RUNNER_TEMP/ipad-startup.xcresult"
+          # An empty XCTest run can succeed without executing the Dart test.
+          xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ipad-startup.xcresult" |
+            jq -e 'any(.testNodes[] | .. | objects;
+              .nodeType == "Test Case" and .result == "Passed" and
+              (.name | ascii_downcase | startswith("teststartsthevelanodeanddetectstheiosdevice")))'
+      - name: Collect iPad diagnostics
+        if: failure() && steps.ipad.outputs.id != ''
+        timeout-minutes: 2
+        env:
+          DEVICE_ID: ${{ steps.ipad.outputs.id }}
+        run: |
+          xcrun simctl spawn "$DEVICE_ID" log show --last 5m \
+            --style compact --predicate 'process == "Runner"' > "$RUNNER_TEMP/ipad-runner.log"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: failure() && steps.ipad.outputs.id != ''
+        with:
+          name: Vela-iPad-startup-failure
+          path: |
+            ${{ runner.temp }}/ipad-startup.xcresult
+            ${{ runner.temp }}/ipad-runner.log
       - name: Archive the simulator app
         run: |
-          flutter build ios --simulator --no-codesign --debug --no-pub
+          flutter build ios --simulator --debug --no-pub
           preview="$RUNNER_TEMP/Vela-iPad-simulator"
           ditto build/ios/iphonesimulator/Runner.app "$preview/Runner.app"
           cargo metadata --locked --format-version 1 --manifest-path rust/Cargo.toml \
