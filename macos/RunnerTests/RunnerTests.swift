@@ -7,6 +7,17 @@ import XCTest
 
 class RunnerTests: XCTestCase {
 
+  func testIdleStatusMenuStartsWithActions() {
+    let app = AppDelegate()
+    app.setMenuLanguage("en")
+    let menu = NSMenu()
+
+    app.menuNeedsUpdate(menu)
+
+    XCTAssertEqual(menu.items.map(\.title), ["Open received folder", "Open Vela", "Quit Vela"])
+    XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
+  }
+
   func testMenuOfferOnlyDecidesTheCurrentRequestOnce() throws {
     let app = AppDelegate()
     let menu = NSMenu()
