@@ -5,7 +5,6 @@ import UniformTypeIdentifiers
 import UserNotifications
 
 private final class MenuStatusLight: NSView {
-  var previewDrop: (([URL]) -> Void)?
   var acceptDrop: (([URL]) -> Bool)?
   var color = NSColor.systemGray {
     didSet { needsDisplay = true }
@@ -22,15 +21,10 @@ private final class MenuStatusLight: NSView {
   override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
     let urls = files(from: sender)
     guard !urls.isEmpty, sender.draggingSourceOperationMask.contains(.copy) else { return [] }
-    previewDrop?(urls)
     return .copy
   }
 
-  override func draggingExited(_ sender: NSDraggingInfo?) { previewDrop?([]) }
-  override func draggingEnded(_ sender: NSDraggingInfo) { previewDrop?([]) }
-
   override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-    defer { previewDrop?([]) }
     return acceptDrop?(files(from: sender)) == true
   }
 
@@ -42,7 +36,11 @@ private final class MenuStatusLight: NSView {
   }
 }
 
-private final class MenuPreviewButton: NSButton {
+final class MenuPreviewButton: NSButton {
+  var menuItem: NSMenuItem?
+
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
   private var hoverArea: NSTrackingArea?
 
   override func updateTrackingAreas() {
@@ -57,8 +55,11 @@ private final class MenuPreviewButton: NSButton {
 
   func setHovered(_ hovered: Bool) {
     let foreground: NSColor = hovered ? .alternateSelectedControlTextColor : .labelColor
+    let style = NSMutableParagraphStyle()
+    style.lineBreakMode = .byTruncatingMiddle
+    if menuItem?.image != nil { style.tailIndent = -30 }
     attributedTitle = NSAttributedString(string: title, attributes: [
-      .font: NSFont.menuFont(ofSize: 0), .foregroundColor: foreground,
+      .font: NSFont.menuFont(ofSize: 0), .foregroundColor: foreground, .paragraphStyle: style,
     ])
     contentTintColor = foreground
     layer?.backgroundColor = (hovered ? NSColor.selectedContentBackgroundColor : .clear).cgColor
@@ -92,7 +93,10 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private var folderOpenFailed = false
   private var menuOffer: MenuOffer?
   private var menuDevices: [[String: String]] = []
-  private var dropPreview: NSPanel?
+  private var fileDropPanel: MenuFileDropPanel?
+  private var finderDragTimer: Timer?
+  private var dragChangeCount = 0
+  private var finderDragActive = false
   private var receiptPanel: NSPanel?
   private var receiptDismissalMonitors: [Any] = []
   private var receipt: (title: String, files: [URL], text: Bool, link: URL?)?
@@ -186,9 +190,16 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       statusLight.frame = button.bounds
       statusLight.autoresizingMask = [.width, .height]
       statusLight.registerForDraggedTypes([.fileURL])
-      statusLight.previewDrop = { [weak self] urls in self?.previewMenuDrop(urls) }
-      statusLight.acceptDrop = { [weak self] urls in self?.chooseMenuRecipient(for: urls) == true }
+      statusLight.acceptDrop = { [weak self] urls in self?.acceptDroppedFiles(urls) == true }
       button.addSubview(statusLight)
+      let pasteboard = NSPasteboard(name: .drag)
+      dragChangeCount = pasteboard.changeCount
+      let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+        self?.observeFinderDrag(pasteboard)
+      }
+      timer.tolerance = 0.03
+      RunLoop.main.add(timer, forMode: .common)
+      finderDragTimer = timer
     }
     updateMenuLight()
   }
@@ -218,16 +229,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     for device in menuDevices {
       guard let name = device["name"], let status = device["label"] else { continue }
       let item = menuItem(shortMenuTitle(name))
-      let color: NSColor = switch device["presence"] {
-      case "reachable": .systemGreen
-      case "unavailable": .systemRed
-      default: .systemGray
-      }
-      let image = NSImage(size: NSSize(width: 13, height: 13), flipped: false) { rect in
-        color.setFill()
-        NSBezierPath(ovalIn: rect.insetBy(dx: 3.5, dy: 3.5)).fill()
-        return true
-      }
+      let image = deviceLight(for: device["presence"])
       // A read-only NSMenuItem title uses the disabled text color.
       let label = NSTextField(labelWithString: item.title)
       label.font = NSFont.menuFont(ofSize: 0)
@@ -269,6 +271,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   }
 
   func menuWillOpen(_ menu: NSMenu) {
+    fileDropPanel?.dismiss()
     dismissReceiptPreview()
     openStatusMenu = menu
   }
@@ -287,19 +290,46 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private func menuFileTitle(_ urls: [URL]) -> String {
     let name = shortMenuTitle(urls[0].lastPathComponent)
     if menuIsChinese {
-      let files = urls.count == 1 ? "「\(name)」" : "\(urls.count) 个文件"
-      return "把\(files)发送到"
+      return urls.count == 1 ? "把「\(name)」发送到" : "发送 \(urls.count) 个文件到"
     }
     let files = urls.count == 1 ? "“\(name)”" : "\(urls.count) files"
     return "Send \(files) to"
   }
 
-  private func previewMenuDrop(_ urls: [URL]) {
-    dropPreview?.orderOut(nil)
-    dropPreview = nil
-    guard !urls.isEmpty else { return }
+  private func observeFinderDrag(_ pasteboard: NSPasteboard) {
+    let count = pasteboard.changeCount
+    guard NSEvent.pressedMouseButtons & 1 != 0 else {
+      dragChangeCount = count
+      if finderDragActive {
+        finderDragActive = false
+        fileDropPanel?.endDrag()
+      }
+      return
+    }
+    guard count != dragChangeCount else { return }
+    dragChangeCount = count
+    guard !finderDragActive, openStatusMenu == nil,
+          NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder",
+          pasteboard.types?.contains(.fileURL) == true else { return }
+    finderDragActive = showFileDropHint()
+  }
+
+  private func showFileDropHint() -> Bool {
+    guard let button = statusItem?.button else { return false }
+    let panel = fileDropPanel ?? MenuFileDropPanel()
+    fileDropPanel = panel
+    panel.acceptFiles = { [weak self] urls in self?.acceptDroppedFiles(urls) == true }
     dismissReceiptPreview()
-    dropPreview = showMenuPreview(menuTargets(for: urls, files: []).items, interactive: false)
+    return panel.showHint(
+      under: button, icon: button.image,
+      hint: menuIsChinese ? "把文件拖到这里" : "Drag files here",
+      dropHint: menuIsChinese ? "松手添加文件" : "Release to add files")
+  }
+
+  private func acceptDroppedFiles(_ urls: [URL]) -> Bool {
+    guard let files = prepareMenuFiles(urls), showFileDropHint(), let fileDropPanel else { return false }
+    fileDropPanel.showDevices(menuTargets(for: urls, files: files, showPresence: true))
+    return true
   }
 
   private func receiptMenuItems() -> [NSMenuItem] {
@@ -317,11 +347,11 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
 
   // Keep AppKit menu tracking for clicks on the status item. Automatic previews
   // render the same commands without starting a menu tracking session.
-  private func showMenuPreview(_ items: [NSMenuItem], interactive: Bool) -> NSPanel? {
+  private func showMenuPreview(_ items: [NSMenuItem]) -> NSPanel? {
     guard let button = statusItem?.button, let window = button.window,
       let screen = window.screen else { return nil }
     let rows: [NSView] = items.enumerated().map { index, item in
-      if interactive, let action = item.action {
+      if let action = item.action {
         let command = MenuPreviewButton(title: item.title, target: item.target, action: action)
         command.image = item.image
         command.imagePosition = .imageLeading
@@ -353,21 +383,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       command.widthAnchor.constraint(equalToConstant: width - 28).isActive = true
     }
     let visible = screen.visibleFrame
-    var x = max(visible.minX, min(anchor.minX, visible.maxX - width))
-    var y = anchor.minY - size.height - 4
-    if !interactive {
-      // Finder draws its dragged filename below and to the right of the pointer.
-      let left = anchor.minX - width - 12
-      let right = anchor.maxX + 88
-      if left >= visible.minX {
-        x = left
-      } else if right + width <= visible.maxX {
-        x = right
-      } else {
-        y -= 56
-      }
-    }
-    let frame = NSRect(x: x, y: y, width: width, height: size.height)
+    let x = max(visible.minX, min(anchor.minX, visible.maxX - width))
+    let frame = NSRect(x: x, y: anchor.minY - size.height - 4, width: width, height: size.height)
     let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel],
                         backing: .buffered, defer: false)
     let material = NSVisualEffectView(frame: NSRect(origin: .zero, size: frame.size))
@@ -386,7 +403,6 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     panel.backgroundColor = .clear
     panel.hasShadow = true
     panel.level = .popUpMenu
-    panel.ignoresMouseEvents = !interactive
     panel.orderFrontRegardless()
     return panel
   }
@@ -405,8 +421,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       menuNeedsUpdate(openStatusMenu)
       return
     }
-    guard inBackground, args["showWindow"] as? Bool != true, dropPreview == nil,
-      let panel = showMenuPreview(receiptMenuItems(), interactive: true) else { return }
+    guard inBackground, args["showWindow"] as? Bool != true, fileDropPanel?.isVisible != true,
+      let panel = showMenuPreview(receiptMenuItems()) else { return }
     receiptPanel = panel
     let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
     receiptDismissalMonitors = [
@@ -481,12 +497,20 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
 
   @discardableResult
   func chooseMenuRecipient(for urls: [URL]) -> Bool {
+    guard let button = statusItem?.button, let files = prepareMenuFiles(urls) else { return false }
+    dismissReceiptPreview()
+    let targets = menuTargets(for: urls, files: files)
+    DispatchQueue.main.async { targets.popUp(positioning: nil, at: .zero, in: button) }
+    return true
+  }
+
+  private func prepareMenuFiles(_ urls: [URL]) -> [[String: Any]]? {
     guard !urls.isEmpty, urls.count <= 100,
       urls.allSatisfy({ url in
         url.isFileURL && (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
-      }), let button = statusItem?.button else { return false }
-    dismissReceiptPreview()
-    let files: [[String: Any]] = urls.map { url in
+      }) else { return nil }
+    menuSendError = nil
+    return urls.map { url in
       var file: [String: Any] = ["path": url.path]
       if let bookmark = try? url.bookmarkData(
         options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
@@ -495,20 +519,9 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       }
       return file
     }
-    menuSendError = nil
-    let targets = menuTargets(for: urls, files: files)
-    let previewFrame = dropPreview?.frame
-    DispatchQueue.main.async {
-      if let previewFrame {
-        targets.popUp(positioning: nil, at: NSPoint(x: previewFrame.minX, y: previewFrame.maxY), in: nil)
-      } else {
-        targets.popUp(positioning: nil, at: .zero, in: button)
-      }
-    }
-    return true
   }
 
-  func menuTargets(for urls: [URL], files: [[String: Any]]) -> NSMenu {
+  func menuTargets(for urls: [URL], files: [[String: Any]], showPresence: Bool = false) -> NSMenu {
     let targets = NSMenu()
     targets.autoenablesItems = false
     targets.addItem(menuHeading(menuFileTitle(urls)))
@@ -516,6 +529,10 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       guard let name = device["name"], let peer = device["id"] else { continue }
       let item = menuItem(shortMenuTitle(name), action: #selector(sendMenuSelection(_:)))
       item.representedObject = MenuFileSelection(peer: peer, files: files)
+      if showPresence {
+        item.image = deviceLight(for: device["presence"])
+        item.toolTip = device["label"].map { "\(name), \($0)" } ?? name
+      }
       targets.addItem(item)
     }
     if targets.items.count == 1 {
@@ -538,6 +555,19 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     let line = text.components(separatedBy: .newlines).joined(separator: " ")
     if line.count <= 54 { return line }
     return String(line.prefix(35)) + "…" + String(line.suffix(18))
+  }
+
+  private func deviceLight(for presence: String?) -> NSImage {
+    let color: NSColor = switch presence {
+    case "reachable": .systemGreen
+    case "unavailable": .systemRed
+    default: .systemGray
+    }
+    return NSImage(size: NSSize(width: 13, height: 13), flipped: false) { rect in
+      color.setFill()
+      NSBezierPath(ovalIn: rect.insetBy(dx: 3.5, dy: 3.5)).fill()
+      return true
+    }
   }
 
   private func menuItem(_ title: String, icon: String? = nil, action: Selector? = nil) -> NSMenuItem {
@@ -717,6 +747,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
 
   override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply
   {
+    finderDragTimer?.invalidate()
+    fileDropPanel?.dismiss()
     setBackgroundActive(false)
     guard let window = sender.windows.compactMap({ $0 as? MainFlutterWindow }).first else {
       return .terminateNow
