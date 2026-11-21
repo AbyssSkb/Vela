@@ -680,7 +680,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationCompletedShort => '已完成';
 
   @override
-  String get backgroundReady => '接收服务已启动';
+  String get backgroundReady => '后台接收运行中';
 
   @override
   String get backgroundStartHint => '未开启';

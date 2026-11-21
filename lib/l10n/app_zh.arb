@@ -363,7 +363,7 @@
   "notificationLive": "实时活动",
   "notificationCompleted": "传输完成",
   "notificationCompletedShort": "已完成",
-  "backgroundReady": "接收服务已启动",
+  "backgroundReady": "后台接收运行中",
   "backgroundStartHint": "未开启",
   "backgroundMacMaySleep": "唤醒时可接收",
   "backgroundMacInactive": "仍可进入空闲睡眠",

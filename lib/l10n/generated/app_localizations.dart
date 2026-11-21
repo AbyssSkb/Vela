@@ -1337,7 +1337,7 @@ abstract class AppLocalizations {
   /// No description provided for @backgroundReady.
   ///
   /// In en, this message translates to:
-  /// **'Receiving service started'**
+  /// **'Background receiving is running'**
   String get backgroundReady;
 
   /// No description provided for @backgroundStartHint.

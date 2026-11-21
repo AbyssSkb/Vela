@@ -515,6 +515,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         Platform.isMacOS ||
         DesktopPlatform.isWindowsOrLinux) {
       backgroundChannel.setMethodCallHandler((call) async {
+        if (call.method == 'backgroundPreferenceChanged' &&
+            Platform.isAndroid) {
+          final preferences = await SharedPreferences.getInstance();
+          await preferences.reload();
+          await _backgroundPresenceChanged();
+          await _refreshBackgroundAvailability();
+          return;
+        }
         if (call.method == 'shutdown' && DesktopPlatform.isDesktop) {
           shuttingDown = true;
           startupRetry?.cancel();
@@ -1486,6 +1494,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             unawaited(offer.decline());
             continue;
           }
+          if (Platform.isAndroid &&
+              !BackgroundReceiving.androidService.enabled(
+                prefs,
+                widget.profile,
+              ) &&
+              await backgroundChannel.invokeMethod<bool>('isVisible') != true) {
+            unawaited(offer.decline());
+            continue;
+          }
           final info = offer.info();
           if (info.pairing != null) {
             unawaited(_handlePair(source, offer, info));
@@ -1499,6 +1516,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
       } catch (e) {
         debugPrint('Offer listener stopped: $e');
+        if (Platform.isAndroid &&
+            mounted &&
+            !disposed &&
+            identical(node, source) &&
+            !changingRelay &&
+            !shuttingDown &&
+            !updates.installing) {
+          _showStartupFailure(e);
+          try {
+            await runtime.close();
+            if (await _backgroundReceivingEnabled()) _scheduleStartupRetry();
+          } catch (error) {
+            debugPrint('Could not restart the receiving listener: $error');
+          }
+        }
       } finally {
         await offers.close();
       }

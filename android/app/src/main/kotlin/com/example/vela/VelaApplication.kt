@@ -19,6 +19,8 @@ class VelaApplication : Application() {
     var engine: FlutterEngine? = null
         private set
     var nodeReady: Boolean = false
+    var networkBlocked: Boolean = false
+        private set
     private var activity: WeakReference<MainActivity>? = null
     val channels by lazy { AppChannels(this) }
     val currentActivity: MainActivity? get() = activity?.get()
@@ -103,10 +105,19 @@ class VelaApplication : Application() {
                 private var current: Network? = null
                 private var routeState: List<Boolean>? = null
 
+                private fun setBlocked(blocked: Boolean) {
+                    handler.post {
+                        if (networkBlocked == blocked) return@post
+                        networkBlocked = blocked
+                        ReceivingService.networkChanged(this@VelaApplication)
+                    }
+                }
+
                 override fun onAvailable(network: Network) {
                     if (current != network) {
                         current = network
                         routeState = null
+                        setBlocked(false)
                         changed()
                     }
                 }
@@ -115,12 +126,15 @@ class VelaApplication : Application() {
                     if (current == network) {
                         current = null
                         routeState = null
+                        setBlocked(false)
                         changed()
                     }
                 }
 
                 override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-                    if (current == network && !blocked) changed()
+                    if (current != network) return
+                    setBlocked(blocked)
+                    if (!blocked) changed()
                 }
 
                 override fun onCapabilitiesChanged(
