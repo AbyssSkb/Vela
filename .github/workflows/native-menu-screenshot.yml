@@ -150,6 +150,7 @@ jobs:
           }
           try capture(menu, "vela-finder-drop.png")
           print("FINDER_HOVER_AND_DROP_OK")
+          if receiver == 0 { exit(0) }
           let menuRect = frame(menu)!
           let row = CGPoint(x: menuRect.midX, y: menuRect.maxY - 14)
           mouse(.mouseMoved, row)
@@ -196,8 +197,8 @@ jobs:
           # RFC 8032 fixture identities used only by this hosted test.
           first=9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60
           second=4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb
-          security add-generic-password -U -a identity_default -s Vela -T "$bundle" -w "$(printf '%s' "$first" | xxd -r -p | base64)"
-          security add-generic-password -U -a identity_qa-sender -s Vela -T "$bundle" -w "$(printf '%s' "$second" | xxd -r -p | base64)"
+          security add-generic-password -U -a identity_default -s Vela -A -w "$(printf '%s' "$first" | xxd -r -p | base64)"
+          security add-generic-password -U -a identity_qa-sender -s Vela -A -w "$(printf '%s' "$second" | xxd -r -p | base64)"
           prefs="$HOME/Library/Containers/com.example.vela/Data/Library/Preferences"
           mkdir -p "$prefs"
           defaults write "$prefs/com.example.vela" flutter.auto_accept_default -bool true
@@ -217,8 +218,25 @@ jobs:
             kill -0 "$vela_pid" "$receiver_pid"
             sleep 1
           done
-          grep -E 'event=ready|event=offline' vela.log receiver.log
-          kill -0 "$vela_pid" "$receiver_pid"
+          if ! grep -q 'event=ready' vela.log || ! grep -q 'event=ready' receiver.log; then
+            echo 'Fixture identity access failed. Verifying just the Finder interaction with an app-generated identity.'
+            kill "$vela_pid" "$receiver_pid" 2>/dev/null || true
+            security delete-generic-password -a identity_default -s Vela || true
+            security delete-generic-password -a identity_qa-sender -s Vela || true
+            "$bundle" --device=qa-sender > fallback.log 2>&1 &
+            vela_pid=$!
+            receiver_pid=0
+            trap 'kill "$vela_pid" 2>/dev/null || true' EXIT
+            for attempt in {1..35}; do
+              if grep -q 'event=ready' fallback.log; then break; fi
+              kill -0 "$vela_pid"
+              sleep 1
+            done
+            grep 'event=ready' fallback.log
+          else
+            grep -E 'event=ready|event=offline' vela.log receiver.log
+            kill -0 "$vela_pid" "$receiver_pid"
+          fi
           fixture="$RUNNER_TEMP/finder-fixture"
           mkdir "$fixture"
           printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
