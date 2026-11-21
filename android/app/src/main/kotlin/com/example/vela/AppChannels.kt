@@ -161,6 +161,14 @@ class AppChannels(private val context: VelaApplication) {
                 context.stopService(Intent(context, ReceivingService::class.java))
                 result.success(null)
             }
+            "setNotificationPreference" -> {
+                val category = call.argument<String>("category")
+                val enabled = call.argument<Boolean>("enabled")
+                if (category != null && enabled != null &&
+                    NotificationChannels.setEnabled(context, category, enabled)) {
+                    result.success(null)
+                } else result.error("notifications", "Invalid notification preference", null)
+            }
             "status" -> {
                 NotificationChannels.ensure(context)
                 val power = context.getSystemService(PowerManager::class.java)
@@ -188,6 +196,13 @@ class AppChannels(private val context: VelaApplication) {
                         "allNotifications" to
                             NotificationManagerCompat.from(context).areNotificationsEnabled(),
                         "requestNotifications" to channelEnabled(ReceivingService.OFFERS),
+                        "serviceNotifications" to channelEnabled(ReceivingService.CHANNEL),
+                        NotificationChannels.SHOW_REQUESTS to
+                            NotificationChannels.enabled(context, NotificationChannels.SHOW_REQUESTS),
+                        NotificationChannels.SHOW_TRANSFERS to
+                            NotificationChannels.enabled(context, NotificationChannels.SHOW_TRANSFERS),
+                        NotificationChannels.SHOW_LIVE to
+                            NotificationChannels.enabled(context, NotificationChannels.SHOW_LIVE),
                         "progressNotifications" to
                             channelEnabled(NotificationChannels.PROGRESS),
                         "resultNotifications" to

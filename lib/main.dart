@@ -25,7 +25,6 @@ import 'src/rust/api/node.dart';
 import 'src/rust/api/folder.dart';
 import 'src/rust/frb_generated.dart';
 import 'l10n/generated/app_localizations.dart';
-import 'notification_settings.dart';
 import 'peer_state.dart';
 import 'app_runtime.dart';
 import 'presence_controller.dart';
@@ -2729,7 +2728,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }) {
     if (_backgroundSetting != BackgroundReceiving.androidService ||
         !enabled ||
-        autoAccept) {
+        autoAccept ||
+        status['showRequests'] == false) {
       return null;
     }
     return switch (status) {
@@ -4557,13 +4557,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               if (notificationIssue == null) {
                 await _showBackgroundSettings();
               } else {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const NotificationSettingsPage(),
-                  ),
-                );
-                await _refreshBackgroundAvailability();
+                await _showSettings();
               }
             },
             child: Text(

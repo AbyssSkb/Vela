@@ -1280,41 +1280,23 @@ abstract class AppLocalizations {
   /// **'Notifications'**
   String get notificationSettings;
 
-  /// No description provided for @notificationSystemSettings.
+  /// No description provided for @notificationPersistent.
   ///
   /// In en, this message translates to:
-  /// **'System notification settings'**
-  String get notificationSystemSettings;
-
-  /// No description provided for @notificationOn.
-  ///
-  /// In en, this message translates to:
-  /// **'On'**
-  String get notificationOn;
-
-  /// No description provided for @notificationOff.
-  ///
-  /// In en, this message translates to:
-  /// **'Off'**
-  String get notificationOff;
+  /// **'Persistent notification'**
+  String get notificationPersistent;
 
   /// No description provided for @notificationRequests.
   ///
   /// In en, this message translates to:
-  /// **'Incoming request notifications'**
+  /// **'Incoming requests'**
   String get notificationRequests;
 
-  /// No description provided for @notificationProgress.
+  /// No description provided for @notificationTransfers.
   ///
   /// In en, this message translates to:
-  /// **'Transfer progress'**
-  String get notificationProgress;
-
-  /// No description provided for @notificationResults.
-  ///
-  /// In en, this message translates to:
-  /// **'Transfer results'**
-  String get notificationResults;
+  /// **'Transfer progress and results'**
+  String get notificationTransfers;
 
   /// No description provided for @notificationLive.
   ///

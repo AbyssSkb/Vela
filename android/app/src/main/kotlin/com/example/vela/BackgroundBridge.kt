@@ -44,6 +44,10 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                 result.success(null)
             }
             "offer" -> {
+                if (!NotificationChannels.enabled(context, NotificationChannels.SHOW_REQUESTS)) {
+                    result.success(null)
+                    return true
+                }
                 NotificationChannels.ensure(context)
                 val pending =
                     PendingIntent.getActivity(
@@ -87,8 +91,6 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                     }
                     builder
                         .setOngoing(true)
-                        .setRequestPromotedOngoing(true)
-                        .setShortCriticalText(call.argument<String>("shortText"))
                         .addAction(0, call.argument<String>("reject") ?: "Decline", action(false))
                         .addAction(0, call.argument<String>("accept") ?: "Accept", action(true))
                 } else builder.setAutoCancel(true)
@@ -105,6 +107,10 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                 result.success(null)
             }
             "transfer" -> {
+                if (!NotificationChannels.enabled(context, NotificationChannels.SHOW_TRANSFERS)) {
+                    result.success(null)
+                    return true
+                }
                 NotificationChannels.ensure(context)
                 val pending =
                     PendingIntent.getActivity(
@@ -130,7 +136,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                         .setOngoing(true)
                         .setOnlyAlertOnce(true)
                         .setSilent(true)
-                        .setRequestPromotedOngoing(true)
+                        .setRequestPromotedOngoing(NotificationChannels.promote(context))
                 val transferId = call.argument<String>("id")
                 if (transferId != null && call.argument<Boolean>("cancelling") != true) {
                     val cancelIntent =
@@ -190,7 +196,8 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                 val testNotification =
                     context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
                         call.argument<Boolean>("test") == true
-                if (isVisible() && !testNotification) {
+                if ((isVisible() && !testNotification) ||
+                    !NotificationChannels.enabled(context, NotificationChannels.SHOW_TRANSFERS)) {
                     NotificationManagerCompat.from(context).cancel(NotificationChannels.TRANSFER_ID)
                     result.success(null)
                     return true
@@ -218,9 +225,7 @@ class BackgroundBridge(context: Context, private val isVisible: () -> Boolean) {
                 val message = call.argument<String>("text") ?: ""
                 val completed = call.argument<Boolean>("completed") == true
                 val promote =
-                    completed &&
-                        Build.VERSION.SDK_INT >= 36 &&
-                        NotificationManagerCompat.from(context).canPostPromotedNotifications()
+                    completed && NotificationChannels.promote(context)
                 val builder =
                     NotificationCompat.Builder(context, NotificationChannels.RESULTS)
                         .setSmallIcon(R.drawable.ic_stat_vela)
