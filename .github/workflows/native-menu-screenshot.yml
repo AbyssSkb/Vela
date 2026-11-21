@@ -18,11 +18,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44903556375 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = 64d854289c1d6ad5fcbd74201b18919632e7d5d7
+          result=$(gh run view 44905153340 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = abd9a264e140e88b570a4aa27223c43fa5b5703a
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44903556375 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44905153340 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -179,6 +179,20 @@ jobs:
           }
           try fullCapture("vela-stage-3-dropped.png")
           try capture(menu, "vela-finder-drop.png", pointer: target)
+          let menuRect = frame(menu)!
+          print("Preview: \(hoverRect), recipient menu: \(menuRect)")
+          precondition(abs(menuRect.minX - hoverRect.minX) <= 16 && abs(menuRect.minY - hoverRect.minY) <= 16,
+                       "The recipient menu jumped when the file was dropped")
+          let pointer = CGEventSource(stateID: .hidSystemState)
+          for keyDown in [true, false] {
+            CGEvent(keyboardEventSource: pointer, virtualKey: 53, keyDown: keyDown)?.post(tap: .cghidEventTap)
+          }
+          for _ in 0..<20 {
+            if !windows().contains(where: { number($0) == number(menu) }) { break }
+            Thread.sleep(forTimeInterval: 0.1)
+          }
+          precondition(!windows().contains(where: { number($0) == number(menu) }),
+                       "Escape did not dismiss the recipient menu")
           print("FINDER_HOVER_AND_DROP_OK")
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
