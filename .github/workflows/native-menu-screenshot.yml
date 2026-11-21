@@ -18,11 +18,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44901600518 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
-          test "$result" = 29871d30ba8aa77e78fc648a5a35f526dfd8cf69
+          result=$(gh run view 44903556375 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$result" = 64d854289c1d6ad5fcbd74201b18919632e7d5d7
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44901600518 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44903556375 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -94,10 +94,11 @@ jobs:
             }
             return nil
           }
-          func capture(_ panel: [String: Any], _ name: String) throws {
+          func capture(_ panel: [String: Any], _ name: String, pointer: CGPoint) throws {
             let rect = frame(panel)!
-            let crop = CGRect(x: max(0, rect.minX - 12), y: 0,
-                              width: rect.width + 24, height: rect.maxY + 16).integral
+            let left = max(0, min(rect.minX, pointer.x) - 15)
+            let right = min(CGDisplayBounds(CGMainDisplayID()).maxX, max(rect.maxX, pointer.x + 95) + 15)
+            let crop = CGRect(x: left, y: 0, width: right - left, height: rect.maxY + 22).integral
             let pixels = "\(Int(crop.minX)),0,\(Int(crop.width)),\(Int(crop.height))"
             let capture = Process()
             capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
@@ -152,13 +153,16 @@ jobs:
             screenshot.waitUntilExit()
             exit(1)
           }
-          try capture(hover, "vela-finder-hover.png")
+          let hoverRect = frame(hover)!
+          precondition(hoverRect.maxX < target.x - 8 || hoverRect.minX > target.x + 88,
+                       "Finder badge crosses the preview")
+          try capture(hover, "vela-finder-hover.png", pointer: target)
           mouse(.leftMouseUp, target)
           guard let menu = findPanel(excluding: before.union([number(hover)])) else {
             print("Missing Vela recipient menu after Finder drop")
             exit(1)
           }
-          try capture(menu, "vela-finder-drop.png")
+          try capture(menu, "vela-finder-drop.png", pointer: target)
           print("FINDER_HOVER_AND_DROP_OK")
           SWIFT
           defaults write -g AppleInterfaceStyleSwitchesAutomatically -bool false
@@ -207,7 +211,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/vela-menu"
           cd "$RUNNER_TEMP/vela-menu"
-          gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/AppDelegate.swift?ref=29871d30ba8aa77e78fc648a5a35f526dfd8cf69" |
+          gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/macos/Runner/AppDelegate.swift?ref=64d854289c1d6ad5fcbd74201b18919632e7d5d7" |
             sed '/^import FlutterMacOS$/d; /^@main$/d; /UNUserNotificationCenter.current().delegate = self/d' > AppDelegate.swift
           cat > Dependencies.swift <<'SWIFT'
           import AppKit
@@ -293,37 +297,50 @@ jobs:
             app.menuNeedsUpdate(menu)
             precondition(actions.map(\.title) == Array(menu.items[1...2].map(\.title)))
             precondition(actions.map(\.action) == Array(menu.items[1...2].map(\.action)))
-            precondition(actions.allSatisfy { $0.image != nil })
+            precondition(actions.allSatisfy {
+              $0.image != nil && $0.frame.width >= 190 && $0.isEnabled &&
+                ($0.attributedTitle.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor) == .labelColor
+            })
             let capture = Process()
             capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
             let appearance = name == .aqua ? "light" : "dark"
-            capture.arguments = ["-x", "-l", String(panel.windowNumber), "vela-receipt-\(appearance).png"]
+            let display = CGDisplayBounds(CGMainDisplayID())
+            let screenTop = NSScreen.screens[0].frame.maxY
+            let left = max(0, panel.frame.minX - 16)
+            let right = min(display.maxX, panel.frame.maxX + 16)
+            let pixels = "\(Int(left)),0,\(Int(right - left)),\(Int(screenTop - panel.frame.minY + 18))"
+            capture.arguments = ["-x", "-R", pixels, "vela-receipt-\(appearance).png"]
             try capture.run()
             capture.waitUntilExit()
             precondition(capture.terminationStatus == 0)
+            precondition(CGPreflightPostEventAccess(), "Hosted desktop cannot post a mouse click")
+            precondition(NSWorkspace.shared.frontmostApplication?.processIdentifier == finder.processIdentifier)
+            let clickPoint: CGPoint
             if name == .aqua {
-              actions[1].performClick(nil)
+              let copy = actions[1]
+              let button = panel.convertToScreen(copy.convert(copy.bounds, to: nil))
+              clickPoint = CGPoint(x: button.maxX - 8, y: screenTop - button.midY)
+            } else {
+              clickPoint = CGPoint(x: 300, y: 350)
+            }
+            let pointer = CGEventSource(stateID: .hidSystemState)
+            for kind in [CGEventType.leftMouseDown, .leftMouseUp] {
+              let click = CGEvent(mouseEventSource: pointer, mouseType: kind,
+                                  mouseCursorPosition: clickPoint, mouseButton: .left)
+              click?.setIntegerValueField(.mouseEventClickState, value: 1)
+              click?.post(tap: .cghidEventTap)
+            }
+            let deadline = Date(timeIntervalSinceNow: 1.5)
+            while panel.isVisible && Date() < deadline {
+              if let event = application.nextEvent(
+                matching: .any, until: deadline, inMode: .default, dequeue: true) {
+                application.sendEvent(event)
+              }
+            }
+            if name == .aqua {
               let copied = NSPasteboard.general.readObjects(
                 forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
-              precondition(copied == [file])
-            } else {
-              precondition(CGPreflightPostEventAccess(), "Hosted desktop cannot post a mouse click")
-              precondition(NSWorkspace.shared.frontmostApplication?.processIdentifier == finder.processIdentifier)
-              let pointer = CGEventSource(stateID: .hidSystemState)
-              let outside = CGPoint(x: 300, y: 350)
-              for kind in [CGEventType.leftMouseDown, .leftMouseUp] {
-                let click = CGEvent(mouseEventSource: pointer, mouseType: kind,
-                                    mouseCursorPosition: outside, mouseButton: .left)
-                click?.setIntegerValueField(.mouseEventClickState, value: 1)
-                click?.post(tap: .cghidEventTap)
-              }
-              let deadline = Date(timeIntervalSinceNow: 1.5)
-              while panel.isVisible && Date() < deadline {
-                if let event = application.nextEvent(
-                  matching: .any, until: deadline, inMode: .default, dequeue: true) {
-                  application.sendEvent(event)
-                }
-              }
+              precondition(copied == [file], "Clicking the far edge of Copy should copy the file")
             }
             precondition(!panel.isVisible, "Menu preview should close after an action or outside click")
             precondition(!application.isActive, "Menu preview activated Vela")
