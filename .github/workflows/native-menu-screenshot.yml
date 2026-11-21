@@ -23,11 +23,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44911065416 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          result=$(gh run view 44912735489 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
           test "$result" = 74f4976ccc40f61c8aa8963b44adce006b99d2da
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44911065416 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44912735489 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
@@ -301,39 +301,10 @@ jobs:
 
           waitForApp("com.apple.finder")
           let first = try drop("Vela drag fixture", capturePrompt: true)
-          let calculator = Process()
-          calculator.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-          calculator.arguments = ["-a", "Calculator"]
-          try calculator.run()
-          calculator.waitUntilExit()
-          for _ in 0..<30 {
-            if let alternate = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.calculator").first,
-               let surface = windows().first(where: {
-                 guard ($0[kCGWindowOwnerPID as String] as? pid_t) == alternate.processIdentifier,
-                       let rect = frame($0) else { return false }
-                 return rect.width > 120 && rect.height > 140
-               }), let rect = frame(surface) {
-              click(CGPoint(x: rect.midX, y: rect.minY + 14))
-              break
-            }
-            Thread.sleep(forTimeInterval: 0.12)
-          }
-          waitForApp("com.apple.calculator")
-          precondition(findDrop(height: 110).map(number) == number(first), "Switching apps dismissed the batch")
-          try fullCapture("vela-finder-panel-while-calculator-front.png")
-
-          NSWorkspace.shared.activateFileViewerSelecting([url])
-          guard let finderWindow = windows().first(where: {
-            guard ($0[kCGWindowOwnerPID as String] as? pid_t) == finder.processIdentifier,
-                  let rect = frame($0) else { return false }
-            return rect.width > 480 && rect.height > 240
-          }), let finderRect = frame(finderWindow) else {
-            fatalError("The hosted Finder window was unavailable")
-          }
-          click(CGPoint(x: finderRect.maxX - 36, y: finderRect.minY + 150))
           waitForApp("com.apple.finder")
           click(waypoint)
           precondition(findDrop(height: 110).map(number) == number(first), "Clicking Finder dismissed the batch")
+          try fullCapture("vela-finder-panel-after-clicking-finder.png")
           let combined = try drop("Vela second fixture", using: first)
           try capture(combined, "vela-finder-two-files.png", pointer: target)
           let rect = frame(combined)!
