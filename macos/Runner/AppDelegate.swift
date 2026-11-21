@@ -30,7 +30,7 @@ private final class MenuStatusLight: NSView {
   override func draggingEnded(_ sender: NSDraggingInfo) { previewDrop?([]) }
 
   override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-    previewDrop?([])
+    defer { previewDrop?([]) }
     return acceptDrop?(files(from: sender)) == true
   }
 
@@ -497,8 +497,13 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     }
     menuSendError = nil
     let targets = menuTargets(for: urls, files: files)
+    let previewFrame = dropPreview?.frame
     DispatchQueue.main.async {
-      targets.popUp(positioning: nil, at: NSPoint(x: 0, y: 0), in: button)
+      if let previewFrame {
+        targets.popUp(positioning: nil, at: NSPoint(x: previewFrame.minX, y: previewFrame.maxY), in: nil)
+      } else {
+        targets.popUp(positioning: nil, at: .zero, in: button)
+      }
     }
     return true
   }
