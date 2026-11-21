@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [source]
+        variant: [package, dark]
     steps:
       - name: Download the exact menu fix build
         if: matrix.variant != 'source'
@@ -23,11 +23,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          result=$(gh run view 44908142226 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          result=$(gh run view 44909313307 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
           test "$result" = b891b8b94a4e285b84dcffeb91b9324c7e766bc5
           mkdir -p "$RUNNER_TEMP/vela-menu"
           for attempt in {1..120}; do
-            if gh run download 44908142226 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
+            if gh run download 44909313307 --repo "$GITHUB_REPOSITORY" --name preview-macos-arm64 --dir "$RUNNER_TEMP/vela-menu"; then break; fi
             sleep 10
           done
           cd "$RUNNER_TEMP/vela-menu"
