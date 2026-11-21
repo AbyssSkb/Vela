@@ -186,15 +186,6 @@ jobs:
           printf 'Test file for Vela\n' > "$fixture/Vela drag fixture.txt"
           xcrun swift capture.swift "$vela_pid" "$fixture/Vela drag fixture.txt"
           test -s vela-finder-hover.png && test -s vela-finder-drop.png
-      - if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: vela-finder-drop
-          path: |
-            ${{ runner.temp }}/vela-menu/vela-*.png
-            ${{ runner.temp }}/vela-menu/*.log
-          if-no-files-found: warn
-          retention-days: 3
       - name: Verify the exact AppKit receipt actions in isolation
         if: always()
         env:
@@ -257,9 +248,46 @@ jobs:
                 if type == .fileURL { precondition(board.pasteboardItems?.count == files.count) }
               }
           }
-          _ = NSApplication.shared
+          let application = NSApplication.shared
+          application.setActivationPolicy(.accessory)
+          application.finishLaunching()
           try verifyReceipts()
           print("MACOS_NATIVE_RECEIPTS_OPEN_COPY_OK")
+
+          let app = AppDelegate()
+          app.setMenuLanguage("zh")
+          app.ensureStatusItem()
+          let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("会议纪要.pdf")
+          try Data().write(to: file)
+          app.recordMenuReceipt(["title": "已接收 会议纪要.pdf", "paths": [file.path]], inBackground: true)
+          RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
+          guard let panel = application.windows.compactMap({ $0 as? NSPanel }).first(where: { $0.isVisible }),
+                panel.styleMask.contains(.nonactivatingPanel),
+                let stack = panel.contentView as? NSStackView,
+                let copy = stack.arrangedSubviews.compactMap({ $0 as? NSButton }).first(where: { $0.title == "复制" })
+          else { fatalError("Background receipt did not create a nonactivating panel with Copy") }
+          let capture = Process()
+          capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+          capture.arguments = ["-x", "-l", String(panel.windowNumber), "vela-macos-receipt.png"]
+          try capture.run()
+          capture.waitUntilExit()
+          precondition(capture.terminationStatus == 0)
+          copy.performClick(nil)
+          precondition(!panel.isVisible)
+          let copied = NSPasteboard.general.readObjects(
+            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+          precondition(copied == [file])
+          precondition(!application.isActive)
+          print("MACOS_RECEIPT_PANEL_VISIBLE_AND_COPY_OK")
           SWIFT
           xcrun swiftc AppDelegate.swift Dependencies.swift main.swift -o VerifyReceipt
           ./VerifyReceipt
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: vela-finder-drop
+          path: |
+            ${{ runner.temp }}/vela-menu/vela-*.png
+            ${{ runner.temp }}/vela-menu/*.log
+          if-no-files-found: warn
+          retention-days: 3
