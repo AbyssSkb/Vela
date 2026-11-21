@@ -22,12 +22,12 @@ class RunnerTests: XCTestCase {
     let app = AppDelegate()
     app.setMenuLanguage("en")
     let menu = NSMenu()
+    app.menuWillOpen(menu)
     app.setMenuDevices([
       ["name": "Phone", "presence": "reachable", "label": "Reachable"],
       ["name": "Tablet", "presence": "unavailable", "label": "Temporarily unreachable"],
       ["name": "Laptop", "presence": "unknown", "label": "Checking"],
     ])
-    app.menuNeedsUpdate(menu)
     XCTAssertEqual(Array(menu.items.prefix(3).map(\.title)), ["Phone", "Tablet", "Laptop"])
     XCTAssertEqual(menu.items.first?.accessibilityLabel(), "Phone, Reachable")
     XCTAssertTrue(menu.items.prefix(3).allSatisfy { $0.image != nil && $0.action == nil })
@@ -35,6 +35,7 @@ class RunnerTests: XCTestCase {
     app.setMenuOffer(["id": "request", "title": "Incoming file"]) { _, _ in }
     app.menuNeedsUpdate(menu)
     XCTAssertEqual(menu.items.first?.title, "Incoming file")
+    app.menuDidClose(menu)
     app.setIncoming(false)
     app.setNodeStatus("starting")
     app.menuNeedsUpdate(menu)

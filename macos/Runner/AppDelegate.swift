@@ -33,7 +33,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   private var statusItem: NSStatusItem?
   private let statusLight = MenuStatusLight()
   private let statusMenu = NSMenu()
-  private var statusMenuOpen = false
+  private weak var openStatusMenu: NSMenu?
   private var folderOpenFailed = false
   private var menuOffer: MenuOffer?
   private var menuDevices: [[String: String]] = []
@@ -92,7 +92,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
       let button = statusItem?.button
       return [
         "exists": statusItem != nil, "visible": statusItem?.isVisible ?? false,
-        "status": menuStatus, "panelVisible": statusMenuOpen,
+        "status": menuStatus, "panelVisible": openStatusMenu != nil,
         "panelHasOffer": menuOffer != nil,
         "hasImage": button?.image != nil, "windowVisible": button?.window?.isVisible ?? false,
         "lightColor": statusLight.superview != nil ? statusLight.color.description : "",
@@ -180,8 +180,8 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     menu.addItem(quit)
   }
 
-  func menuWillOpen(_ menu: NSMenu) { statusMenuOpen = true }
-  func menuDidClose(_ menu: NSMenu) { statusMenuOpen = false }
+  func menuWillOpen(_ menu: NSMenu) { openStatusMenu = menu }
+  func menuDidClose(_ menu: NSMenu) { openStatusMenu = nil }
 
   private func shortMenuTitle(_ text: String) -> String {
     let line = text.components(separatedBy: .newlines).joined(separator: " ")
@@ -275,7 +275,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
   func setMenuDevices(_ devices: [[String: String]]) {
     guard devices != menuDevices else { return }
     menuDevices = devices
-    if statusMenuOpen { statusMenu.update() }
+    if let openStatusMenu { menuNeedsUpdate(openStatusMenu) }
   }
 
   func setTransferring(_ transferring: Bool) {
@@ -320,7 +320,7 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, NSMenuD
     statusLight.color = menuStatusColor
     button.toolTip = description
     button.setAccessibilityLabel(description)
-    if statusMenuOpen { statusMenu.update() }
+    if let openStatusMenu { menuNeedsUpdate(openStatusMenu) }
   }
 
   @objc func showWindow() {
